@@ -6,6 +6,7 @@ import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
+import com.smssentry.deepcheck.ui.ModelDownloadScreen
 import com.smssentry.ui.detail.DetailScreen
 import com.smssentry.ui.inbox.InboxScreen
 
@@ -14,6 +15,7 @@ sealed class Screen(val route: String) {
     data object Detail : Screen("detail/{smsId}") {
         fun createRoute(smsId: String) = "detail/$smsId"
     }
+    data object ModelDownload : Screen("model_download")
 }
 
 @Composable
@@ -37,6 +39,12 @@ fun SMSSentryNavGraph(navController: NavHostController) {
             )
         ) {
             DetailScreen(
+                onBackClick = { navController.popBackStack() }
+            )
+        }
+
+        composable(Screen.ModelDownload.route) {
+            ModelDownloadScreen(
                 onBackClick = { navController.popBackStack() }
             )
         }

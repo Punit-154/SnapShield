@@ -15,6 +15,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.smssentry.deepcheck.ui.DeepCheckTimeline
 import com.smssentry.ui.components.*
 import java.text.SimpleDateFormat
 import java.util.*
@@ -125,7 +126,7 @@ fun DetailScreen(
                 // Privacy Indicator
                 PrivacyIndicator()
 
-                // Deep Check Button
+                // Deep Check Button (shown when no investigation is active)
                 if (investigationState.progress == 0 && investigationState.verdict == null) {
                     Button(
                         onClick = { viewModel.startDeepCheck() },
@@ -141,86 +142,12 @@ fun DetailScreen(
                     }
                 }
 
-                // Investigation Progress
-                if (investigationState.progress > 0 && investigationState.verdict == null) {
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-                    ) {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(16.dp),
-                            verticalArrangement = Arrangement.spacedBy(12.dp)
-                        ) {
-                            ProgressIndicator(
-                                progress = investigationState.progress,
-                                currentStep = investigationState.currentStep
-                            )
-
-                            if (investigationState.evidence.isNotEmpty()) {
-                                Text(
-                                    text = "Evidence Found",
-                                    fontWeight = FontWeight.Bold,
-                                    style = MaterialTheme.typography.titleSmall
-                                )
-                                investigationState.evidence.forEach { evidence ->
-                                    EvidenceCard(evidence = evidence)
-                                }
-                            }
-
-                            OutlinedButton(
-                                onClick = { viewModel.cancelDeepCheck() },
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                Text("Cancel Investigation")
-                            }
-                        }
-                    }
-                }
-
-                // Final Verdict
-                investigationState.verdict?.let { verdict ->
-                    VerdictCard(verdict = verdict)
-
-                    if (investigationState.evidence.isNotEmpty()) {
-                        Card(
-                            modifier = Modifier.fillMaxWidth(),
-                            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-                        ) {
-                            Column(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(16.dp),
-                                verticalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                Text(
-                                    text = "All Evidence",
-                                    fontWeight = FontWeight.Bold,
-                                    style = MaterialTheme.typography.titleMedium
-                                )
-                                investigationState.evidence.forEach { evidence ->
-                                    EvidenceCard(evidence = evidence)
-                                }
-                            }
-                        }
-                    }
-                }
-
-                // Error State
-                investigationState.error?.let { error ->
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.errorContainer
-                        )
-                    ) {
-                        Text(
-                            text = "Error: $error",
-                            modifier = Modifier.padding(16.dp),
-                            color = MaterialTheme.colorScheme.onErrorContainer
-                        )
-                    }
+                // Deep Check Timeline (progress, evidence, verdict, error)
+                if (investigationState.progress > 0 || investigationState.verdict != null || investigationState.error != null) {
+                    DeepCheckTimeline(
+                        state = investigationState,
+                        onCancel = { viewModel.cancelDeepCheck() }
+                    )
                 }
             }
         } ?: run {

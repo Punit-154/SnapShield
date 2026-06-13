@@ -15,6 +15,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.smssentry.data.model.SmsMessage
+import com.smssentry.deepcheck.ModelManager
 import com.smssentry.ui.components.ShieldBadge
 import java.text.SimpleDateFormat
 import java.util.*
@@ -27,6 +28,7 @@ fun InboxScreen(
 ) {
     val messages by viewModel.messages.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
+    val modelState by viewModel.modelState.collectAsState()
 
     Scaffold(
         topBar = {
@@ -44,30 +46,61 @@ fun InboxScreen(
             )
         }
     ) { padding ->
-        if (isLoading) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(padding),
-                contentAlignment = Alignment.Center
-            ) {
-                CircularProgressIndicator()
-            }
-        } else {
-            LazyColumn(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(padding),
-                verticalArrangement = Arrangement.spacedBy(1.dp)
-            ) {
-                items(messages, key = { it.id }) { message ->
-                    SmsMessageItem(
-                        message = message,
-                        onClick = { onMessageClick(message.id) }
-                    )
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+        ) {
+            ModelStatusBadge(modelState)
+
+            if (isLoading) {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator()
+                }
+            } else {
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    verticalArrangement = Arrangement.spacedBy(1.dp)
+                ) {
+                    items(messages, key = { it.id }) { message ->
+                        SmsMessageItem(
+                            message = message,
+                            onClick = { onMessageClick(message.id) }
+                        )
+                    }
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun ModelStatusBadge(state: ModelManager.State) {
+    val (text, color) = when (state) {
+        ModelManager.State.NOT_DOWNLOADED -> "Model not downloaded" to MaterialTheme.colorScheme.errorContainer
+        ModelManager.State.DOWNLOADING -> "Downloading model…" to MaterialTheme.colorScheme.secondaryContainer
+        ModelManager.State.LOADING -> "Loading model…" to MaterialTheme.colorScheme.secondaryContainer
+        ModelManager.State.READY -> "Deep Check ready" to MaterialTheme.colorScheme.primaryContainer
+        ModelManager.State.FAILED -> "Model unavailable" to MaterialTheme.colorScheme.errorContainer
+    }
+
+    Surface(
+        color = color,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Text(
+            text = text,
+            modifier = Modifier
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+            style = MaterialTheme.typography.labelSmall,
+            color = when (state) {
+                ModelManager.State.READY -> MaterialTheme.colorScheme.onPrimaryContainer
+                else -> MaterialTheme.colorScheme.onErrorContainer
+            }
+        )
     }
 }
 

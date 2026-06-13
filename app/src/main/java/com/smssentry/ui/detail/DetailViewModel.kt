@@ -5,8 +5,15 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.smssentry.data.mock.MockSMSSentryAI
 import com.smssentry.data.model.*
+import com.smssentry.deepcheck.ModelManager
+import com.smssentry.deepcheck.data.AllowlistDao
+import com.smssentry.deepcheck.data.HistoryDao
+import com.smssentry.deepcheck.data.OfficialSitesRepository
+import com.smssentry.deepcheck.data.ReputationDb
+import com.smssentry.deepcheck.proxy.PrivacyProxyClient
+import com.smssentry.deepcheck.session.DeepCheckSession
 import com.smssentry.domain.service.DeepCheckListener
-import com.smssentry.domain.service.DeepCheckSession
+import com.smssentry.domain.service.DeepCheckSession as DeepCheckSessionInterface
 import com.smssentry.domain.service.SMSSentryAI
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -17,7 +24,13 @@ import javax.inject.Inject
 
 @HiltViewModel
 class DetailViewModel @Inject constructor(
-    savedStateHandle: SavedStateHandle
+    savedStateHandle: SavedStateHandle,
+    private val allowlistDao: AllowlistDao,
+    private val historyDao: HistoryDao,
+    private val reputationDb: ReputationDb,
+    private val officialSites: OfficialSitesRepository,
+    private val proxyClient: PrivacyProxyClient,
+    private val modelManager: ModelManager
 ) : ViewModel() {
 
     private val aiService: SMSSentryAI = MockSMSSentryAI()
@@ -30,7 +43,7 @@ class DetailViewModel @Inject constructor(
     private val _investigationState = MutableStateFlow(InvestigationUiState())
     val investigationState: StateFlow<InvestigationUiState> = _investigationState.asStateFlow()
 
-    private var deepCheckSession: DeepCheckSession? = null
+    private var deepCheckSession: DeepCheckSessionInterface? = null
 
     init {
         loadMessage()
@@ -64,40 +77,58 @@ class DetailViewModel @Inject constructor(
 
         _investigationState.value = InvestigationUiState()
 
-        deepCheckSession = aiService.startDeepCheck(
-            smsText = currentMessage.text,
-            listener = object : DeepCheckListener {
-                override fun onUpdate(update: DeepCheckUpdate) {
-                    viewModelScope.launch {
-                        when (update) {
-                            is DeepCheckUpdate.Step -> {
-                                _investigationState.value = _investigationState.value.copy(
-                                    progress = update.progress,
-                                    currentStep = update.message
-                                )
-                            }
-                            is DeepCheckUpdate.FoundEvidence -> {
-                                _investigationState.value = _investigationState.value.copy(
-                                    evidence = _investigationState.value.evidence + update.item
-                                )
-                            }
-                            is DeepCheckUpdate.FinalVerdict -> {
-                                _investigationState.value = _investigationState.value.copy(
-                                    verdict = update.verdict,
-                                    progress = 100,
-                                    currentStep = null
-                                )
-                            }
-                            is DeepCheckUpdate.Error -> {
-                                _investigationState.value = _investigationState.value.copy(
-                                    error = update.reason
-                                )
+        viewModelScope.launch {
+            val engine = if (modelManager.state.value == ModelManager.State.READY) {
+                modelManager.getInference()
+            } else {
+                null
+            }
+
+            val session = DeepCheckSession(
+                engine = engine,
+                allowlistDao = allowlistDao,
+                historyDao = historyDao,
+                reputationDb = reputationDb,
+                officialSites = officialSites,
+                proxyClient = proxyClient,
+                smsText = currentMessage.text,
+                smsSender = currentMessage.sender,
+                listener = object : DeepCheckListener {
+                    override fun onUpdate(update: DeepCheckUpdate) {
+                        viewModelScope.launch {
+                            when (update) {
+                                is DeepCheckUpdate.Step -> {
+                                    _investigationState.value = _investigationState.value.copy(
+                                        progress = update.progress,
+                                        currentStep = update.message
+                                    )
+                                }
+                                is DeepCheckUpdate.FoundEvidence -> {
+                                    _investigationState.value = _investigationState.value.copy(
+                                        evidence = _investigationState.value.evidence + update.item
+                                    )
+                                }
+                                is DeepCheckUpdate.FinalVerdict -> {
+                                    _investigationState.value = _investigationState.value.copy(
+                                        verdict = update.verdict,
+                                        progress = 100,
+                                        currentStep = null
+                                    )
+                                }
+                                is DeepCheckUpdate.Error -> {
+                                    _investigationState.value = _investigationState.value.copy(
+                                        error = update.reason
+                                    )
+                                }
                             }
                         }
                     }
                 }
-            }
-        )
+            )
+
+            deepCheckSession = session
+            session.run()
+        }
     }
 
     fun cancelDeepCheck() {
