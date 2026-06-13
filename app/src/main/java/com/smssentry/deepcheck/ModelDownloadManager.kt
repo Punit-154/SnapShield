@@ -96,72 +96,11 @@ class ModelDownloadManager(private val context: Context) {
                 val response = call.execute()
                 if (!response.isSuccessful && response.code != 206) {
                     if (response.code == 416) {
-                        // Range Not Satisfiable - partial file is corrupt or too large
-                        // Delete and restart download from scratch
-                        modelFile.delete()
+                        // Range Not Satisfiable - partial file is corrupt, delete and retry
                         response.close()
-                        // Restart download without Range header
-                        val freshRequest = Request.Builder().url(MODEL_URL).build()
-                        val freshCall = client.newCall(freshRequest)
-                        activeCall = freshCall
-                        val freshResponse = freshCall.execute()
-                        if (!freshResponse.isSuccessful) {
-                            _error.value = "Server returned ${freshResponse.code}"
-                            _state.value = State.FAILED
-                            freshResponse.close()
-                            return@withContext
-                        }
-                        val freshBody = freshResponse.body ?: run {
-                            _error.value = "Empty response body"
-                            _state.value = State.FAILED
-                            return@withContext
-                        }
-                        val freshContentLength = freshBody.contentLength()
-                        _totalBytes.value = freshContentLength
-                        val freshOutputStream = modelFile.outputStream()
-                        var freshBytesWritten = 0L
-                        _downloadedBytes.value = 0L
-                        val freshBuffer = ByteArray(8192)
-                        var freshLastTimeNs = System.nanoTime()
-                        var freshLastBytes = 0L
-                        val freshInputStream = freshBody.byteStream()
-                        try {
-                            while (true) {
-                                if (Thread.currentThread().isInterrupted) throw IOException("Download cancelled")
-                                val read = freshInputStream.read(freshBuffer)
-                                if (read == -1) break
-                                freshOutputStream.write(freshBuffer, 0, read)
-                                freshBytesWritten += read
-                                _downloadedBytes.value = freshBytesWritten
-                                if (freshContentLength > 0) {
-                                    _progress.value = (freshBytesWritten.toFloat() / freshContentLength).coerceIn(0f, 1f)
-                                }
-                                val nowNs = System.nanoTime()
-                                val elapsedNs = nowNs - freshLastTimeNs
-                                if (elapsedNs >= 500_000_000L) {
-                                    val bytesDelta = freshBytesWritten - freshLastBytes
-                                    val elapsedSec = elapsedNs / 1_000_000_000.0
-                                    _speedBytesPerSec.value = (bytesDelta / elapsedSec).toLong()
-                                    freshLastTimeNs = nowNs
-                                    freshLastBytes = freshBytesWritten
-                                }
-                            }
-                        } finally {
-                            freshInputStream.close()
-                            freshOutputStream.close()
-                            freshBody.close()
-                        }
-                        activeCall = null
-                        _state.value = State.VERIFYING
-                        _progress.value = 1f
-                        if (modelFile.length() < MIN_FILE_SIZE_BYTES) {
-                            val actualSize = modelFile.length()
-                            modelFile.delete()
-                            _error.value = "Downloaded file too small ($actualSize bytes, need $MIN_FILE_SIZE_BYTES)"
-                            _state.value = State.FAILED
-                            return@withContext
-                        }
-                        _state.value = State.COMPLETE
+                        modelFile.delete()
+                        _error.value = "Partial download corrupted. Tap retry to start fresh."
+                        _state.value = State.FAILED
                         return@withContext
                     }
                     _error.value = "Server returned ${response.code}"

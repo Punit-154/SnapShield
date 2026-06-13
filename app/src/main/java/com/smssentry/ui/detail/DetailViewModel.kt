@@ -137,4 +137,8 @@ class DetailViewModel @Inject constructor(
             _showDownloadPrompt.value = true
         }
     }
+
+    fun refreshModelState() {
+        // Model state is managed by ModelManager, no need to call ensureReady here
+    }
 }
