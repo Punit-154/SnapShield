@@ -3,8 +3,8 @@ package com.smssentry.ui.detail
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.smssentry.data.mock.MockSMSSentryAI
 import com.smssentry.data.model.*
+import com.smssentry.data.repository.SmsRepository
 import com.smssentry.deepcheck.ModelManager
 import com.smssentry.deepcheck.data.AllowlistDao
 import com.smssentry.deepcheck.data.HistoryDao
@@ -14,7 +14,6 @@ import com.smssentry.deepcheck.proxy.PrivacyProxyClient
 import com.smssentry.deepcheck.session.DeepCheckSession
 import com.smssentry.domain.service.DeepCheckListener
 import com.smssentry.domain.service.DeepCheckSession as DeepCheckSessionInterface
-import com.smssentry.domain.service.SMSSentryAI
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -30,10 +29,9 @@ class DetailViewModel @Inject constructor(
     private val reputationDb: ReputationDb,
     private val officialSites: OfficialSitesRepository,
     private val proxyClient: PrivacyProxyClient,
-    private val modelManager: ModelManager
+    private val modelManager: ModelManager,
+    private val smsRepository: SmsRepository
 ) : ViewModel() {
-
-    private val aiService: SMSSentryAI = MockSMSSentryAI()
 
     private val smsId: String = savedStateHandle.get<String>("smsId") ?: ""
 
@@ -56,23 +54,9 @@ class DetailViewModel @Inject constructor(
 
     private fun loadMessage() {
         viewModelScope.launch {
-            val sampleMessages = com.smssentry.data.mock.MockData.sampleSmsMessages
-            val found = sampleMessages.find { it.id == smsId }
+            val found = smsRepository.getMessageById(smsId)
             found?.let { msg ->
-                if (msg.classification == null) {
-                    val result = classifyMessage(msg.text)
-                    _message.value = msg.copy(classification = result)
-                } else {
-                    _message.value = msg
-                }
-            }
-        }
-    }
-
-    private suspend fun classifyMessage(text: String): ClassificationResult {
-        return kotlinx.coroutines.suspendCancellableCoroutine { continuation ->
-            aiService.classifySMS(text) { result ->
-                continuation.resume(result) {}
+                _message.value = msg
             }
         }
     }
@@ -84,7 +68,7 @@ class DetailViewModel @Inject constructor(
 
         viewModelScope.launch {
             val engine = if (modelManager.state.value == ModelManager.State.READY) {
-                modelManager.getInference()
+                modelManager.getLlmEngine()
             } else {
                 null
             }

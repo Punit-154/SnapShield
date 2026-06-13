@@ -1,27 +1,26 @@
 package com.smssentry.deepcheck.session
 
 import com.smssentry.data.model.DeepCheckUpdate
-import com.smssentry.deepcheck.data.AllowlistDao
-import com.smssentry.deepcheck.data.HistoryDao
-import com.smssentry.deepcheck.model.LlmResponse
-import com.smssentry.deepcheck.prefilter.FakeAllowlistDao
-import com.smssentry.deepcheck.prefilter.FakeHistoryDao
-import com.smssentry.deepcheck.tools.FakeOfficialSitesRepository
+import com.smssentry.deepcheck.data.AllowlistEntry
+import com.smssentry.deepcheck.data.OfficialSitesRepository
+import com.smssentry.deepcheck.data.TestDatabaseProvider
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.*
 import org.junit.Before
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
 
-class OfflineEvaluationTest {
+@RunWith(RobolectricTestRunner::class)
+class OfflineEvaluationTest : TestDatabaseProvider() {
 
-    private lateinit var allowlistDao: FakeAllowlistDao
-    private lateinit var historyDao: FakeHistoryDao
-    private val officialSites = FakeOfficialSitesRepository()
+    private val officialSites = OfficialSitesRepository(
+        mapOf("hsbc" to "hsbc.co.in", "sbi" to "onlinesbi.sbi")
+    )
 
     @Before
-    fun setup() {
-        allowlistDao = FakeAllowlistDao()
-        historyDao = FakeHistoryDao()
+    override fun setupDatabase() {
+        super.setupDatabase()
     }
 
     private val rubrics = listOf(
@@ -44,7 +43,7 @@ class OfflineEvaluationTest {
             expectedConfidenceRange = 0.90f..1.0f,
             keyEvidence = "Allowlisted sender or domain",
             maxTurns = 1,
-            setup = { dao, _ -> dao.insert(com.smssentry.deepcheck.data.AllowlistEntry("SBI", "sender", false)) }
+            setup = { dao, _ -> dao.insert(AllowlistEntry("SBI", "sender", false)) }
         ),
         OfflineEvaluationRubric(
             id = "phishing_homesubdomain",
@@ -181,8 +180,13 @@ class OfflineEvaluationTest {
     fun `Task 5 - Ambiguous lottery scam SCAM`() = runBlocking {
         val rubric = rubrics[4]
         val updates = mutableListOf<DeepCheckUpdate>()
+        val mockEngine = MockLlmEngine(
+            listOf(
+                """{"verdict": "SCAM", "confidence": 0.85, "reasoning": "Lottery scam with suspicious TLD .win and brand impersonation of Microsoft.", "evidence": ["Suspicious TLD .win", "Brand impersonation of Microsoft", "Urgency language requesting personal details"]}"""
+            )
+        )
         val session = DeepCheckSession(
-            engine = null,
+            engine = mockEngine,
             allowlistDao = allowlistDao,
             historyDao = historyDao,
             reputationDb = null,

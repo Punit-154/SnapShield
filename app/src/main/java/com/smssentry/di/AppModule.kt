@@ -1,7 +1,8 @@
 package com.smssentry.di
 
+import android.content.ContentResolver
 import android.content.Context
-import com.smssentry.data.mock.MockSMSSentryAI
+import com.smssentry.data.repository.SmsRepository
 import com.smssentry.deepcheck.ModelDownloadManager
 import com.smssentry.deepcheck.ModelManager
 import com.smssentry.deepcheck.data.AllowlistDao
@@ -10,7 +11,6 @@ import com.smssentry.deepcheck.data.HistoryDao
 import com.smssentry.deepcheck.data.OfficialSitesRepository
 import com.smssentry.deepcheck.data.ReputationDb
 import com.smssentry.deepcheck.proxy.PrivacyProxyClient
-import com.smssentry.domain.service.SMSSentryAI
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -24,8 +24,14 @@ object AppModule {
 
     @Provides
     @Singleton
-    fun provideSMSSentryAI(): SMSSentryAI {
-        return MockSMSSentryAI()
+    fun provideContentResolver(@ApplicationContext context: Context): ContentResolver {
+        return context.contentResolver
+    }
+
+    @Provides
+    @Singleton
+    fun provideSmsRepository(contentResolver: ContentResolver): SmsRepository {
+        return SmsRepository(contentResolver)
     }
 
     @Provides
@@ -63,7 +69,7 @@ object AppModule {
     @Provides
     @Singleton
     fun providePrivacyProxyClient(): PrivacyProxyClient {
-        return PrivacyProxyClient(null)
+        return PrivacyProxyClient("https://smsentry-proxy.joel010-alfred.workers.dev")
     }
 
     @Provides

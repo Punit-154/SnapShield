@@ -20,9 +20,9 @@ class ModelDownloadManager(private val context: Context) {
 
     companion object {
         const val MODEL_URL =
-            "https://huggingface.co/google/gemma-4-3b-it/resolve/main/gemma-4-e4b-it-int4.tflite"
-        const val MODEL_FILE_NAME = "gemma-4-e4b-it-int4.tflite"
-        const val MIN_FILE_SIZE_BYTES = 1_000_000_000L
+            "https://huggingface.co/litert-community/gemma-4-E4B-it-litert-lm/resolve/main/gemma-4-E4B-it.litertlm"
+        const val MODEL_FILE_NAME = "gemma-4-E4B-it.litertlm"
+        const val MIN_FILE_SIZE_BYTES = 3_659_000_000L
     }
 
     private val _state = MutableStateFlow(State.IDLE)
@@ -170,8 +170,9 @@ class ModelDownloadManager(private val context: Context) {
                 _progress.value = 1f
 
                 if (modelFile.length() < MIN_FILE_SIZE_BYTES) {
+                    val actualSize = modelFile.length()
                     modelFile.delete()
-                    _error.value = "Downloaded file too small (${modelFile.length()} bytes)"
+                    _error.value = "Downloaded file too small ($actualSize bytes, need $MIN_FILE_SIZE_BYTES)"
                     _state.value = State.FAILED
                     return@withContext
                 }

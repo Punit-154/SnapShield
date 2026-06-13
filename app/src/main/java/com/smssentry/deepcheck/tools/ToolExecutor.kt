@@ -24,15 +24,19 @@ class ToolExecutor(
     private val json = Json { ignoreUnknownKeys = true }
 
     suspend fun execute(toolCall: LlmResponse.ToolCall): String {
+        return executeByName(toolCall.name, toolCall.arguments)
+    }
+
+    suspend fun executeByName(toolName: String, arguments: String): String {
         return try {
-            when (toolCall.name) {
-                "lookup_allowlist" -> executeLookupAllowlist(toolCall.arguments)
-                "search_personal_db" -> executeSearchPersonalDb(toolCall.arguments)
-                "offline_reputation_check" -> executeOfflineReputationCheck(toolCall.arguments)
-                "brand_mismatch_check" -> executeBrandMismatchCheck(toolCall.arguments)
-                "whois_lookup" -> executeWhoisLookup(toolCall.arguments)
-                "compare_official_site" -> executeCompareOfficialSite(toolCall.arguments)
-                else -> "Unknown tool: ${toolCall.name}"
+            when (toolName) {
+                "lookup_allowlist" -> executeLookupAllowlist(arguments)
+                "search_personal_db" -> executeSearchPersonalDb(arguments)
+                "offline_reputation_check" -> executeOfflineReputationCheck(arguments)
+                "brand_mismatch_check" -> executeBrandMismatchCheck(arguments)
+                "whois_lookup" -> executeWhoisLookup(arguments)
+                "compare_official_site" -> executeCompareOfficialSite(arguments)
+                else -> "Unknown tool: $toolName"
             }
         } catch (e: Exception) {
             "Tool execution error: ${e.message}"

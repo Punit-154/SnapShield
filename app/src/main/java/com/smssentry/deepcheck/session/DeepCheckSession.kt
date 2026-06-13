@@ -8,9 +8,7 @@ import com.smssentry.deepcheck.data.HistoryDao
 import com.smssentry.deepcheck.data.OfficialSitesRepository
 import com.smssentry.deepcheck.data.ReputationDb
 import com.smssentry.deepcheck.data.HistoryEntry
-import com.smssentry.deepcheck.model.ChatMessage
 import com.smssentry.deepcheck.model.LlmInferenceEngine
-import com.smssentry.deepcheck.model.LlmResponse
 import com.smssentry.deepcheck.model.VerdictParser
 import com.smssentry.deepcheck.prefilter.FastPathFilter
 import com.smssentry.deepcheck.proxy.PrivacyProxyClient
@@ -54,82 +52,89 @@ class DeepCheckSession(
         stepIndex = 0
 
         try {
-
-        val pre = FastPathFilter.filter(smsText, smsSender, allowlistDao, historyDao)
-        if (pre.verdict != null) {
-            emitVerdict(
-                DeepCheckVerdict(
-                    isScam = pre.verdict == "SCAM",
-                    summary = pre.reason ?: "Determined by fast-path analysis.",
-                    threatType = null,
-                    evidence = emptyList(),
-                    recommendedActions = if (pre.verdict == "SCAM") listOf("Do not interact with this message.") else emptyList()
+            val pre = FastPathFilter.filter(smsText, smsSender, allowlistDao, historyDao)
+            if (pre.verdict != null) {
+                emitVerdict(
+                    DeepCheckVerdict(
+                        isScam = pre.verdict == "SCAM",
+                        summary = pre.reason ?: "Determined by fast-path analysis.",
+                        threatType = null,
+                        evidence = emptyList(),
+                        recommendedActions = if (pre.verdict == "SCAM") listOf("Do not interact with this message.") else emptyList()
+                    )
                 )
-            )
-            return
-        }
-
-        emitStep("Analyzing SMS content...")
-
-        if (engine == null) {
-            emitStep("Model unavailable — using rule-based analysis.")
-            emitFallbackVerdict()
-            return
-        }
-
-        val messages = mutableListOf(
-            ChatMessage(role = "system", content = SYSTEM_PROMPT),
-            ChatMessage(role = "user", content = "SMS from $smsSender: \"$smsText\"")
-        )
-
-        var turn = 0
-        val maxTurns = 4
-        val seenToolCalls = mutableSetOf<String>()
-
-        while (turn < maxTurns && !isCancelled) {
-            val response = withTimeoutOrNull(8_000L) {
-                engine.generateResponseAsync(messages, tools = ToolDefinitions.toolList)
+                return
             }
 
-            if (response == null) {
-                emitStep("Model timed out — using rule-based analysis.")
+            emitStep("Analyzing SMS content...")
+
+            if (engine == null) {
+                emitStep("Model unavailable — using rule-based analysis.")
                 emitFallbackVerdict()
                 return
             }
 
-            when (response) {
-                is LlmResponse.Text -> {
-                    val json = VerdictParser.extractJson(response.text)
-                    if (json != null) {
-                        val verdict = VerdictParser.parseVerdict(json)
-                        if (verdict != null) {
-                            emitVerdict(mapVerdict(verdict))
-                            return
-                        }
-                    }
-                    messages.add(ChatMessage(role = "assistant", content = response.text))
-                    messages.add(ChatMessage(role = "user", content = RETRY_JSON_PROMPT))
-                    turn++
+            emitStep("Loading AI model...")
+            try {
+                withTimeoutOrNull(30_000L) {
+                    engine.load()
+                } ?: run {
+                    emitStep("Model loading timed out — using rule-based analysis.")
+                    emitFallbackVerdict()
+                    return
                 }
-                is LlmResponse.ToolCall -> {
-                    val callKey = "${response.name}:${response.arguments}"
+            } catch (e: Exception) {
+                emitStep("Model load failed: ${e.message} — using rule-based analysis.")
+                emitFallbackVerdict()
+                return
+            }
+
+            val conversation = StringBuilder()
+            conversation.appendLine("System: $SYSTEM_PROMPT")
+            conversation.appendLine("User: SMS from $smsSender: \"$smsText\"")
+
+            var turn = 0
+            val maxTurns = 4
+            val seenToolCalls = mutableSetOf<String>()
+
+            while (turn < maxTurns && !isCancelled) {
+                val prompt = conversation.toString()
+                val response = withTimeoutOrNull(8_000L) {
+                    engine.generate(prompt)
+                }
+
+                if (response == null) {
+                    emitStep("Model timed out — using rule-based analysis.")
+                    emitFallbackVerdict()
+                    return
+                }
+
+                val json = VerdictParser.extractJson(response)
+                if (json != null) {
+                    val verdict = VerdictParser.parseVerdict(json)
+                    if (verdict != null) {
+                        emitVerdict(mapVerdict(verdict))
+                        return
+                    }
+                }
+
+                val toolCall = parseToolCall(response)
+                if (toolCall != null) {
+                    val callKey = "${toolCall.first}:${toolCall.second}"
                     if (!seenToolCalls.add(callKey)) {
-                        messages.add(ChatMessage(role = "assistant", toolCall = response))
-                        messages.add(ChatMessage(
-                            role = "tool",
-                            content = "You already called this tool with these arguments. Use the prior result or call a different tool."
-                        ))
+                        conversation.appendLine("Assistant: $response")
+                        conversation.appendLine("Tool: You already called this tool with these arguments. Use the prior result or call a different tool.")
                         turn++
                         continue
                     }
 
-                    emitStep(describeToolCall(response.name))
+                    emitStep(describeToolCall(toolCall.first))
 
                     val toolExecutor = ToolExecutor(
                         allowlistDao, historyDao, reputationDb, officialSites, proxyClient
                     )
                     val toolResult = withTimeoutOrNull(5_000L) {
-                        toolExecutor.execute(response)
+                        toolExecutor.executeByName(toolCall.first, toolCall.second)
                     } ?: "Tool timed out."
 
                     val truncated = toolResult.take(200)
@@ -138,20 +143,36 @@ class DeepCheckSession(
                         evidenceList.add(evidence)
                         emitEvidence(evidence)
                     }
-                    messages.add(ChatMessage(role = "assistant", toolCall = response))
-                    messages.add(ChatMessage(role = "tool", content = truncated))
+                    conversation.appendLine("Assistant: $response")
+                    conversation.appendLine("Tool: $truncated")
+                    turn++
+                } else {
+                    conversation.appendLine("Assistant: $response")
+                    conversation.appendLine("User: $RETRY_JSON_PROMPT")
                     turn++
                 }
-                is LlmResponse.Error -> {
-                    emitStep("Model error: ${response.error}")
-                    emitFallbackVerdict()
-                    return
-                }
             }
-        }
-        emitFallbackVerdict()
+            emitFallbackVerdict()
         } finally {
+            engine?.close()
             _isActive = false
+        }
+    }
+
+    private fun parseToolCall(response: String): Pair<String, String>? {
+        val jsonMatch = Regex("""\{[^}]+\}""").find(response) ?: return null
+        val json = jsonMatch.value
+
+        return try {
+            val toolNameMatch = Regex(""""tool_name"\s*:\s*"(\w+)"""").find(json)
+            val argumentsMatch = Regex(""""arguments"\s*:\s*(\{[^}]+\})""").find(json)
+            if (toolNameMatch != null && argumentsMatch != null) {
+                Pair(toolNameMatch.groupValues[1], argumentsMatch.groupValues[1])
+            } else {
+                null
+            }
+        } catch (e: Exception) {
+            null
         }
     }
 

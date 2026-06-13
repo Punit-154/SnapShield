@@ -6,7 +6,9 @@ import org.junit.Test
 
 class BrandMismatchHeuristicTest {
 
-    private val officialSites = FakeOfficialSitesRepository()
+    private val officialSites = OfficialSitesRepository(
+        mapOf("hsbc" to "hsbc.co.in", "sbi" to "onlinesbi.sbi")
+    )
 
     @Test
     fun `brand mentioned with matching domain returns null`() {
@@ -60,7 +62,3 @@ class BrandMismatchHeuristicTest {
         assertNull(result)
     }
 }
-
-class FakeOfficialSitesRepository : OfficialSitesRepository(
-    mapOf("hsbc" to "hsbc.co.in", "sbi" to "onlinesbi.sbi")
-)

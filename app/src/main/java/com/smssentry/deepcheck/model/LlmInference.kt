@@ -22,10 +22,9 @@ data class Tool(
 )
 
 interface LlmInferenceEngine {
-    suspend fun generateResponseAsync(
-        messages: List<ChatMessage>,
-        tools: List<Tool> = emptyList()
-    ): LlmResponse?
+    suspend fun load()
+    suspend fun generate(prompt: String): String
+    fun close()
 }
 
 @Serializable

@@ -1,17 +1,20 @@
 package com.smssentry.deepcheck
 
 import android.content.Context
-import com.smssentry.deepcheck.ModelDownloadManager
-import com.smssentry.deepcheck.model.ChatMessage
 import com.smssentry.deepcheck.model.LlmInferenceEngine
-import com.smssentry.deepcheck.model.LlmResponse
-import com.smssentry.deepcheck.model.Tool
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.withContext
 import java.io.File
+
+import com.google.ai.edge.litertlm.Engine
+import com.google.ai.edge.litertlm.EngineConfig
+import com.google.ai.edge.litertlm.ConversationConfig
+import com.google.ai.edge.litertlm.SamplerConfig
+import com.google.ai.edge.litertlm.Message
+import com.google.ai.edge.litertlm.Content
 
 class ModelManager(private val context: Context) {
 
@@ -26,8 +29,8 @@ class ModelManager(private val context: Context) {
     private var engine: LlmInferenceEngine? = null
 
     fun isModelDownloaded(): Boolean {
-        val modelFile = File(context.filesDir, "models/gemma-4-e4b-it-int4.tflite")
-        return modelFile.exists() && modelFile.length() > 1_000_000_000L
+        val modelFile = File(context.filesDir, "models/${ModelDownloadManager.MODEL_FILE_NAME}")
+        return modelFile.exists() && modelFile.length() >= ModelDownloadManager.MIN_FILE_SIZE_BYTES
     }
 
     fun getDownloadUrl(): String = ModelDownloadManager.MODEL_URL
@@ -35,10 +38,9 @@ class ModelManager(private val context: Context) {
     suspend fun ensureReady(): Boolean {
         if (_state.value == State.READY) return true
 
-        val modelFile = File(context.filesDir, "models/gemma-4-e4b-it-int4.tflite")
-        if (!modelFile.exists()) {
+        val modelFile = File(context.filesDir, "models/${ModelDownloadManager.MODEL_FILE_NAME}")
+        if (!modelFile.exists() || modelFile.length() < ModelDownloadManager.MIN_FILE_SIZE_BYTES) {
             _state.value = State.NOT_DOWNLOADED
-            _state.value = State.FAILED
             return false
         }
 
@@ -46,6 +48,7 @@ class ModelManager(private val context: Context) {
         return try {
             withContext(Dispatchers.IO) {
                 engine = LiteRtLmEngine(modelFile.absolutePath)
+                engine?.load()
                 _state.value = State.READY
                 true
             }
@@ -55,21 +58,57 @@ class ModelManager(private val context: Context) {
         }
     }
 
-    fun getInference(): LlmInferenceEngine? {
-        return if (_state.value == State.READY) engine else null
+    fun getLlmEngine(): LlmInferenceEngine? {
+        val modelFile = File(context.filesDir, "models/${ModelDownloadManager.MODEL_FILE_NAME}")
+        return if (modelFile.exists() && modelFile.length() >= ModelDownloadManager.MIN_FILE_SIZE_BYTES) {
+            LiteRtLmEngine(modelFile.absolutePath)
+        } else {
+            null
+        }
     }
 
     fun unload() {
+        engine?.close()
         engine = null
         _state.value = State.NOT_DOWNLOADED
     }
 }
 
-class LiteRtLmEngine(modelPath: String) : LlmInferenceEngine {
-    override suspend fun generateResponseAsync(
-        messages: List<ChatMessage>,
-        tools: List<Tool>
-    ): LlmResponse? {
-        return LlmResponse.Error("LiteRT-LM not available in this build.")
+
+class LiteRtLmEngine(private val modelPath: String) : LlmInferenceEngine {
+
+    private var engine: Engine? = null
+
+    override suspend fun load() = withContext(Dispatchers.IO) {
+        if (engine == null) {
+            val modelFile = java.io.File(modelPath)
+            if (!modelFile.exists() || modelFile.length() < ModelDownloadManager.MIN_FILE_SIZE_BYTES) {
+                throw IllegalStateException("Model file incomplete: ${modelFile.length()} bytes")
+            }
+            val engineConfig = EngineConfig(modelPath = modelPath)
+            val eng = Engine(engineConfig)
+            eng.initialize()
+            engine = eng
+        }
+    }
+
+    override suspend fun generate(prompt: String): String = withContext(Dispatchers.IO) {
+        val currentEngine = engine ?: throw IllegalStateException("Model not loaded")
+        val samplerConfig = SamplerConfig(1, 1.0, 0.6, 0)
+        val conversationConfig = ConversationConfig(samplerConfig = samplerConfig)
+        val conversation = currentEngine.createConversation(conversationConfig)
+
+        try {
+            val userMessage = Message.Companion.of(prompt)
+            val responseMessage = conversation.sendMessage(userMessage)
+            responseMessage.contents.filterIsInstance<Content.Text>().joinToString("") { it.text }
+        } finally {
+            conversation.close()
+        }
+    }
+
+    override fun close() {
+        engine?.close()
+        engine = null
     }
 }

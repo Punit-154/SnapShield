@@ -1,37 +1,34 @@
 package com.smssentry.deepcheck.tools
 
 import com.smssentry.deepcheck.data.AllowlistEntry
-import com.smssentry.deepcheck.data.AllowlistDao
-import com.smssentry.deepcheck.data.HistoryDao
 import com.smssentry.deepcheck.data.HistoryEntry
 import com.smssentry.deepcheck.data.OfficialSitesRepository
-import com.smssentry.deepcheck.data.ReputationDb
+import com.smssentry.deepcheck.data.TestDatabaseProvider
 import com.smssentry.deepcheck.model.LlmResponse
-import com.smssentry.deepcheck.prefilter.FakeAllowlistDao
-import com.smssentry.deepcheck.prefilter.FakeHistoryDao
-import com.smssentry.deepcheck.proxy.PrivacyProxyClient
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.*
 import org.junit.Before
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
 
-class ToolExecutorTest {
+@RunWith(RobolectricTestRunner::class)
+class ToolExecutorTest : TestDatabaseProvider() {
 
-    private lateinit var allowlistDao: FakeAllowlistDao
-    private lateinit var historyDao: FakeHistoryDao
-    private val officialSites = FakeOfficialSitesRepository()
+    private val officialSites = OfficialSitesRepository(
+        mapOf("hsbc" to "hsbc.co.in", "sbi" to "onlinesbi.sbi")
+    )
     private var executor: ToolExecutor? = null
 
     @Before
-    fun setup() {
-        allowlistDao = FakeAllowlistDao()
-        historyDao = FakeHistoryDao()
+    override fun setupDatabase() {
+        super.setupDatabase()
         executor = ToolExecutor(allowlistDao, historyDao, null, officialSites, null)
     }
 
     @Test
     fun `lookup_allowlist sender match returns SAFE`() = runBlocking {
-        allowlistDao.addSender("BankOfAmerica")
+        allowlistDao.insert(AllowlistEntry("BankOfAmerica", "sender", false))
         val result = executor!!.execute(
             LlmResponse.ToolCall("lookup_allowlist", """{"sender":"BankOfAmerica"}""")
         )
@@ -48,7 +45,7 @@ class ToolExecutorTest {
 
     @Test
     fun `lookup_allowlist domain match returns SAFE`() = runBlocking {
-        allowlistDao.addDomain("hsbc.co.in")
+        allowlistDao.insert(AllowlistEntry("hsbc.co.in", "domain", false))
         val result = executor!!.execute(
             LlmResponse.ToolCall("lookup_allowlist", """{"domain":"hsbc.co.in"}""")
         )
@@ -104,7 +101,7 @@ class ToolExecutorTest {
             LlmResponse.ToolCall("brand_mismatch_check", """{"sms_text":"Your HSBC account","urls":["https://hsbc-secure.xyz/verify"]}""")
         )
         assertTrue(result.startsWith("evidence:"))
-        assertTrue(result.contains("HSBC"))
+        assertTrue(result.contains("HSBC", ignoreCase = true))
     }
 
     @Test

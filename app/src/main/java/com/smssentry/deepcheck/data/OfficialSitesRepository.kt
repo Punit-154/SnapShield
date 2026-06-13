@@ -23,7 +23,7 @@ open class OfficialSitesRepository {
         }
     }
 
-    protected constructor(sitesMap: Map<String, String>) {
+    internal constructor(sitesMap: Map<String, String>) {
         sites = sitesMap.mapKeys { it.key.lowercase() }
     }
 

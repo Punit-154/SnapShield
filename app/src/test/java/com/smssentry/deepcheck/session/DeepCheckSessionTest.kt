@@ -1,32 +1,33 @@
 package com.smssentry.deepcheck.session
 
 import com.smssentry.data.model.DeepCheckUpdate
-import com.smssentry.deepcheck.model.LlmResponse
-import com.smssentry.deepcheck.prefilter.FakeAllowlistDao
-import com.smssentry.deepcheck.prefilter.FakeHistoryDao
-import com.smssentry.deepcheck.tools.FakeOfficialSitesRepository
+import com.smssentry.deepcheck.data.AllowlistEntry
+import com.smssentry.deepcheck.data.OfficialSitesRepository
+import com.smssentry.deepcheck.data.TestDatabaseProvider
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.*
 import org.junit.Before
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
 
-class DeepCheckSessionTest {
+@RunWith(RobolectricTestRunner::class)
+class DeepCheckSessionTest : TestDatabaseProvider() {
 
-    private lateinit var allowlistDao: FakeAllowlistDao
-    private lateinit var historyDao: FakeHistoryDao
-    private val officialSites = FakeOfficialSitesRepository()
+    private val officialSites = OfficialSitesRepository(
+        mapOf("hsbc" to "hsbc.co.in", "sbi" to "onlinesbi.sbi")
+    )
 
     @Before
-    fun setup() {
-        allowlistDao = FakeAllowlistDao()
-        historyDao = FakeHistoryDao()
+    override fun setupDatabase() {
+        super.setupDatabase()
     }
 
     @Test
     fun `fast path short-circuit does not invoke LLM`() = runBlocking {
-        allowlistDao.addSender("+1234567890")
+        allowlistDao.insert(AllowlistEntry("+1234567890", "sender", false))
         val engine = MockLlmEngine(listOf(
-            LlmResponse.Error("Should not be called")
+            "__ERROR__"
         ))
         val updates = mutableListOf<DeepCheckUpdate>()
         val session = DeepCheckSession(
@@ -45,7 +46,7 @@ class DeepCheckSessionTest {
     @Test
     fun `model timeout triggers fallback verdict`() = runBlocking {
         val engine = MockLlmEngine(listOf(
-            LlmResponse.Error("timeout")
+            "__TIMEOUT__"
         ))
         val updates = mutableListOf<DeepCheckUpdate>()
         val session = DeepCheckSession(
@@ -63,7 +64,7 @@ class DeepCheckSessionTest {
     @Test
     fun `model error triggers fallback`() = runBlocking {
         val engine = MockLlmEngine(listOf(
-            LlmResponse.Error("Model crashed")
+            "__ERROR__"
         ))
         val updates = mutableListOf<DeepCheckUpdate>()
         val session = DeepCheckSession(
@@ -82,8 +83,8 @@ class DeepCheckSessionTest {
     fun `happy path with tool call then verdict`() = runBlocking {
         val verdictJson = """{"verdict":"SAFE","confidence":0.95,"reasoning":"Domain is allowlisted.","evidence":["Domain verified"]}"""
         val engine = MockLlmEngine(listOf(
-            LlmResponse.ToolCall("lookup_allowlist", """{"sender":"+1234567890"}"""),
-            LlmResponse.Text(verdictJson)
+            """{"tool_name":"lookup_allowlist","arguments":{"sender":"+1234567890"}}""",
+            verdictJson
         ))
         val updates = mutableListOf<DeepCheckUpdate>()
         val session = DeepCheckSession(
@@ -101,11 +102,11 @@ class DeepCheckSessionTest {
     @Test
     fun `max turns exceeded triggers fallback`() = runBlocking {
         val engine = MockLlmEngine(listOf(
-            LlmResponse.ToolCall("lookup_allowlist", """{}"""),
-            LlmResponse.ToolCall("search_personal_db", """{"sender":"x","sms_prefix":"y"}"""),
-            LlmResponse.ToolCall("offline_reputation_check", """{"urls":[]}"""),
-            LlmResponse.ToolCall("whois_lookup", """{"domain":"x.com"}"""),
-            LlmResponse.ToolCall("compare_official_site", """{"claimed_entity":"x","linked_domain":"y.com"}""")
+            """{"tool_name":"lookup_allowlist","arguments":{}}""",
+            """{"tool_name":"search_personal_db","arguments":{"sender":"x","sms_prefix":"y"}}""",
+            """{"tool_name":"offline_reputation_check","arguments":{"urls":[]}}""",
+            """{"tool_name":"whois_lookup","arguments":{"domain":"x.com"}}""",
+            """{"tool_name":"compare_official_site","arguments":{"claimed_entity":"x","linked_domain":"y.com"}}"""
         ))
         val updates = mutableListOf<DeepCheckUpdate>()
         val session = DeepCheckSession(
@@ -123,7 +124,7 @@ class DeepCheckSessionTest {
     @Test
     fun `cancellation stops the loop`() = runBlocking {
         val engine = MockLlmEngine(listOf(
-            LlmResponse.Error("should not complete")
+            "__TIMEOUT__"
         ))
         val updates = mutableListOf<DeepCheckUpdate>()
         val session = DeepCheckSession(
