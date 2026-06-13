@@ -15,6 +15,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.smssentry.deepcheck.ModelManager
 import com.smssentry.deepcheck.ui.DeepCheckTimeline
 import com.smssentry.ui.components.*
 import java.text.SimpleDateFormat
@@ -24,10 +25,36 @@ import java.util.*
 @Composable
 fun DetailScreen(
     onBackClick: () -> Unit,
+    onNavigateToDownload: () -> Unit = {},
     viewModel: DetailViewModel = hiltViewModel()
 ) {
     val message by viewModel.message.collectAsState()
     val investigationState by viewModel.investigationState.collectAsState()
+    val showDownloadPrompt by viewModel.showDownloadPrompt.collectAsState()
+    val modelState by viewModel.modelState.collectAsState()
+
+    if (showDownloadPrompt) {
+        AlertDialog(
+            onDismissRequest = { viewModel.onDownloadPromptDismissed() },
+            title = { Text("Deep Check Model Required") },
+            text = {
+                Text("The AI model needs to be downloaded (~2.7 GB) before Deep Check can run. Would you like to download it now?")
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    viewModel.onDownloadPromptDismissed()
+                    onNavigateToDownload()
+                }) {
+                    Text("Download")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { viewModel.onDownloadPromptDismissed() }) {
+                    Text("Use Rule-Based Only")
+                }
+            }
+        )
+    }
 
     Scaffold(
         topBar = {
@@ -129,7 +156,12 @@ fun DetailScreen(
                 // Deep Check Button (shown when no investigation is active)
                 if (investigationState.progress == 0 && investigationState.verdict == null) {
                     Button(
-                        onClick = { viewModel.startDeepCheck() },
+                        onClick = {
+                            if (modelState != ModelManager.State.READY) {
+                                viewModel.checkModelAndPromptDownload()
+                            }
+                            viewModel.startDeepCheck()
+                        },
                         modifier = Modifier.fillMaxWidth(),
                         colors = ButtonDefaults.buttonColors(
                             containerColor = MaterialTheme.colorScheme.primary

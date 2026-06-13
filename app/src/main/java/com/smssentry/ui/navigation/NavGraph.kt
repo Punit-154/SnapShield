@@ -39,7 +39,10 @@ fun SMSSentryNavGraph(navController: NavHostController) {
             )
         ) {
             DetailScreen(
-                onBackClick = { navController.popBackStack() }
+                onBackClick = { navController.popBackStack() },
+                onNavigateToDownload = {
+                    navController.navigate(Screen.ModelDownload.route)
+                }
             )
         }
 

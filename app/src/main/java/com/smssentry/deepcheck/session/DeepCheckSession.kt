@@ -7,6 +7,7 @@ import com.smssentry.deepcheck.data.AllowlistDao
 import com.smssentry.deepcheck.data.HistoryDao
 import com.smssentry.deepcheck.data.OfficialSitesRepository
 import com.smssentry.deepcheck.data.ReputationDb
+import com.smssentry.deepcheck.data.HistoryEntry
 import com.smssentry.deepcheck.model.ChatMessage
 import com.smssentry.deepcheck.model.LlmInferenceEngine
 import com.smssentry.deepcheck.model.LlmResponse
@@ -15,7 +16,11 @@ import com.smssentry.deepcheck.prefilter.FastPathFilter
 import com.smssentry.deepcheck.proxy.PrivacyProxyClient
 import com.smssentry.deepcheck.tools.ToolDefinitions
 import com.smssentry.deepcheck.tools.ToolExecutor
+import com.smssentry.deepcheck.util.HashUtil
 import com.smssentry.domain.service.DeepCheckSession as DeepCheckSessionInterface
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 
 class DeepCheckSession(
@@ -170,6 +175,29 @@ class DeepCheckSession(
 
     private fun emitVerdict(verdict: DeepCheckVerdict) {
         listener.onUpdate(DeepCheckUpdate.FinalVerdict(verdict))
+        recordHistory(verdict)
+    }
+
+    private fun recordHistory(verdict: DeepCheckVerdict) {
+        try {
+            val hash = HashUtil.hashSms(smsSender, smsText.take(10))
+            val verdictStr = when {
+                verdict.isScam -> "SCAM"
+                verdict.evidence.size >= 2 -> "SCAM"
+                verdict.evidence.isNotEmpty() -> "SUSPICIOUS"
+                else -> "SAFE"
+            }
+            val entry = HistoryEntry(
+                hash = hash,
+                verdict = verdictStr,
+                confidence = if (verdict.isScam) 0.85f else 0.5f,
+                timestamp = System.currentTimeMillis(),
+                evidenceCount = verdict.evidence.size
+            )
+            CoroutineScope(Dispatchers.IO).launch {
+                try { historyDao.insert(entry) } catch (_: Exception) {}
+            }
+        } catch (_: Exception) {}
     }
 
     private fun emitFallbackVerdict() {

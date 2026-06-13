@@ -43,6 +43,11 @@ class DetailViewModel @Inject constructor(
     private val _investigationState = MutableStateFlow(InvestigationUiState())
     val investigationState: StateFlow<InvestigationUiState> = _investigationState.asStateFlow()
 
+    private val _showDownloadPrompt = MutableStateFlow(false)
+    val showDownloadPrompt: StateFlow<Boolean> = _showDownloadPrompt.asStateFlow()
+
+    val modelState: StateFlow<ModelManager.State> = modelManager.state
+
     private var deepCheckSession: DeepCheckSessionInterface? = null
 
     init {
@@ -135,5 +140,17 @@ class DetailViewModel @Inject constructor(
         deepCheckSession?.cancel()
         deepCheckSession = null
         _investigationState.value = InvestigationUiState()
+    }
+
+    fun onDownloadPromptDismissed() {
+        _showDownloadPrompt.value = false
+    }
+
+    fun checkModelAndPromptDownload() {
+        if (modelManager.state.value != ModelManager.State.READY &&
+            modelManager.state.value != ModelManager.State.LOADING
+        ) {
+            _showDownloadPrompt.value = true
+        }
     }
 }
