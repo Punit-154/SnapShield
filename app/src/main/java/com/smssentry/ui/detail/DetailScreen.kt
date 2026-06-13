@@ -14,9 +14,11 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.smssentry.R
 import com.smssentry.deepcheck.ModelManager
 import com.smssentry.deepcheck.ui.DeepCheckTimeline
 import com.smssentry.ui.components.*
@@ -60,21 +62,21 @@ fun DetailScreen(
     if (showDownloadPrompt) {
         AlertDialog(
             onDismissRequest = { viewModel.onDownloadPromptDismissed() },
-            title = { Text("Deep Check Model Required") },
+            title = { Text(stringResource(R.string.download_prompt_title)) },
             text = {
-                Text("The AI model needs to be downloaded (~2.7 GB) before Deep Check can run. Would you like to download it now?")
+                Text(stringResource(R.string.download_prompt_desc))
             },
             confirmButton = {
                 TextButton(onClick = {
                     viewModel.onDownloadPromptDismissed()
                     onNavigateToDownload()
                 }) {
-                    Text("Download")
+                    Text(stringResource(R.string.download))
                 }
             },
             dismissButton = {
                 TextButton(onClick = { viewModel.onDownloadPromptDismissed() }) {
-                    Text("Use Rule-Based Only")
+                    Text(stringResource(R.string.use_rule_based))
                 }
             }
         )
@@ -83,10 +85,10 @@ fun DetailScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("SMS Detail") },
+                title = { Text(stringResource(R.string.sms_detail)) },
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.Default.ArrowBack, contentDescription = stringResource(R.string.cancel))
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -152,7 +154,7 @@ fun DetailScreen(
                             verticalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
                             Text(
-                                text = "Classification",
+                                text = stringResource(R.string.classification),
                                 fontWeight = FontWeight.Bold,
                                 style = MaterialTheme.typography.titleMedium
                             )
@@ -209,14 +211,14 @@ fun DetailScreen(
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            text = "Deep Check",
+                            text = stringResource(R.string.deep_check),
                             fontWeight = FontWeight.Bold
                         )
                     }
 
                     if (!isModelReady) {
                         Text(
-                            text = "AI model not loaded - using rule-based analysis",
+                            text = stringResource(R.string.model_not_loaded_fallback),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
                             modifier = Modifier.align(Alignment.CenterHorizontally)

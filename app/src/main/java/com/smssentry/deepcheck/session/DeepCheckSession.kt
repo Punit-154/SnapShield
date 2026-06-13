@@ -1,5 +1,7 @@
 package com.smssentry.deepcheck.session
 
+import android.content.Context
+import com.smssentry.R
 import com.smssentry.data.model.DeepCheckUpdate
 import com.smssentry.data.model.DeepCheckVerdict
 import com.smssentry.data.model.EvidenceItem
@@ -12,16 +14,15 @@ import com.smssentry.deepcheck.model.LlmInferenceEngine
 import com.smssentry.deepcheck.model.VerdictParser
 import com.smssentry.deepcheck.prefilter.FastPathFilter
 import com.smssentry.deepcheck.proxy.PrivacyProxyClient
-import com.smssentry.deepcheck.tools.ToolDefinitions
 import com.smssentry.deepcheck.tools.ToolExecutor
 import com.smssentry.deepcheck.util.HashUtil
 import com.smssentry.domain.service.DeepCheckSession as DeepCheckSessionInterface
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 
 class DeepCheckSession(
+    private val context: Context,
     private val engine: LlmInferenceEngine?,
     private val allowlistDao: AllowlistDao,
     private val historyDao: HistoryDao,
@@ -30,7 +31,8 @@ class DeepCheckSession(
     private val proxyClient: PrivacyProxyClient?,
     private val smsText: String,
     private val smsSender: String,
-    private val listener: com.smssentry.domain.service.DeepCheckListener
+    private val listener: com.smssentry.domain.service.DeepCheckListener,
+    private val applicationScope: CoroutineScope
 ) : DeepCheckSessionInterface {
 
     private val evidenceList = mutableListOf<String>()
@@ -52,39 +54,41 @@ class DeepCheckSession(
         stepIndex = 0
 
         try {
-            val pre = FastPathFilter.filter(smsText, smsSender, allowlistDao, historyDao)
+            val pre = FastPathFilter.filter(context, smsText, smsSender, allowlistDao, historyDao)
             if (pre.verdict != null) {
                 emitVerdict(
                     DeepCheckVerdict(
                         isScam = pre.verdict == "SCAM",
-                        summary = pre.reason ?: "Determined by fast-path analysis.",
+                        summary = pre.reason ?: context.getString(R.string.reason_fast_path),
                         threatType = null,
                         evidence = emptyList(),
-                        recommendedActions = if (pre.verdict == "SCAM") listOf("Do not interact with this message.") else emptyList()
+                        recommendedActions = if (pre.verdict == "SCAM") {
+                            listOf(context.getString(R.string.action_no_interact))
+                        } else emptyList()
                     )
                 )
                 return
             }
 
-            emitStep("Analyzing SMS content...")
+            emitStep(context.getString(R.string.step_analyzing))
 
             if (engine == null) {
-                emitStep("Model unavailable — running rule-based analysis.")
+                emitStep(context.getString(R.string.step_rule_based))
                 runRuleBasedAnalysis()
                 return
             }
 
-            emitStep("Loading AI model...")
+            emitStep(context.getString(R.string.step_loading_model))
             try {
                 withTimeoutOrNull(30_000L) {
                     engine.load()
                 } ?: run {
-                    emitStep("Model loading timed out — running rule-based analysis.")
+                    emitStep(context.getString(R.string.step_timeout))
                     runRuleBasedAnalysis()
                     return
                 }
             } catch (e: Exception) {
-                emitStep("Model load failed: ${e.message} — running rule-based analysis.")
+                emitStep(context.getString(R.string.model_unavailable) + ": ${e.message}")
                 runRuleBasedAnalysis()
                 return
             }
@@ -104,7 +108,7 @@ class DeepCheckSession(
                 }
 
                 if (response == null) {
-                    emitStep("Model timed out — running rule-based analysis.")
+                    emitStep(context.getString(R.string.step_timeout))
                     runRuleBasedAnalysis()
                     return
                 }
@@ -128,7 +132,7 @@ class DeepCheckSession(
                         continue
                     }
 
-                    emitStep(describeToolCall(toolCall.first))
+                    emitStep(describeToolCall(toolCall.first, context))
 
                     val toolExecutor = ToolExecutor(
                         allowlistDao, historyDao, reputationDb, officialSites, proxyClient
@@ -215,7 +219,7 @@ class DeepCheckSession(
                 timestamp = System.currentTimeMillis(),
                 evidenceCount = verdict.evidence.size
             )
-            CoroutineScope(Dispatchers.IO).launch {
+            applicationScope.launch {
                 try { historyDao.insert(entry) } catch (_: Exception) {}
             }
         } catch (_: Exception) {}
@@ -226,15 +230,22 @@ class DeepCheckSession(
         emitVerdict(
             DeepCheckVerdict(
                 isScam = verdict == "SCAM",
-                summary = "Based on available evidence, this message appears $verdict.",
+                summary = if (verdict == "SCAM") context.getString(R.string.summary_scam) else context.getString(R.string.summary_suspicious),
                 threatType = null,
                 evidence = evidenceList.map {
                     EvidenceItem(source = "Rule-Based", detail = it, severity = "MEDIUM")
                 },
                 recommendedActions = if (verdict == "SCAM") {
-                    listOf("Do not click any links.", "Block the sender.", "Report as spam.")
+                    listOf(
+                        context.getString(R.string.action_no_click),
+                        context.getString(R.string.action_block),
+                        context.getString(R.string.action_report)
+                    )
                 } else {
-                    listOf("Exercise caution.", "Verify with the claimed organization directly.")
+                    listOf(
+                        context.getString(R.string.action_caution),
+                        context.getString(R.string.action_verify_org)
+                    )
                 }
             )
         )
@@ -248,7 +259,7 @@ class DeepCheckSession(
         val domains = com.smssentry.deepcheck.prefilter.FastPathFilter.extractDomains(urls)
         val urlsJson = urls.joinToString(",") { "\"$it\"" }
 
-        emitStep("Checking URLs against scam reputation database...")
+        emitStep(context.getString(R.string.step_checking_reputation))
         val repResult = withTimeoutOrNull(5_000L) {
             toolExecutor.executeByName("offline_reputation_check", """{"urls":[$urlsJson]}""")
         }
@@ -259,7 +270,7 @@ class DeepCheckSession(
         }
 
         if (domains.isNotEmpty()) {
-            emitStep("Performing WHOIS domain lookup...")
+            emitStep(context.getString(R.string.step_whois))
             for (domain in domains.take(2)) {
                 if (isCancelled) return
                 val whoisResult = withTimeoutOrNull(5_000L) {
@@ -273,7 +284,7 @@ class DeepCheckSession(
             }
         }
 
-        emitStep("Checking for brand impersonation...")
+        emitStep(context.getString(R.string.step_brand))
         val mismatchResult = withTimeoutOrNull(5_000L) {
             toolExecutor.executeByName("brand_mismatch_check", """{"sms_text":"$smsText","urls":[$urlsJson]}""")
         }
@@ -285,9 +296,9 @@ class DeepCheckSession(
 
         for (domain in domains.take(2)) {
             if (isCancelled) return
-            emitStep("Comparing $domain with official sites...")
             val claimedEntity = officialSites.findMatchingBrand(smsText)
             if (claimedEntity != null) {
+                emitStep(context.getString(R.string.step_official_compare, domain))
                 val compareResult = withTimeoutOrNull(5_000L) {
                     toolExecutor.executeByName("compare_official_site", """{"claimed_entity":"$claimedEntity","linked_domain":"$domain"}""")
                 }
@@ -312,22 +323,29 @@ class DeepCheckSession(
                 EvidenceItem(source = "AI Analysis", detail = detail, severity = if (isScam) "HIGH" else "LOW")
             },
             recommendedActions = when (v.verdict) {
-                "SCAM" -> listOf("Do not click any links.", "Block the sender.", "Report as spam.")
-                "SUSPICIOUS" -> listOf("Exercise caution.", "Verify with the claimed organization directly.")
+                "SCAM" -> listOf(
+                    context.getString(R.string.action_no_click),
+                    context.getString(R.string.action_block),
+                    context.getString(R.string.action_report)
+                )
+                "SUSPICIOUS" -> listOf(
+                    context.getString(R.string.action_caution),
+                    context.getString(R.string.action_verify_org)
+                )
                 else -> emptyList()
             }
         )
     }
 
     companion object {
-        fun describeToolCall(toolName: String): String = when (toolName) {
-            "lookup_allowlist" -> "Checking if sender or domain is on the allowlist..."
-            "search_personal_db" -> "Searching personal scam history database..."
-            "offline_reputation_check" -> "Checking URLs against scam reputation database..."
-            "brand_mismatch_check" -> "Checking for brand impersonation..."
-            "whois_lookup" -> "Performing WHOIS domain lookup..."
-            "compare_official_site" -> "Comparing with official website..."
-            else -> "Running $toolName..."
+        fun describeToolCall(toolName: String, context: Context): String = when (toolName) {
+            "lookup_allowlist" -> context.getString(R.string.step_allowlist)
+            "search_personal_db" -> context.getString(R.string.step_history)
+            "offline_reputation_check" -> context.getString(R.string.step_checking_reputation)
+            "brand_mismatch_check" -> context.getString(R.string.step_brand)
+            "whois_lookup" -> context.getString(R.string.step_whois)
+            "compare_official_site" -> context.getString(R.string.step_official_site)
+            else -> context.getString(R.string.step_running_tool, toolName)
         }
     }
 }

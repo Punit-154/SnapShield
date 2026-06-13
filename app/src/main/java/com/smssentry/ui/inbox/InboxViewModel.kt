@@ -1,12 +1,22 @@
 package com.smssentry.ui.inbox
 
+import android.app.role.RoleManager
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
+import android.os.Build
+import android.provider.Telephony
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.smssentry.data.model.ClassificationResult
 import com.smssentry.data.model.SmsMessage
 import com.smssentry.data.repository.SmsRepository
 import com.smssentry.deepcheck.ModelManager
+import com.smssentry.sms.SmsContentObserver
+import com.smssentry.sms.SmsReceiver
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -26,7 +36,8 @@ enum class SmsFilter(val label: String) {
 @HiltViewModel
 class InboxViewModel @Inject constructor(
     private val modelManager: ModelManager,
-    private val smsRepository: SmsRepository
+    private val smsRepository: SmsRepository,
+    @ApplicationContext private val context: Context
 ) : ViewModel() {
 
     private val _allMessages = MutableStateFlow<List<SmsMessage>>(emptyList())
@@ -62,8 +73,52 @@ class InboxViewModel @Inject constructor(
 
     val modelState: StateFlow<ModelManager.State> = modelManager.state
 
+    private val _isDefaultSmsApp = MutableStateFlow(false)
+    val isDefaultSmsAppState: StateFlow<Boolean> = _isDefaultSmsApp.asStateFlow()
+
+    private var smsContentObserver: SmsContentObserver? = null
+    private var smsBroadcastReceiver: BroadcastReceiver? = null
+
     init {
         loadMessages()
+        registerSmsObserver()
+        registerSmsBroadcastReceiver()
+    }
+
+    fun checkDefaultSmsApp() {
+        _isDefaultSmsApp.value = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            val roleManager = context.getSystemService(RoleManager::class.java)
+            roleManager?.isRoleHeld(RoleManager.ROLE_SMS) ?: false
+        } else {
+            true
+        }
+    }
+
+    private fun registerSmsObserver() {
+        smsContentObserver = SmsContentObserver {
+            refreshMessages()
+        }
+        context.contentResolver.registerContentObserver(
+            Telephony.Sms.CONTENT_URI,
+            true,
+            smsContentObserver!!
+        )
+    }
+
+    private fun registerSmsBroadcastReceiver() {
+        smsBroadcastReceiver = object : BroadcastReceiver() {
+            override fun onReceive(context: Context, intent: Intent) {
+                if (intent.action == SmsReceiver.ACTION_SMS_RECEIVED) {
+                    refreshMessages()
+                }
+            }
+        }
+        val filter = IntentFilter(SmsReceiver.ACTION_SMS_RECEIVED)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            context.registerReceiver(smsBroadcastReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
+        } else {
+            context.registerReceiver(smsBroadcastReceiver, filter)
+        }
     }
 
     fun onSearchQueryChanged(query: String) {
@@ -89,22 +144,29 @@ class InboxViewModel @Inject constructor(
 
     private fun loadMessages() {
         viewModelScope.launch {
-            val realMessages = try {
-                smsRepository.getInboxMessages()
-            } catch (e: Exception) {
-                emptyList()
-            }
+            refreshMessages()
+        }
+    }
 
-            val classifiedMessages = realMessages.map { message ->
-                if (message.classification == null) {
-                    val result = classifyByRules(message.text)
-                    message.copy(classification = result)
-                } else {
-                    message
+    fun refreshMessages() {
+        viewModelScope.launch {
+            _isLoading.value = true
+            try {
+                val realMessages = smsRepository.getInboxMessages()
+                val classifiedMessages = realMessages.map { message ->
+                    if (message.classification == null) {
+                        val result = classifyByRules(message.text)
+                        message.copy(classification = result)
+                    } else {
+                        message
+                    }
                 }
+                _allMessages.value = classifiedMessages
+            } catch (e: Exception) {
+                e.printStackTrace()
+            } finally {
+                _isLoading.value = false
             }
-            _allMessages.value = classifiedMessages
-            _isLoading.value = false
         }
     }
 
@@ -122,5 +184,15 @@ class InboxViewModel @Inject constructor(
 
     fun getMessageById(id: String): SmsMessage? {
         return _allMessages.value.find { it.id == id }
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        smsContentObserver?.let {
+            context.contentResolver.unregisterContentObserver(it)
+        }
+        smsBroadcastReceiver?.let {
+            context.unregisterReceiver(it)
+        }
     }
 }

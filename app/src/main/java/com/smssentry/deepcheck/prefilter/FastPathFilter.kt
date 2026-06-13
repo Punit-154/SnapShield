@@ -1,5 +1,7 @@
 package com.smssentry.deepcheck.prefilter
 
+import android.content.Context
+import com.smssentry.R
 import com.smssentry.deepcheck.data.AllowlistDao
 import com.smssentry.deepcheck.data.HistoryDao
 import com.smssentry.deepcheck.util.DomainMatchUtil
@@ -24,13 +26,14 @@ object FastPathFilter {
     )
 
     suspend fun filter(
+        context: Context,
         smsBody: String,
         sender: String,
         allowlistDao: AllowlistDao,
         historyDao: HistoryDao
     ): PreFilterResult {
         if (allowlistDao.containsSender(sender)) {
-            return PreFilterResult("SAFE", 0.99f, "Sender is on the allowlist.")
+            return PreFilterResult("SAFE", 0.99f, context.getString(R.string.reason_allowlist_sender))
         }
 
         val urls = extractUrls(smsBody)
@@ -38,7 +41,7 @@ object FastPathFilter {
 
         for (domain in domains) {
             if (allowlistDao.containsDomain(domain)) {
-                return PreFilterResult("SAFE", 0.99f, "Domain '$domain' is on the allowlist.")
+                return PreFilterResult("SAFE", 0.99f, context.getString(R.string.reason_allowlist_domain, domain))
             }
         }
 
@@ -46,27 +49,27 @@ object FastPathFilter {
             val lowerUrl = url.lowercase()
             for (tld in SUSPICIOUS_TLDS) {
                 if (lowerUrl.endsWith(tld) || lowerUrl.contains("$tld/") || lowerUrl.contains("$tld?")) {
-                    return PreFilterResult("SCAM", 0.95f, "URL uses suspicious TLD: $tld")
+                    return PreFilterResult("SCAM", 0.95f, context.getString(R.string.reason_suspicious_tld, tld))
                 }
             }
         }
 
         for (url in urls) {
             if (IP_URL_REGEX.containsMatchIn(url)) {
-                return PreFilterResult("SCAM", 0.95f, "URL contains raw IP address.")
+                return PreFilterResult("SCAM", 0.95f, context.getString(R.string.reason_ip_address))
             }
         }
 
         val lowerBody = smsBody.lowercase()
         if (lowerBody.contains("otp") && urls.isEmpty()) {
-            return PreFilterResult("SAFE", 0.90f, "OTP message with no links — likely a genuine verification code.")
+            return PreFilterResult("SAFE", 0.90f, context.getString(R.string.reason_otp_safe))
         }
 
         val prefix = smsBody.take(10)
         val hash = HashUtil.hashSms(sender, prefix)
         val historyEntry = historyDao.get(hash)
         if (historyEntry != null && historyEntry.verdict == "SCAM") {
-            return PreFilterResult("SCAM", 0.98f, "This exact SMS was previously flagged as a scam.")
+            return PreFilterResult("SCAM", 0.98f, context.getString(R.string.reason_previous_scam))
         }
 
         return PreFilterResult(null, 0.0f, null)

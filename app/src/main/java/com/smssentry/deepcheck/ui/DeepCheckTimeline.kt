@@ -2,15 +2,12 @@ package com.smssentry.deepcheck.ui
 
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
@@ -18,18 +15,13 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.scale
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import com.smssentry.data.model.DeepCheckUpdate
-import com.smssentry.data.model.DeepCheckVerdict
+import com.smssentry.R
 import com.smssentry.data.model.EvidenceItem
 import com.smssentry.data.model.InvestigationUiState
 import com.smssentry.ui.components.EvidenceCard
-import com.smssentry.ui.components.ProgressIndicator
 import com.smssentry.ui.components.VerdictCard
 import com.smssentry.ui.theme.*
 
@@ -81,7 +73,7 @@ fun DeepCheckTimeline(
                             modifier = Modifier.size(20.dp)
                         )
                         Text(
-                            text = "Evidence Timeline",
+                            text = stringResource(R.string.evidence_timeline),
                             fontWeight = FontWeight.Bold,
                             style = MaterialTheme.typography.titleSmall
                         )
@@ -112,7 +104,7 @@ fun DeepCheckTimeline(
                     modifier = Modifier.size(18.dp)
                 )
                 Spacer(modifier = Modifier.width(8.dp))
-                Text("Cancel Investigation")
+                Text(stringResource(R.string.cancel_investigation))
             }
         }
 
@@ -132,7 +124,7 @@ fun DeepCheckTimeline(
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         Text(
-                            text = "All Evidence",
+                            text = stringResource(R.string.all_evidence),
                             fontWeight = FontWeight.Bold,
                             style = MaterialTheme.typography.titleMedium
                         )
@@ -153,7 +145,7 @@ fun DeepCheckTimeline(
                 )
             ) {
                 Text(
-                    text = "Error: $error",
+                    text = stringResource(R.string.error_prefix, error),
                     modifier = Modifier.padding(16.dp),
                     color = MaterialTheme.colorScheme.onErrorContainer
                 )
@@ -206,7 +198,7 @@ private fun AnimatedInvestigationProgress(
                         strokeWidth = 3.dp
                     )
                     Text(
-                        text = "Investigating",
+                        text = stringResource(R.string.investigating),
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.Bold
                     )

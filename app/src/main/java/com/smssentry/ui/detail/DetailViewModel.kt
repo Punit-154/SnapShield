@@ -1,5 +1,6 @@
 package com.smssentry.ui.detail
 
+import android.content.Context
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -12,9 +13,12 @@ import com.smssentry.deepcheck.data.OfficialSitesRepository
 import com.smssentry.deepcheck.data.ReputationDb
 import com.smssentry.deepcheck.proxy.PrivacyProxyClient
 import com.smssentry.deepcheck.session.DeepCheckSession
+import com.smssentry.di.ApplicationScope
 import com.smssentry.domain.service.DeepCheckListener
 import com.smssentry.domain.service.DeepCheckSession as DeepCheckSessionInterface
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -30,7 +34,9 @@ class DetailViewModel @Inject constructor(
     private val officialSites: OfficialSitesRepository,
     private val proxyClient: PrivacyProxyClient,
     private val modelManager: ModelManager,
-    private val smsRepository: SmsRepository
+    private val smsRepository: SmsRepository,
+    @ApplicationContext private val context: Context,
+    @ApplicationScope private val applicationScope: CoroutineScope
 ) : ViewModel() {
 
     private val smsId: String = savedStateHandle.get<String>("smsId") ?: ""
@@ -74,6 +80,7 @@ class DetailViewModel @Inject constructor(
             }
 
             val session = DeepCheckSession(
+                context = context,
                 engine = engine,
                 allowlistDao = allowlistDao,
                 historyDao = historyDao,
@@ -112,7 +119,8 @@ class DetailViewModel @Inject constructor(
                             }
                         }
                     }
-                }
+                },
+                applicationScope = applicationScope
             )
 
             deepCheckSession = session
@@ -139,6 +147,6 @@ class DetailViewModel @Inject constructor(
     }
 
     fun refreshModelState() {
-        // Model state is managed by ModelManager, no need to call ensureReady here
+        // Model state is managed by ModelManager
     }
 }

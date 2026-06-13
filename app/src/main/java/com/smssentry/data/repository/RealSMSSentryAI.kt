@@ -1,6 +1,7 @@
 package com.smssentry.data.repository
 
 import android.content.Context
+import com.smssentry.R
 import com.smssentry.data.model.ClassificationResult
 import com.smssentry.data.model.DeepCheckUpdate
 import com.smssentry.deepcheck.data.AllowlistDao
@@ -10,34 +11,39 @@ import com.smssentry.deepcheck.data.ReputationDb
 import com.smssentry.deepcheck.model.LlmInferenceEngine
 import com.smssentry.deepcheck.proxy.PrivacyProxyClient
 import com.smssentry.deepcheck.session.DeepCheckSession
+import com.smssentry.di.ApplicationScope
 import com.smssentry.domain.service.DeepCheckListener
 import com.smssentry.domain.service.DeepCheckSession as DeepCheckSessionInterface
 import com.smssentry.domain.service.SMSSentryAI
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.*
 import java.util.concurrent.atomic.AtomicBoolean
+import javax.inject.Inject
+import javax.inject.Singleton
 
-class RealSMSSentryAI(
-    private val context: Context,
+@Singleton
+class RealSMSSentryAI @Inject constructor(
+    @param:ApplicationContext private val context: Context,
     private val allowlistDao: AllowlistDao,
     private val historyDao: HistoryDao,
     private val reputationDb: ReputationDb,
     private val officialSites: OfficialSitesRepository,
     private val proxyClient: PrivacyProxyClient,
-    private val engine: LlmInferenceEngine?
+    private val engine: LlmInferenceEngine?,
+    @param:ApplicationScope private val applicationScope: CoroutineScope
 ) : SMSSentryAI {
 
     private var isInitialized = false
-    private val scope = CoroutineScope(Dispatchers.Default + SupervisorJob())
 
     override fun initialize(context: Context, callback: (Boolean) -> Unit) {
-        scope.launch {
+        applicationScope.launch {
             isInitialized = true
             callback(true)
         }
     }
 
     override fun classifySMS(smsText: String, callback: (ClassificationResult) -> Unit) {
-        scope.launch {
+        applicationScope.launch {
             val result = classifyByRules(smsText)
             callback(result)
         }
@@ -45,8 +51,9 @@ class RealSMSSentryAI(
 
     override fun startDeepCheck(smsText: String, listener: DeepCheckListener): DeepCheckSessionInterface {
         val session = RealDeepCheckSession(
-            smsText, "", listener,
-            engine, allowlistDao, historyDao, reputationDb, officialSites, proxyClient
+            context, smsText, "", listener,
+            engine, allowlistDao, historyDao, reputationDb, officialSites, proxyClient,
+            applicationScope
         )
         session.start()
         return session
@@ -58,14 +65,33 @@ class RealSMSSentryAI(
         val score = scamIndicators.count { lowerText.contains(it) }
 
         return when {
-            score >= 2 -> ClassificationResult("SCAM", 0.85f, 85, "Multiple scam indicators", true)
-            score == 1 -> ClassificationResult("SUSPICIOUS", 0.65f, 55, "Some suspicious patterns", false)
-            else -> ClassificationResult("SAFE", 0.9f, 5, "No indicators detected", false)
+            score >= 2 -> ClassificationResult(
+                "SCAM",
+                0.85f,
+                85,
+                context.getString(R.string.reason_multiple_indicators),
+                true
+            )
+            score == 1 -> ClassificationResult(
+                "SUSPICIOUS",
+                0.65f,
+                55,
+                context.getString(R.string.reason_some_indicators),
+                false
+            )
+            else -> ClassificationResult(
+                "SAFE",
+                0.9f,
+                5,
+                context.getString(R.string.reason_no_indicators),
+                false
+            )
         }
     }
 }
 
 class RealDeepCheckSession(
+    private val context: Context,
     private val smsText: String,
     private val smsSender: String,
     private val listener: DeepCheckListener,
@@ -74,32 +100,33 @@ class RealDeepCheckSession(
     private val historyDao: HistoryDao,
     private val reputationDb: ReputationDb,
     private val officialSites: OfficialSitesRepository,
-    private val proxyClient: PrivacyProxyClient
+    private val proxyClient: PrivacyProxyClient,
+    private val applicationScope: CoroutineScope
 ) : DeepCheckSessionInterface {
 
     private val _isActive = AtomicBoolean(false)
     override val isActive: Boolean get() = _isActive.get()
 
-    private val scope = CoroutineScope(Dispatchers.Default + SupervisorJob())
+    private var sessionJob: Job? = null
 
     fun start() {
         _isActive.set(true)
-        scope.launch {
+        sessionJob = applicationScope.launch {
             try {
-                if (engine != null) {
-                    val session = DeepCheckSession(
-                        engine, allowlistDao, historyDao, reputationDb,
-                        officialSites, proxyClient, smsText, smsSender, listener
-                    )
-                    session.run()
-                } else {
-                    listener.onUpdate(DeepCheckUpdate.Step("Model unavailable — running rule-based analysis.", 10))
-                    val session = DeepCheckSession(
-                        null, allowlistDao, historyDao, reputationDb,
-                        officialSites, proxyClient, smsText, smsSender, listener
-                    )
-                    session.run()
-                }
+                val session = DeepCheckSession(
+                    context = context,
+                    engine = engine,
+                    allowlistDao = allowlistDao,
+                    historyDao = historyDao,
+                    reputationDb = reputationDb,
+                    officialSites = officialSites,
+                    proxyClient = proxyClient,
+                    smsText = smsText,
+                    smsSender = smsSender,
+                    listener = listener,
+                    applicationScope = applicationScope
+                )
+                session.run()
             } catch (e: Exception) {
                 if (_isActive.get()) {
                     listener.onUpdate(DeepCheckUpdate.Error(e.message ?: "Unknown error"))
@@ -112,6 +139,6 @@ class RealDeepCheckSession(
 
     override fun cancel() {
         _isActive.set(false)
-        scope.cancel()
+        sessionJob?.cancel()
     }
 }

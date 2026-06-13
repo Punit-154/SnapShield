@@ -1,5 +1,6 @@
 package com.smssentry.ui.inbox
 
+import android.content.Intent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
@@ -19,6 +20,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -26,12 +28,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.smssentry.R
 import com.smssentry.data.model.SmsMessage
 import com.smssentry.deepcheck.ModelManager
 import com.smssentry.ui.components.ShieldBadge
@@ -56,37 +60,39 @@ fun InboxScreen(
     val selectedFilter by viewModel.selectedFilter.collectAsState()
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
+    val context = LocalContext.current
 
     var showThemeMenu by remember { mutableStateOf(false) }
     val currentThemeMode by themeRepository.themeMode.collectAsState(initial = ThemeMode.SYSTEM)
+
+    val isDefaultSmsApp by viewModel.isDefaultSmsAppState.collectAsState()
+
+    LaunchedEffect(Unit) {
+        viewModel.refreshMessages()
+        viewModel.checkDefaultSmsApp()
+    }
 
     Scaffold(
         topBar = {
             TopAppBar(
                 title = {
                     Text(
-                        text = "SMS Sentry",
-                        fontWeight = FontWeight.Bold
+                        text = stringResource(R.string.app_name),
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 20.sp
                     )
                 },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer,
-                    titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
-                ),
                 actions = {
                     Box {
                         IconButton(onClick = { showThemeMenu = true }) {
-                            Icon(
-                                Icons.Default.MoreVert,
-                                contentDescription = "More options"
-                            )
+                            Icon(Icons.Default.MoreVert, contentDescription = stringResource(R.string.theme))
                         }
                         DropdownMenu(
                             expanded = showThemeMenu,
                             onDismissRequest = { showThemeMenu = false }
                         ) {
                             Text(
-                                text = "Theme",
+                                text = stringResource(R.string.theme),
                                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
                                 style = MaterialTheme.typography.labelLarge,
                                 color = MaterialTheme.colorScheme.onSurface
@@ -119,6 +125,10 @@ fun InboxScreen(
                             }
                         }
                     }
+
+                    IconButton(onClick = { viewModel.refreshMessages() }) {
+                        Icon(Icons.Default.Refresh, contentDescription = stringResource(R.string.refresh))
+                    }
                 }
             )
         },
@@ -129,6 +139,37 @@ fun InboxScreen(
                 .fillMaxSize()
                 .padding(padding)
         ) {
+            if (!isDefaultSmsApp) {
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(8.dp)
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = stringResource(R.string.default_sms_required),
+                            color = MaterialTheme.colorScheme.onErrorContainer,
+                            modifier = Modifier.weight(1f)
+                        )
+                        TextButton(
+                            onClick = {
+                                val intent = Intent(android.provider.Settings.ACTION_MANAGE_DEFAULT_APPS_SETTINGS)
+                                context.startActivity(intent)
+                            }
+                        ) {
+                            Text(stringResource(R.string.set_default))
+                        }
+                    }
+                }
+            }
+
             ModelStatusBadge(modelState)
 
             SearchBar(
@@ -137,14 +178,14 @@ fun InboxScreen(
                 onSearch = { /* no-op, filtering is live */ },
                 active = false,
                 onActiveChange = { /* no-op */ },
-                placeholder = { Text("Search by sender, text, or classification") },
+                placeholder = { Text(stringResource(R.string.search_placeholder)) },
                 leadingIcon = {
-                    Icon(Icons.Default.Search, contentDescription = "Search")
+                    Icon(Icons.Default.Search, contentDescription = null)
                 },
                 trailingIcon = {
                     if (searchQuery.isNotEmpty()) {
                         IconButton(onClick = { viewModel.onSearchQueryChanged("") }) {
-                            Icon(Icons.Default.Close, contentDescription = "Clear search")
+                            Icon(Icons.Default.Close, contentDescription = null)
                         }
                     }
                 },
@@ -171,63 +212,67 @@ fun InboxScreen(
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        text = "No messages match your filter",
+                        text = if (!isDefaultSmsApp) stringResource(R.string.set_default_to_view) else stringResource(R.string.no_messages),
                         style = MaterialTheme.typography.bodyLarge,
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
                     )
                 }
             } else {
-                LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                Column(
+                    modifier = Modifier.fillMaxSize()
                 ) {
-                    items(messages, key = { it.id }) { message ->
-                        val dismissState = rememberSwipeToDismissBoxState(
-                            confirmValueChange = { dismissValue ->
-                                if (dismissValue == SwipeToDismissBoxValue.EndToStart) {
-                                    viewModel.deleteMessage(message.id)
-                                    scope.launch {
-                                        val result = snackbarHostState.showSnackbar(
-                                            message = "Message deleted",
-                                            actionLabel = "Undo",
-                                            duration = SnackbarDuration.Short
-                                        )
-                                        if (result == SnackbarResult.ActionPerformed) {
-                                            viewModel.undoLastDelete()
+                    LazyColumn(
+                        modifier = Modifier.weight(1f),
+                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        items(messages, key = { it.id }) { message ->
+                            val dismissState = rememberSwipeToDismissBoxState(
+                                confirmValueChange = { dismissValue ->
+                                    if (dismissValue == SwipeToDismissBoxValue.EndToStart) {
+                                        viewModel.deleteMessage(message.id)
+                                        scope.launch {
+                                            val result = snackbarHostState.showSnackbar(
+                                                message = context.getString(R.string.msg_deleted),
+                                                actionLabel = context.getString(R.string.undo),
+                                                duration = SnackbarDuration.Short
+                                            )
+                                            if (result == SnackbarResult.ActionPerformed) {
+                                                viewModel.undoLastDelete()
+                                            }
                                         }
+                                        true
+                                    } else {
+                                        false
                                     }
-                                    true
-                                } else {
-                                    false
                                 }
-                            }
-                        )
-
-                        SwipeToDismissBox(
-                            state = dismissState,
-                            backgroundContent = {
-                                Box(
-                                    modifier = Modifier
-                                        .fillMaxSize()
-                                        .clip(RoundedCornerShape(16.dp))
-                                        .background(MaterialTheme.colorScheme.errorContainer),
-                                    contentAlignment = Alignment.CenterEnd
-                                ) {
-                                    Icon(
-                                        Icons.Default.Close,
-                                        contentDescription = "Delete",
-                                        modifier = Modifier.padding(16.dp),
-                                        tint = MaterialTheme.colorScheme.onErrorContainer
-                                    )
-                                }
-                            },
-                            enableDismissFromStartToEnd = false
-                        ) {
-                            SmsMessageCard(
-                                message = message,
-                                onClick = { onMessageClick(message.id) }
                             )
+
+                            SwipeToDismissBox(
+                                state = dismissState,
+                                backgroundContent = {
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxSize()
+                                            .clip(RoundedCornerShape(16.dp))
+                                            .background(MaterialTheme.colorScheme.errorContainer),
+                                        contentAlignment = Alignment.CenterEnd
+                                    ) {
+                                        Icon(
+                                            Icons.Default.Close,
+                                            contentDescription = null,
+                                            modifier = Modifier.padding(16.dp),
+                                            tint = MaterialTheme.colorScheme.onErrorContainer
+                                        )
+                                    }
+                                },
+                                enableDismissFromStartToEnd = false
+                            ) {
+                                SmsMessageCard(
+                                    message = message,
+                                    onClick = { onMessageClick(message.id) }
+                                )
+                            }
                         }
                     }
                 }
@@ -252,7 +297,12 @@ private fun FilterChipRow(
             FilterChip(
                 selected = selectedFilter == filter,
                 onClick = { onFilterSelected(filter) },
-                label = { Text(filter.label) },
+                label = { Text(stringResource(when(filter) {
+                    SmsFilter.ALL -> R.string.filter_all
+                    SmsFilter.SCAM -> R.string.filter_scam
+                    SmsFilter.SUSPICIOUS -> R.string.filter_suspicious
+                    SmsFilter.SAFE -> R.string.filter_safe
+                })) },
                 colors = FilterChipDefaults.filterChipColors(
                     selectedContainerColor = MaterialTheme.colorScheme.primary,
                     selectedLabelColor = MaterialTheme.colorScheme.onPrimary
@@ -264,12 +314,18 @@ private fun FilterChipRow(
 
 @Composable
 private fun ModelStatusBadge(state: ModelManager.State) {
-    val (text, color) = when (state) {
-        ModelManager.State.NOT_DOWNLOADED -> "Model not downloaded" to MaterialTheme.colorScheme.errorContainer
-        ModelManager.State.DOWNLOADING -> "Downloading model…" to MaterialTheme.colorScheme.secondaryContainer
-        ModelManager.State.LOADING -> "Loading model…" to MaterialTheme.colorScheme.secondaryContainer
-        ModelManager.State.READY -> "Deep Check ready" to MaterialTheme.colorScheme.primaryContainer
-        ModelManager.State.FAILED -> "Model unavailable" to MaterialTheme.colorScheme.errorContainer
+    val textRes = when (state) {
+        ModelManager.State.NOT_DOWNLOADED -> R.string.model_not_downloaded
+        ModelManager.State.DOWNLOADING -> R.string.model_downloading
+        ModelManager.State.LOADING -> R.string.model_loading
+        ModelManager.State.READY -> R.string.model_ready
+        ModelManager.State.FAILED -> R.string.model_unavailable
+    }
+    
+    val color = when (state) {
+        ModelManager.State.READY -> MaterialTheme.colorScheme.primaryContainer
+        ModelManager.State.NOT_DOWNLOADED, ModelManager.State.FAILED -> MaterialTheme.colorScheme.errorContainer
+        else -> MaterialTheme.colorScheme.secondaryContainer
     }
 
     Surface(
@@ -277,7 +333,7 @@ private fun ModelStatusBadge(state: ModelManager.State) {
         modifier = Modifier.fillMaxWidth()
     ) {
         Text(
-            text = text,
+            text = stringResource(textRes),
             modifier = Modifier
                 .padding(horizontal = 16.dp, vertical = 8.dp),
             style = MaterialTheme.typography.labelSmall,
@@ -410,7 +466,7 @@ private fun SmsMessageCard(
                         exit = fadeOut()
                     ) {
                         ShieldBadge(
-                            label = message.classification?.label ?: "Unknown",
+                            label = message.classification?.label ?: stringResource(R.string.filter_all), // Fallback label
                             riskScore = riskScore
                         )
                     }

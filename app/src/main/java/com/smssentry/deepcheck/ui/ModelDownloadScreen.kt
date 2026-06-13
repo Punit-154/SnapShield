@@ -10,10 +10,12 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.smssentry.R
 import com.smssentry.deepcheck.ModelDownloadManager
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -29,6 +31,7 @@ fun ModelDownloadScreen(
     val speedBytesPerSec by viewModel.speedBytesPerSec.collectAsState()
     val error by viewModel.error.collectAsState()
     val wifiOnly by viewModel.wifiOnly.collectAsState()
+    
     LaunchedEffect(Unit) {
         viewModel.navigateBack.collect {
             onBackClick()
@@ -38,13 +41,13 @@ fun ModelDownloadScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Model Download") },
+                title = { Text(stringResource(R.string.model_download_title)) },
                 navigationIcon = {
                     IconButton(onClick = {
                         viewModel.cancelDownload()
                         onBackClick()
                     }) {
-                        Icon(Icons.Default.Close, contentDescription = "Close")
+                        Icon(Icons.Default.Close, contentDescription = stringResource(R.string.cancel))
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -63,7 +66,7 @@ fun ModelDownloadScreen(
             verticalArrangement = Arrangement.Center
         ) {
             Text(
-                text = "Setting up Deep Check",
+                text = stringResource(R.string.setup_deep_check),
                 style = MaterialTheme.typography.headlineMedium,
                 fontWeight = FontWeight.Bold,
                 textAlign = TextAlign.Center
@@ -72,7 +75,7 @@ fun ModelDownloadScreen(
             Spacer(modifier = Modifier.height(8.dp))
 
             Text(
-                text = "Downloading AI model (~2.7 GB)",
+                text = stringResource(R.string.downloading_model_info),
                 style = MaterialTheme.typography.bodyLarge,
                 textAlign = TextAlign.Center,
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
@@ -133,7 +136,7 @@ private fun IdleContent(
                 onCheckedChange = { onWifiOnlyToggle() }
             )
             Text(
-                text = "Wi-Fi only",
+                text = stringResource(R.string.wifi_only),
                 style = MaterialTheme.typography.bodyMedium
             )
         }
@@ -148,7 +151,7 @@ private fun IdleContent(
             )
         ) {
             Text(
-                text = "Download Model",
+                text = stringResource(R.string.start_download),
                 fontWeight = FontWeight.Bold,
                 style = MaterialTheme.typography.titleMedium
             )
@@ -191,7 +194,7 @@ private fun DownloadingContent(
             verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
             Text(
-                text = formatBytes(downloadedBytes) + " / " + formatBytes(totalBytes),
+                text = stringResource(R.string.download_progress, (progress * 100).toInt(), formatBytes(downloadedBytes), formatBytes(totalBytes)),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
             )
@@ -201,7 +204,7 @@ private fun DownloadingContent(
                     remainingBytes / speedBytesPerSec
                 } else 0L
                 Text(
-                    text = formatSpeed(speedBytesPerSec) + " · ETA " + formatEta(eta),
+                    text = formatSpeed(speedBytesPerSec) + " · " + stringResource(R.string.eta_prefix, formatEta(eta)),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
                 )
@@ -212,7 +215,7 @@ private fun DownloadingContent(
             onClick = onCancel,
             modifier = Modifier.fillMaxWidth()
         ) {
-            Text("Cancel")
+            Text(stringResource(R.string.cancel))
         }
     }
 }
@@ -225,7 +228,7 @@ private fun VerifyingContent() {
     ) {
         CircularProgressIndicator(modifier = Modifier.size(80.dp))
         Text(
-            text = "Verifying download...",
+            text = stringResource(R.string.verifying_download),
             style = MaterialTheme.typography.bodyLarge
         )
     }
@@ -242,7 +245,7 @@ private fun CompleteContent() {
             color = MaterialTheme.colorScheme.primary
         )
         Text(
-            text = "Model ready! Opening Deep Check...",
+            text = stringResource(R.string.download_complete),
             style = MaterialTheme.typography.bodyLarge,
             fontWeight = FontWeight.Medium,
             color = MaterialTheme.colorScheme.primary
@@ -285,7 +288,7 @@ private fun FailedContent(
             )
         ) {
             Text(
-                text = "Retry Download",
+                text = stringResource(R.string.retry_download),
                 fontWeight = FontWeight.Bold,
                 style = MaterialTheme.typography.titleMedium
             )
@@ -310,7 +313,7 @@ private fun formatSpeed(bytesPerSec: Long): String {
 }
 
 private fun formatEta(seconds: Long): String {
-    if (seconds <= 0) return "calculating..."
+    if (seconds <= 0) return "…"
     val hours = seconds / 3600
     val minutes = (seconds % 3600) / 60
     val secs = seconds % 60

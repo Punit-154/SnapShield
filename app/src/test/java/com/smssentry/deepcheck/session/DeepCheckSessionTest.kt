@@ -4,6 +4,9 @@ import com.smssentry.data.model.DeepCheckUpdate
 import com.smssentry.deepcheck.data.AllowlistEntry
 import com.smssentry.deepcheck.data.OfficialSitesRepository
 import com.smssentry.deepcheck.data.TestDatabaseProvider
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.*
 import org.junit.Before
@@ -17,6 +20,8 @@ class DeepCheckSessionTest : TestDatabaseProvider() {
     private val officialSites = OfficialSitesRepository(
         mapOf("hsbc" to "hsbc.co.in", "sbi" to "onlinesbi.sbi")
     )
+    
+    private val testScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
     @Before
     override fun setupDatabase() {
@@ -35,7 +40,8 @@ class DeepCheckSessionTest : TestDatabaseProvider() {
             "Hello", "+1234567890",
             object : com.smssentry.domain.service.DeepCheckListener {
                 override fun onUpdate(update: DeepCheckUpdate) { updates.add(update) }
-            }
+            },
+            testScope
         )
         session.run()
         assertTrue(updates.last() is DeepCheckUpdate.FinalVerdict)
@@ -55,7 +61,8 @@ class DeepCheckSessionTest : TestDatabaseProvider() {
             "Scammer",
             object : com.smssentry.domain.service.DeepCheckListener {
                 override fun onUpdate(update: DeepCheckUpdate) { updates.add(update) }
-            }
+            },
+            testScope
         )
         session.run()
         assertTrue(updates.any { it is DeepCheckUpdate.FinalVerdict })
@@ -73,7 +80,8 @@ class DeepCheckSessionTest : TestDatabaseProvider() {
             "Unknown",
             object : com.smssentry.domain.service.DeepCheckListener {
                 override fun onUpdate(update: DeepCheckUpdate) { updates.add(update) }
-            }
+            },
+            testScope
         )
         session.run()
         assertTrue(updates.any { it is DeepCheckUpdate.FinalVerdict })
@@ -92,7 +100,8 @@ class DeepCheckSessionTest : TestDatabaseProvider() {
             "Test message", "+1234567890",
             object : com.smssentry.domain.service.DeepCheckListener {
                 override fun onUpdate(update: DeepCheckUpdate) { updates.add(update) }
-            }
+            },
+            testScope
         )
         session.run()
         val finalVerdict = updates.filterIsInstance<DeepCheckUpdate.FinalVerdict>().lastOrNull()
@@ -115,7 +124,8 @@ class DeepCheckSessionTest : TestDatabaseProvider() {
             "Scammer",
             object : com.smssentry.domain.service.DeepCheckListener {
                 override fun onUpdate(update: DeepCheckUpdate) { updates.add(update) }
-            }
+            },
+            testScope
         )
         session.run()
         assertTrue(updates.any { it is DeepCheckUpdate.FinalVerdict })
@@ -132,7 +142,8 @@ class DeepCheckSessionTest : TestDatabaseProvider() {
             "Test", "Sender",
             object : com.smssentry.domain.service.DeepCheckListener {
                 override fun onUpdate(update: DeepCheckUpdate) { updates.add(update) }
-            }
+            },
+            testScope
         )
         session.cancel()
         session.run()
