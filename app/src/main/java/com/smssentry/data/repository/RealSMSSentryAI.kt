@@ -3,9 +3,6 @@ package com.smssentry.data.repository
 import android.content.Context
 import com.smssentry.data.model.ClassificationResult
 import com.smssentry.data.model.DeepCheckUpdate
-import com.smssentry.data.model.EvidenceItem
-import com.smssentry.data.model.DeepCheckVerdict
-import com.smssentry.data.model.SmsMessage
 import com.smssentry.deepcheck.data.AllowlistDao
 import com.smssentry.deepcheck.data.HistoryDao
 import com.smssentry.deepcheck.data.OfficialSitesRepository
@@ -55,8 +52,6 @@ class RealSMSSentryAI(
         return session
     }
 
-    override fun enableDemoMode() {}
-
     private fun classifyByRules(smsText: String): ClassificationResult {
         val lowerText = smsText.lowercase()
         val scamIndicators = listOf("urgent", "verify", "suspended", "click here", "congratulations")
@@ -98,16 +93,12 @@ class RealDeepCheckSession(
                     )
                     session.run()
                 } else {
-                    listener.onUpdate(DeepCheckUpdate.Step("Model unavailable — using rule-based analysis.", 50))
-                    listener.onUpdate(DeepCheckUpdate.FinalVerdict(
-                        DeepCheckVerdict(
-                            isScam = true,
-                            summary = "Model not available. Rule-based analysis suggests caution.",
-                            threatType = "unknown",
-                            evidence = listOf(EvidenceItem("System", "LLM model not loaded", "LOW")),
-                            recommendedActions = listOf("Verify manually with the claimed organization.")
-                        )
-                    ))
+                    listener.onUpdate(DeepCheckUpdate.Step("Model unavailable — running rule-based analysis.", 10))
+                    val session = DeepCheckSession(
+                        null, allowlistDao, historyDao, reputationDb,
+                        officialSites, proxyClient, smsText, smsSender, listener
+                    )
+                    session.run()
                 }
             } catch (e: Exception) {
                 if (_isActive.get()) {

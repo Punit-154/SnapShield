@@ -216,7 +216,7 @@ fun DetailScreen(
 
                     if (!isModelReady) {
                         Text(
-                            text = "AI model not loaded - using demo analysis",
+                            text = "AI model not loaded - using rule-based analysis",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
                             modifier = Modifier.align(Alignment.CenterHorizontally)

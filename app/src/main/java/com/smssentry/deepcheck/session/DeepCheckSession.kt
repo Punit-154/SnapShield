@@ -69,8 +69,8 @@ class DeepCheckSession(
             emitStep("Analyzing SMS content...")
 
             if (engine == null) {
-                emitStep("Model unavailable — using rule-based analysis.")
-                emitFallbackVerdict()
+                emitStep("Model unavailable — running rule-based analysis.")
+                runRuleBasedAnalysis()
                 return
             }
 
@@ -79,13 +79,13 @@ class DeepCheckSession(
                 withTimeoutOrNull(30_000L) {
                     engine.load()
                 } ?: run {
-                    emitStep("Model loading timed out — using rule-based analysis.")
-                    emitFallbackVerdict()
+                    emitStep("Model loading timed out — running rule-based analysis.")
+                    runRuleBasedAnalysis()
                     return
                 }
             } catch (e: Exception) {
-                emitStep("Model load failed: ${e.message} — using rule-based analysis.")
-                emitFallbackVerdict()
+                emitStep("Model load failed: ${e.message} — running rule-based analysis.")
+                runRuleBasedAnalysis()
                 return
             }
 
@@ -104,8 +104,8 @@ class DeepCheckSession(
                 }
 
                 if (response == null) {
-                    emitStep("Model timed out — using rule-based analysis.")
-                    emitFallbackVerdict()
+                    emitStep("Model timed out — running rule-based analysis.")
+                    runRuleBasedAnalysis()
                     return
                 }
 
@@ -152,7 +152,7 @@ class DeepCheckSession(
                     turn++
                 }
             }
-            emitFallbackVerdict()
+            runRuleBasedAnalysis()
         } finally {
             engine?.close()
             _isActive = false
@@ -226,10 +226,10 @@ class DeepCheckSession(
         emitVerdict(
             DeepCheckVerdict(
                 isScam = verdict == "SCAM",
-                summary = "Limited analysis due to model constraints. Based on available evidence, this message appears $verdict.",
+                summary = "Based on available evidence, this message appears $verdict.",
                 threatType = null,
                 evidence = evidenceList.map {
-                    EvidenceItem(source = "Fallback", detail = it, severity = "MEDIUM")
+                    EvidenceItem(source = "Rule-Based", detail = it, severity = "MEDIUM")
                 },
                 recommendedActions = if (verdict == "SCAM") {
                     listOf("Do not click any links.", "Block the sender.", "Report as spam.")
@@ -238,6 +238,68 @@ class DeepCheckSession(
                 }
             )
         )
+    }
+
+    private suspend fun runRuleBasedAnalysis() {
+        val toolExecutor = ToolExecutor(
+            allowlistDao, historyDao, reputationDb, officialSites, proxyClient
+        )
+        val urls = com.smssentry.deepcheck.prefilter.FastPathFilter.extractUrls(smsText)
+        val domains = com.smssentry.deepcheck.prefilter.FastPathFilter.extractDomains(urls)
+        val urlsJson = urls.joinToString(",") { "\"$it\"" }
+
+        emitStep("Checking URLs against scam reputation database...")
+        val repResult = withTimeoutOrNull(5_000L) {
+            toolExecutor.executeByName("offline_reputation_check", """{"urls":[$urlsJson]}""")
+        }
+        if (repResult != null && repResult.startsWith("evidence:")) {
+            val evidence = repResult.removePrefix("evidence:").trim()
+            evidenceList.add(evidence)
+            emitEvidence(evidence)
+        }
+
+        if (domains.isNotEmpty()) {
+            emitStep("Performing WHOIS domain lookup...")
+            for (domain in domains.take(2)) {
+                if (isCancelled) return
+                val whoisResult = withTimeoutOrNull(5_000L) {
+                    toolExecutor.executeByName("whois_lookup", """{"domain":"$domain"}""")
+                }
+                if (whoisResult != null && whoisResult.startsWith("evidence:")) {
+                    val evidence = whoisResult.removePrefix("evidence:").trim()
+                    evidenceList.add(evidence)
+                    emitEvidence(evidence)
+                }
+            }
+        }
+
+        emitStep("Checking for brand impersonation...")
+        val mismatchResult = withTimeoutOrNull(5_000L) {
+            toolExecutor.executeByName("brand_mismatch_check", """{"sms_text":"$smsText","urls":[$urlsJson]}""")
+        }
+        if (mismatchResult != null && mismatchResult.startsWith("evidence:")) {
+            val evidence = mismatchResult.removePrefix("evidence:").trim()
+            evidenceList.add(evidence)
+            emitEvidence(evidence)
+        }
+
+        for (domain in domains.take(2)) {
+            if (isCancelled) return
+            emitStep("Comparing $domain with official sites...")
+            val claimedEntity = officialSites.findMatchingBrand(smsText)
+            if (claimedEntity != null) {
+                val compareResult = withTimeoutOrNull(5_000L) {
+                    toolExecutor.executeByName("compare_official_site", """{"claimed_entity":"$claimedEntity","linked_domain":"$domain"}""")
+                }
+                if (compareResult != null && compareResult.startsWith("evidence:")) {
+                    val evidence = compareResult.removePrefix("evidence:").trim()
+                    evidenceList.add(evidence)
+                    emitEvidence(evidence)
+                }
+            }
+        }
+
+        emitFallbackVerdict()
     }
 
     private fun mapVerdict(v: com.smssentry.deepcheck.model.VerdictJson): DeepCheckVerdict {
