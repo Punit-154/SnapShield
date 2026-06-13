@@ -262,7 +262,7 @@ Transforms detection into immediate protection.
 Add:
 
 ```kotlin
-SMSentryAI.enableDemoMode()
+SMSSentryAI.enableDemoMode()
 ```
 
 ### Purpose

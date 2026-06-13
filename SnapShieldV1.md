@@ -1,8 +1,8 @@
-# SMSentryAI Interface Specification
+# SMSSentryAI Interface Specification
 
 ## Overview
 
-SMSentryAI is an on-device SMS scam detection system consisting of:
+SMSSentryAI is an on-device SMS scam detection system consisting of:
 
 * Tier 1: Instant SMS Classification
 * Tier 2: Deep Investigation Engine
@@ -17,7 +17,7 @@ No HTTP APIs, backend servers, or cloud dependencies are exposed to the UI layer
 
 ## Core Components
 
-### SMSentryAI
+### SMSSentryAI
 
 Singleton service that wraps all AI functionality.
 
@@ -134,7 +134,7 @@ sealed class DeepCheckUpdate {
 ## Initialization
 
 ```kotlin
-SMSentryAI.initialize(
+SMSSentryAI.initialize(
     context: Context,
     callback: (Boolean) -> Unit
 )
@@ -163,7 +163,7 @@ Initialization failed.
 # Tier 1 – Instant Classification
 
 ```kotlin
-SMSentryAI.classifySMS(
+SMSSentryAI.classifySMS(
     smsText: String,
     callback: (ClassificationResult) -> Unit
 )
@@ -184,7 +184,7 @@ SMSentryAI.classifySMS(
 # Tier 2 – Deep Check
 
 ```kotlin
-SMSentryAI.startDeepCheck(
+SMSSentryAI.startDeepCheck(
     smsText: String,
     listener: DeepCheckListener
 ): DeepCheckSession
@@ -360,7 +360,7 @@ The UI layer should know nothing about:
 The frontend communicates only through:
 
 ```text
-SMSentryAI
+SMSSentryAI
 ```
 
 This guarantees clean separation of concerns and allows AI implementation changes without affecting the UI.

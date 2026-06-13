@@ -14,5 +14,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "SnapShield"
+rootProject.name = "SMSSentry"
 include(":app")

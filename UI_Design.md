@@ -1,10 +1,10 @@
-# SMSentry UI Design Specification (V2)
+# SMSSentry UI Design Specification (V2)
 
 ## Overview
 
-This document defines the complete UI architecture for the SMSentry Android application.
+This document defines the complete UI architecture for the SMSSentry Android application.
 
-The UI is designed to work independently from the AI implementation using a mock SMSentryAI service.
+The UI is designed to work independently from the AI implementation using a mock SMSSentryAI service.
 
 Goals:
 
@@ -317,7 +317,7 @@ Evidence should accumulate instead of replacing previous state.
 
 # Mock Development Strategy
 
-1. Implement MockSMSentryAI
+1. Implement MockSMSSentryAI
 2. Build SMS Inbox
 3. Build Detail Screen
 4. Build Investigation Timeline
