@@ -1,8 +1,8 @@
-# SnapShieldAI Interface Specification
+# SMSSentryAI Interface Specification
 
 ## Overview
 
-SnapShieldAI is an on-device SMS scam detection system consisting of:
+SMSSentryAI is an on-device SMS scam detection system consisting of:
 
 * Tier 1: Instant SMS Classification
 * Tier 2: Deep Investigation Engine
@@ -17,7 +17,7 @@ No HTTP APIs, backend servers, or cloud dependencies are exposed to the UI layer
 
 ## Core Components
 
-### SnapShieldAI
+### SMSSentryAI
 
 Singleton service that wraps all AI functionality.
 
@@ -134,7 +134,7 @@ sealed class DeepCheckUpdate {
 ## Initialization
 
 ```kotlin
-SnapShieldAI.initialize(
+SMSSentryAI.initialize(
     context: Context,
     callback: (Boolean) -> Unit
 )
@@ -163,7 +163,7 @@ Initialization failed.
 # Tier 1 – Instant Classification
 
 ```kotlin
-SnapShieldAI.classifySMS(
+SMSSentryAI.classifySMS(
     smsText: String,
     callback: (ClassificationResult) -> Unit
 )
@@ -184,7 +184,7 @@ SnapShieldAI.classifySMS(
 # Tier 2 – Deep Check
 
 ```kotlin
-SnapShieldAI.startDeepCheck(
+SMSSentryAI.startDeepCheck(
     smsText: String,
     listener: DeepCheckListener
 ): DeepCheckSession
@@ -360,7 +360,7 @@ The UI layer should know nothing about:
 The frontend communicates only through:
 
 ```text
-SnapShieldAI
+SMSSentryAI
 ```
 
 This guarantees clean separation of concerns and allows AI implementation changes without affecting the UI.

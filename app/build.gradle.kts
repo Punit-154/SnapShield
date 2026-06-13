@@ -6,11 +6,11 @@ plugins {
 }
 
 android {
-    namespace = "com.snapshield"
+    namespace = "com.smssentry"
     compileSdk = 34
 
     defaultConfig {
-        applicationId = "com.snapshield"
+        applicationId = "com.smssentry"
         minSdk = 26
         targetSdk = 34
         versionCode = 1
@@ -59,8 +59,8 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.7.0")
     implementation("androidx.navigation:navigation-compose:2.7.6")
 
-    implementation("com.google.dagger:hilt-android:2.50")
-    kapt("com.google.dagger:hilt-android-compiler:2.50")
+    implementation("com.google.dagger:hilt-android:2.51")
+    kapt("com.google.dagger:hilt-android-compiler:2.51")
     implementation("androidx.hilt:hilt-navigation-compose:1.1.0")
 
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")

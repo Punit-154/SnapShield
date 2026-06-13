@@ -262,7 +262,7 @@ Transforms detection into immediate protection.
 Add:
 
 ```kotlin
-SnapShieldAI.enableDemoMode()
+SMSSentryAI.enableDemoMode()
 ```
 
 ### Purpose
