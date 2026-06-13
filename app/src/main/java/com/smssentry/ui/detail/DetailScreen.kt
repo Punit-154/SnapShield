@@ -39,7 +39,7 @@ fun DetailScreen(
 
     val isInvestigating = investigationState.progress > 0 && investigationState.verdict == null
     val canStartDeepCheck = !isInvestigating && investigationState.verdict == null
-    val isModelReady = modelState == ModelManager.State.READY || DetailViewModel.USE_DEMO_DATA
+    val isModelReady = modelState == ModelManager.State.READY
 
     val pulseAnimation by rememberInfiniteTransition(label = "pulse").animateFloat(
         initialValue = 1f,
