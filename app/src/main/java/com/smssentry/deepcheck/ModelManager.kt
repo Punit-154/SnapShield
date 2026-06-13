@@ -85,10 +85,14 @@ class LiteRtLmEngine(private val modelPath: String) : LlmInferenceEngine {
             if (!modelFile.exists() || modelFile.length() < ModelDownloadManager.MIN_FILE_SIZE_BYTES) {
                 throw IllegalStateException("Model file incomplete: ${modelFile.length()} bytes")
             }
-            val engineConfig = EngineConfig(modelPath = modelPath)
-            val eng = Engine(engineConfig)
-            eng.initialize()
-            engine = eng
+            try {
+                val engineConfig = EngineConfig(modelPath = modelPath)
+                val eng = Engine(engineConfig)
+                eng.initialize()
+                engine = eng
+            } catch (e: UnsatisfiedLinkError) {
+                throw IllegalStateException("LiteRT-LM native library not available")
+            }
         }
     }
 
