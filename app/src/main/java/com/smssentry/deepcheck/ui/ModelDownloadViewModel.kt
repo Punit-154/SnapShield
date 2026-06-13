@@ -4,7 +4,9 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.smssentry.deepcheck.ModelDownloadManager
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
@@ -25,8 +27,8 @@ class ModelDownloadViewModel @Inject constructor(
     private val _wifiOnly = MutableStateFlow(true)
     val wifiOnly: StateFlow<Boolean> = _wifiOnly.asStateFlow()
 
-    private val _navigateBack = MutableStateFlow(false)
-    val navigateBack: StateFlow<Boolean> = _navigateBack.asStateFlow()
+    private val _navigateBack = MutableSharedFlow<Unit>()
+    val navigateBack: SharedFlow<Unit> = _navigateBack
 
     fun startDownload() {
         if (wifiOnly.value && !downloadManager.isOnWiFi()) {
@@ -36,7 +38,7 @@ class ModelDownloadViewModel @Inject constructor(
             downloadManager.startDownload()
             if (downloadManager.state.value == ModelDownloadManager.State.COMPLETE) {
                 kotlinx.coroutines.delay(2000)
-                _navigateBack.value = true
+                _navigateBack.emit(Unit)
             }
         }
     }
@@ -55,6 +57,6 @@ class ModelDownloadViewModel @Inject constructor(
     }
 
     fun onNavigatedBack() {
-        _navigateBack.value = false
+        // No-op for SharedFlow
     }
 }

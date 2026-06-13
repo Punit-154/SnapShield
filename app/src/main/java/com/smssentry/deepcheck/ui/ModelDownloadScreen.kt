@@ -29,11 +29,8 @@ fun ModelDownloadScreen(
     val speedBytesPerSec by viewModel.speedBytesPerSec.collectAsState()
     val error by viewModel.error.collectAsState()
     val wifiOnly by viewModel.wifiOnly.collectAsState()
-    val navigateBack by viewModel.navigateBack.collectAsState()
-
-    LaunchedEffect(navigateBack) {
-        if (navigateBack) {
-            viewModel.onNavigatedBack()
+    LaunchedEffect(Unit) {
+        viewModel.navigateBack.collect {
             onBackClick()
         }
     }
