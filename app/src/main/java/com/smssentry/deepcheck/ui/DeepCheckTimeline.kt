@@ -1,5 +1,7 @@
 package com.smssentry.deepcheck.ui
 
+import androidx.compose.animation.*
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -16,8 +18,12 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.smssentry.data.model.DeepCheckUpdate
 import com.smssentry.data.model.DeepCheckVerdict
 import com.smssentry.data.model.EvidenceItem
@@ -25,6 +31,7 @@ import com.smssentry.data.model.InvestigationUiState
 import com.smssentry.ui.components.EvidenceCard
 import com.smssentry.ui.components.ProgressIndicator
 import com.smssentry.ui.components.VerdictCard
+import com.smssentry.ui.theme.*
 
 @Composable
 fun DeepCheckTimeline(
@@ -45,29 +52,16 @@ fun DeepCheckTimeline(
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         if (state.progress > 0 && state.verdict == null) {
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp),
-                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-            ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    ProgressIndicator(
-                        progress = state.progress,
-                        currentStep = state.currentStep
-                    )
-                }
-            }
+            AnimatedInvestigationProgress(
+                progress = state.progress,
+                currentStep = state.currentStep
+            )
         }
 
         if (state.evidence.isNotEmpty() && state.verdict == null) {
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp),
+                shape = RoundedCornerShape(16.dp),
                 elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
             ) {
                 Column(
@@ -76,18 +70,30 @@ fun DeepCheckTimeline(
                         .padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Text(
-                        text = "Evidence Timeline",
-                        fontWeight = FontWeight.Bold,
-                        style = MaterialTheme.typography.titleSmall
-                    )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Icon(
+                            Icons.Default.Warning,
+                            contentDescription = null,
+                            tint = SuspiciousOrange,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Text(
+                            text = "Evidence Timeline",
+                            fontWeight = FontWeight.Bold,
+                            style = MaterialTheme.typography.titleSmall
+                        )
+                    }
+
                     LazyColumn(
                         state = listState,
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                         modifier = Modifier.heightIn(max = 300.dp)
                     ) {
                         items(state.evidence) { evidence ->
-                            EvidenceCard(evidence = evidence)
+                            AnimatedEvidenceItem(evidence = evidence)
                         }
                     }
                 }
@@ -95,7 +101,10 @@ fun DeepCheckTimeline(
 
             OutlinedButton(
                 onClick = onCancel,
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.outlinedButtonColors(
+                    contentColor = MaterialTheme.colorScheme.error
+                )
             ) {
                 Icon(
                     Icons.Default.Close,
@@ -113,7 +122,7 @@ fun DeepCheckTimeline(
             if (state.evidence.isNotEmpty()) {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
+                    shape = RoundedCornerShape(16.dp),
                     elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
                 ) {
                     Column(
@@ -138,7 +147,7 @@ fun DeepCheckTimeline(
         state.error?.let { error ->
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp),
+                shape = RoundedCornerShape(16.dp),
                 colors = CardDefaults.cardColors(
                     containerColor = MaterialTheme.colorScheme.errorContainer
                 )
@@ -150,5 +159,112 @@ fun DeepCheckTimeline(
                 )
             }
         }
+    }
+}
+
+@Composable
+private fun AnimatedInvestigationProgress(
+    progress: Int,
+    currentStep: String?
+) {
+    val progressColor = when {
+        progress < 40 -> SafeGreen
+        progress < 70 -> SuspiciousOrange
+        else -> ScamRed
+    }
+
+    val animatedProgress by animateFloatAsState(
+        targetValue = progress / 100f,
+        animationSpec = tween(durationMillis = 500, easing = FastOutSlowInEasing),
+        label = "progress"
+    )
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    CircularProgressIndicator(
+                        progress = { animatedProgress },
+                        modifier = Modifier.size(24.dp),
+                        color = progressColor,
+                        strokeWidth = 3.dp
+                    )
+                    Text(
+                        text = "Investigating",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+                Text(
+                    text = "$progress%",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = progressColor
+                )
+            }
+
+            LinearProgressIndicator(
+                progress = { animatedProgress },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(8.dp)
+                    .clip(RoundedCornerShape(4.dp)),
+                color = progressColor,
+                trackColor = MaterialTheme.colorScheme.surfaceVariant
+            )
+
+            currentStep?.let { step ->
+                AnimatedContent(
+                    targetState = step,
+                    transitionSpec = {
+                        fadeIn() + slideInVertically { it / 2 } togetherWith
+                            fadeOut() + slideOutVertically { -it / 2 }
+                    },
+                    label = "step"
+                ) { targetStep ->
+                    Text(
+                        text = targetStep,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun AnimatedEvidenceItem(evidence: EvidenceItem) {
+    var visible by remember { mutableStateOf(false) }
+
+    LaunchedEffect(evidence) {
+        visible = false
+        kotlinx.coroutines.delay(100)
+        visible = true
+    }
+
+    AnimatedVisibility(
+        visible = visible,
+        enter = fadeIn() + slideInVertically(
+            initialOffsetY = { it / 2 }
+        )
+    ) {
+        EvidenceCard(evidence = evidence)
     }
 }

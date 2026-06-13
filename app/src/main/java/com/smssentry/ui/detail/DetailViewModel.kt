@@ -16,6 +16,7 @@ import com.smssentry.domain.service.DeepCheckListener
 import com.smssentry.domain.service.DeepCheckSession as DeepCheckSessionInterface
 import com.smssentry.domain.service.SMSSentryAI
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -32,6 +33,10 @@ class DetailViewModel @Inject constructor(
     private val proxyClient: PrivacyProxyClient,
     private val modelManager: ModelManager
 ) : ViewModel() {
+
+    companion object {
+        const val USE_DEMO_DATA = false
+    }
 
     private val aiService: SMSSentryAI = MockSMSSentryAI()
 
@@ -81,6 +86,11 @@ class DetailViewModel @Inject constructor(
         val currentMessage = _message.value ?: return
 
         _investigationState.value = InvestigationUiState()
+
+        if (USE_DEMO_DATA) {
+            runDemoInvestigation(currentMessage)
+            return
+        }
 
         viewModelScope.launch {
             val engine = if (modelManager.state.value == ModelManager.State.READY) {
@@ -133,6 +143,93 @@ class DetailViewModel @Inject constructor(
 
             deepCheckSession = session
             session.run()
+        }
+    }
+
+    private fun runDemoInvestigation(message: SmsMessage) {
+        viewModelScope.launch {
+            val demoEvidence = listOf(
+                EvidenceItem(
+                    source = "URL Analysis",
+                    detail = "Detected suspicious URL: hsbc-secure.xyz (not official domain)",
+                    severity = "HIGH"
+                ),
+                EvidenceItem(
+                    source = "Domain Check",
+                    detail = "Domain registered 2 days ago via Namecheap privacy proxy",
+                    severity = "CRITICAL"
+                ),
+                EvidenceItem(
+                    source = "Brand Mismatch",
+                    detail = "Sender claims to be HSBC but URL domain does not match official site",
+                    severity = "HIGH"
+                ),
+                EvidenceItem(
+                    source = "Reputation DB",
+                    detail = "Domain hsbc-secure.xyz found in phishing database with 94% confidence",
+                    severity = "CRITICAL"
+                ),
+                EvidenceItem(
+                    source = "Text Analysis",
+                    detail = "Message contains urgency language: 'URGENT', 'suspended', 'verify now'",
+                    severity = "MEDIUM"
+                )
+            )
+
+            val steps = listOf(
+                "Extracting URLs and domains..." to 10,
+                "Checking domain reputation..." to 25,
+                "Analyzing brand legitimacy..." to 40,
+                "Cross-referencing phishing database..." to 60,
+                "Running AI text analysis..." to 80,
+                "Compiling final verdict..." to 95
+            )
+
+            for ((stepText, progress) in steps) {
+                _investigationState.value = _investigationState.value.copy(
+                    progress = progress,
+                    currentStep = stepText
+                )
+                delay(800)
+
+                if (progress == 25) {
+                    _investigationState.value = _investigationState.value.copy(
+                        evidence = listOf(demoEvidence[0])
+                    )
+                } else if (progress == 40) {
+                    _investigationState.value = _investigationState.value.copy(
+                        evidence = demoEvidence.take(2)
+                    )
+                } else if (progress == 60) {
+                    _investigationState.value = _investigationState.value.copy(
+                        evidence = demoEvidence.take(3)
+                    )
+                } else if (progress == 80) {
+                    _investigationState.value = _investigationState.value.copy(
+                        evidence = demoEvidence.take(5)
+                    )
+                }
+            }
+
+            delay(500)
+
+            _investigationState.value = _investigationState.value.copy(
+                verdict = DeepCheckVerdict(
+                    isScam = true,
+                    threatType = "PHISHING",
+                    summary = "This message is a phishing attempt impersonating HSBC. The URL hsbc-secure.xyz is not an official HSBC domain and was registered 2 days ago.",
+                    evidence = demoEvidence,
+                    recommendedActions = listOf(
+                        "Do NOT click any links in this message",
+                        "Block this sender immediately",
+                        "Report to your bank if you shared any information",
+                        "Delete this message"
+                    )
+                ),
+                evidence = demoEvidence,
+                progress = 100,
+                currentStep = null
+            )
         }
     }
 

@@ -20,9 +20,9 @@ class ModelDownloadManager(private val context: Context) {
 
     companion object {
         const val MODEL_URL =
-            "https://huggingface.co/google/gemma-4-3b-it/resolve/main/gemma-4-e4b-it-int4.tflite"
-        const val MODEL_FILE_NAME = "gemma-4-e4b-it-int4.tflite"
-        const val MIN_FILE_SIZE_BYTES = 1_000_000_000L
+            "https://huggingface.co/google/gemma-2-2b-it/resolve/main/gemma-2-2b-it-int4.tflite"
+        const val MODEL_FILE_NAME = "gemma-2-2b-it-int4.tflite"
+        const val MIN_FILE_SIZE_BYTES = 500_000_000L
     }
 
     private val _state = MutableStateFlow(State.IDLE)
