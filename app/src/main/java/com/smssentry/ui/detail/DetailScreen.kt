@@ -1,17 +1,19 @@
 package com.smssentry.ui.detail
 
 import androidx.compose.animation.*
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -32,6 +34,28 @@ fun DetailScreen(
     val investigationState by viewModel.investigationState.collectAsState()
     val showDownloadPrompt by viewModel.showDownloadPrompt.collectAsState()
     val modelState by viewModel.modelState.collectAsState()
+
+    var badgeVisible by remember { mutableStateOf(false) }
+
+    val isInvestigating = investigationState.progress > 0 && investigationState.verdict == null
+    val canStartDeepCheck = !isInvestigating && investigationState.verdict == null
+    val isModelReady = modelState == ModelManager.State.READY || DetailViewModel.USE_DEMO_DATA
+
+    val pulseAnimation by rememberInfiniteTransition(label = "pulse").animateFloat(
+        initialValue = 1f,
+        targetValue = 1.05f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1000, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "pulseScale"
+    )
+
+    LaunchedEffect(message?.classification) {
+        badgeVisible = false
+        kotlinx.coroutines.delay(100)
+        badgeVisible = true
+    }
 
     if (showDownloadPrompt) {
         AlertDialog(
@@ -81,9 +105,9 @@ fun DetailScreen(
                     .padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                // Message Card
                 Card(
                     modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
                     elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
                 ) {
                     Column(
@@ -102,7 +126,7 @@ fun DetailScreen(
                                 style = MaterialTheme.typography.titleMedium
                             )
                             Text(
-                                text = SimpleDateFormat("MMM dd, HH:mm", Locale.getDefault())
+                                text = SimpleDateFormat("MMM dd, hh:mm a", Locale.getDefault())
                                     .format(Date(sms.timestamp)),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
@@ -115,10 +139,10 @@ fun DetailScreen(
                     }
                 }
 
-                // Classification Card
                 sms.classification?.let { classification ->
                     Card(
                         modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(16.dp),
                         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
                     ) {
                         Column(
@@ -133,11 +157,22 @@ fun DetailScreen(
                                 style = MaterialTheme.typography.titleMedium
                             )
 
-                            ShieldBadge(
-                                label = classification.label,
-                                riskScore = classification.riskScore,
-                                animated = true
-                            )
+                            AnimatedVisibility(
+                                visible = badgeVisible,
+                                enter = scaleIn(
+                                    animationSpec = spring(
+                                        dampingRatio = Spring.DampingRatioMediumBouncy,
+                                        stiffness = Spring.StiffnessLow
+                                    )
+                                ) + fadeIn(),
+                                exit = fadeOut()
+                            ) {
+                                ShieldBadge(
+                                    label = classification.label,
+                                    riskScore = classification.riskScore,
+                                    animated = true
+                                )
+                            }
 
                             RiskScoreBar(riskScore = classification.riskScore)
 
@@ -150,31 +185,49 @@ fun DetailScreen(
                     }
                 }
 
-                // Privacy Indicator
                 PrivacyIndicator()
 
-                // Deep Check Button (shown when no investigation is active)
-                if (investigationState.progress == 0 && investigationState.verdict == null) {
+                if (canStartDeepCheck) {
                     Button(
                         onClick = {
-                            if (modelState != ModelManager.State.READY) {
+                            if (!isModelReady) {
                                 viewModel.checkModelAndPromptDownload()
                             }
                             viewModel.startDeepCheck()
                         },
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .then(
+                                if (isInvestigating) Modifier.scale(pulseAnimation) else Modifier
+                            ),
+                        shape = RoundedCornerShape(12.dp),
                         colors = ButtonDefaults.buttonColors(
                             containerColor = MaterialTheme.colorScheme.primary
-                        )
+                        ),
+                        enabled = isModelReady
                     ) {
+                        Icon(
+                            Icons.Default.Warning,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
                         Text(
                             text = "\uD83D\uDD0D Deep Check",
                             fontWeight = FontWeight.Bold
                         )
                     }
+
+                    if (!isModelReady) {
+                        Text(
+                            text = "Download the AI model to enable Deep Check",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                            modifier = Modifier.align(Alignment.CenterHorizontally)
+                        )
+                    }
                 }
 
-                // Deep Check Timeline (progress, evidence, verdict, error)
                 if (investigationState.progress > 0 || investigationState.verdict != null || investigationState.error != null) {
                     DeepCheckTimeline(
                         state = investigationState,

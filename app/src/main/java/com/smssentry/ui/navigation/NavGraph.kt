@@ -9,6 +9,7 @@ import androidx.navigation.navArgument
 import com.smssentry.deepcheck.ui.ModelDownloadScreen
 import com.smssentry.ui.detail.DetailScreen
 import com.smssentry.ui.inbox.InboxScreen
+import com.smssentry.ui.theme.ThemePreferenceRepository
 
 sealed class Screen(val route: String) {
     data object Inbox : Screen("inbox")
@@ -19,7 +20,10 @@ sealed class Screen(val route: String) {
 }
 
 @Composable
-fun SMSSentryNavGraph(navController: NavHostController) {
+fun SMSSentryNavGraph(
+    navController: NavHostController,
+    themeRepository: ThemePreferenceRepository
+) {
     NavHost(
         navController = navController,
         startDestination = Screen.Inbox.route
@@ -28,7 +32,8 @@ fun SMSSentryNavGraph(navController: NavHostController) {
             InboxScreen(
                 onMessageClick = { smsId ->
                     navController.navigate(Screen.Detail.createRoute(smsId))
-                }
+                },
+                themeRepository = themeRepository
             )
         }
 

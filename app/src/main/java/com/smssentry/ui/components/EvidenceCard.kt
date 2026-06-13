@@ -30,7 +30,7 @@ fun EvidenceCard(
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surface
         ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
     ) {
         Row(
             modifier = Modifier
@@ -39,7 +39,6 @@ fun EvidenceCard(
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalAlignment = Alignment.Top
         ) {
-            // Extracted Tag for better readability
             SeverityTag(
                 severity = evidence.severity,
                 contentColor = severityColor,
@@ -88,9 +87,9 @@ private fun SeverityTag(
 
 private fun getSeverityColors(severity: String): Pair<Color, Color> {
     return when (severity.uppercase()) {
-        "CRITICAL" -> CriticalRed to ScamRedBackground
-        "HIGH" -> HighOrange to SuspiciousOrangeBackground
-        "MEDIUM" -> MediumYellow to SafeGreenBackground // Note: SafeGreenBackground might be a typo for Medium
+        "CRITICAL" -> ScamRed to ScamRedBackground
+        "HIGH" -> SuspiciousOrange to SuspiciousOrangeBackground
+        "MEDIUM" -> SafeGreen to SafeGreenBackground
         "LOW" -> LowGray to Color.LightGray.copy(alpha = 0.3f)
         else -> LowGray to Color.LightGray.copy(alpha = 0.3f)
     }
