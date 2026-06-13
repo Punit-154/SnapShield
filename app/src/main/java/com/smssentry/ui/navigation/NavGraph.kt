@@ -32,7 +32,8 @@ fun SMSSentryNavGraph(
             InboxScreen(
                 onMessageClick = { smsId ->
                     navController.navigate(Screen.Detail.createRoute(smsId))
-                }
+                },
+                themeRepository = themeRepository
             )
         }
 

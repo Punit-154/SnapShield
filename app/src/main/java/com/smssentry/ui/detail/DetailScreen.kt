@@ -190,11 +190,7 @@ fun DetailScreen(
                 if (canStartDeepCheck) {
                     Button(
                         onClick = {
-                            if (isModelReady) {
-                                viewModel.startDeepCheck()
-                            } else {
-                                viewModel.checkModelAndPromptDownload()
-                            }
+                            viewModel.startDeepCheck()
                         },
                         modifier = Modifier
                             .fillMaxWidth()
@@ -213,14 +209,14 @@ fun DetailScreen(
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            text = "\uD83D\uDD0D Deep Check",
+                            text = "Deep Check",
                             fontWeight = FontWeight.Bold
                         )
                     }
 
                     if (!isModelReady) {
                         Text(
-                            text = "Tap to download the AI model for full Deep Check",
+                            text = "AI model not loaded - using demo analysis",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
                             modifier = Modifier.align(Alignment.CenterHorizontally)
