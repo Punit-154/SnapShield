@@ -270,7 +270,7 @@ fun ConversationListScreen(
                                 // Staggered entrance animation
                                 var itemVisible by remember { mutableStateOf(false) }
                                 LaunchedEffect(Unit) {
-                                    delay(index * 30L)
+                                    delay(minOf(index, 15) * 30L)
                                     itemVisible = true
                                 }
 

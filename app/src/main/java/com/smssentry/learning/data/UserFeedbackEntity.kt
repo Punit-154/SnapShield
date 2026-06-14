@@ -24,8 +24,13 @@ data class UserFeedbackEntity(
     /** Sender phone number or shortcode */
     val address: String,
 
-    /** Message text */
-    val body: String,
+    /** Truncated message preview (first 50 chars) — NOT full body */
+    @ColumnInfo(name = "body_preview")
+    val bodyPreview: String,
+
+    /** SHA-256 hash of the full body for deduplication */
+    @ColumnInfo(name = "body_hash")
+    val bodyHash: String,
 
     /** Original message timestamp */
     @ColumnInfo(name = "sms_timestamp")

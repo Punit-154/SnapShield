@@ -151,7 +151,7 @@ class SmsRepository @Inject constructor(
             while (it.moveToNext()) {
                 val id      = it.getString(idIdx) ?: continue
                 val address = it.getString(addressIdx) ?: "Unknown"
-                val body    = it.getString(bodyIdx) ?: continue
+                val body    = it.getString(bodyIdx)?.takeIf { b -> b.isNotBlank() } ?: continue
                 val date    = it.getLong(dateIdx)
                 val type    = it.getInt(typeIdx)
                 val read    = it.getInt(readIdx)
@@ -341,7 +341,9 @@ class SmsRepository @Inject constructor(
                 put(Telephony.Sms.TYPE, Telephony.Sms.MESSAGE_TYPE_SENT)
             }
             contentResolver.insert(Telephony.Sms.CONTENT_URI, values)
-            Log.d(TAG, "SMS sent to $recipient")
+            if (com.smssentry.BuildConfig.DEBUG) {
+                Log.d(TAG, "SMS sent to $recipient")
+            }
             true
         } catch (e: Exception) {
             Log.e(TAG, "Failed to send SMS", e)

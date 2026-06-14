@@ -13,6 +13,7 @@ import com.smssentry.learning.data.UserFeedbackEntity
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import java.security.MessageDigest
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -51,6 +52,13 @@ class PersonalLearningRepository @Inject constructor(
         const val MIN_FEEDBACK_FOR_DISTRUST = 2
     }
 
+    /** Hash body using SHA-256 for privacy-safe deduplication */
+    private fun hashBody(body: String): String {
+        val digest = MessageDigest.getInstance("SHA-256")
+        return digest.digest(body.toByteArray())
+            .joinToString("") { "%02x".format(it) }
+    }
+
     // ── User Feedback ────────────────────────────────────────────────────
 
     /**
@@ -69,7 +77,8 @@ class PersonalLearningRepository @Inject constructor(
 
         val entry = UserFeedbackEntity(
             address = address,
-            body = body,
+            bodyPreview = body.take(50),
+            bodyHash = hashBody(body),
             smsTimestamp = smsTimestamp,
             userLabel = userLabel,
             aiPrediction = aiPrediction,
@@ -81,8 +90,10 @@ class PersonalLearningRepository @Inject constructor(
         dao.insertFeedback(entry)
         recalculateSenderTrust(address)
 
-        Log.d(TAG, "Feedback submitted: $address → $userLabel" +
-                if (wasCorrected) " (corrected from $aiPrediction)" else "")
+        if (com.smssentry.BuildConfig.DEBUG) {
+            Log.d(TAG, "Feedback submitted: $address → $userLabel" +
+                    if (wasCorrected) " (corrected from $aiPrediction)" else "")
+        }
     }
 
     // ── Sender Trust ─────────────────────────────────────────────────────
@@ -254,7 +265,8 @@ class PersonalLearningRepository @Inject constructor(
                     feedbackBatch.add(
                         UserFeedbackEntity(
                             address = address,
-                            body = body,
+                            bodyPreview = body.take(50),
+                            bodyHash = hashBody(body),
                             smsTimestamp = timestamp,
                             userLabel = "SAFE",
                             source = "AUTO_CONTACT"
@@ -265,7 +277,8 @@ class PersonalLearningRepository @Inject constructor(
                     feedbackBatch.add(
                         UserFeedbackEntity(
                             address = address,
-                            body = body,
+                            bodyPreview = body.take(50),
+                            bodyHash = hashBody(body),
                             smsTimestamp = timestamp,
                             userLabel = "UNLABELED",
                             source = "BULK_IMPORT"

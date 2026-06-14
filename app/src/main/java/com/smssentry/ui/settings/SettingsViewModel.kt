@@ -3,6 +3,7 @@ package com.smssentry.ui.settings
 import android.app.Application
 import android.app.role.RoleManager
 import android.os.Build
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.smssentry.deepcheck.data.ModelRepository
@@ -93,7 +94,8 @@ class SettingsViewModel @Inject constructor(
         return try {
             val info = application.packageManager.getPackageInfo(application.packageName, 0)
             info.versionName ?: "Unknown"
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            Log.w("SettingsVM", "Failed to get app version", e)
             "Unknown"
         }
     }

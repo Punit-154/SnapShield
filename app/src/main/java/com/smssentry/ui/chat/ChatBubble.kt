@@ -36,6 +36,7 @@ import java.util.Locale
 
 private val SentBubbleShape = RoundedCornerShape(16.dp, 16.dp, 4.dp, 16.dp)
 private val ReceivedBubbleShape = RoundedCornerShape(16.dp, 16.dp, 16.dp, 4.dp)
+private val TimeFormat = SimpleDateFormat("h:mm a", Locale.getDefault())
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -45,8 +46,7 @@ fun ChatBubble(
     modifier: Modifier = Modifier,
 ) {
     val maxBubbleWidth = (LocalConfiguration.current.screenWidthDp * 0.78f).dp
-    val timeFormat = SimpleDateFormat("h:mm a", Locale.getDefault())
-    val timeText = timeFormat.format(Date(message.timestamp))
+    val timeText = TimeFormat.format(Date(message.timestamp))
     val haptic = LocalHapticFeedback.current
 
     val isSent = message.isSent

@@ -56,7 +56,9 @@ class SmsReceiver : BroadcastReceiver() {
 
                 for ((sender, bodyBuilder) in smsByAddress) {
                     val body = bodyBuilder.toString()
-                    Log.d(TAG, "SMS received from $sender: ${body.take(50)}")
+                    if (com.smssentry.BuildConfig.DEBUG) {
+                        Log.d(TAG, "SMS received from $sender: ${body.take(50)}")
+                    }
 
                     // CRITICAL: Write to SMS content provider so the message
                     // persists and shows in the inbox. As the default SMS app,

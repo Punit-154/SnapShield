@@ -13,6 +13,8 @@ import com.smssentry.data.repository.SmsRepository
 import com.smssentry.data.util.ContactResolver
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -48,6 +50,7 @@ class ChatViewModel @Inject constructor(
     fun clearSendError() { _sendError.value = null }
 
     private var smsObserver: ContentObserver? = null
+    private var debounceJob: Job? = null
 
     init {
         resolveContact()
@@ -124,8 +127,12 @@ class ChatViewModel @Inject constructor(
     private fun registerSmsObserver() {
         smsObserver = object : ContentObserver(Handler(Looper.getMainLooper())) {
             override fun onChange(selfChange: Boolean) {
-                loadMessages()
-                markAsRead()
+                debounceJob?.cancel()
+                debounceJob = viewModelScope.launch {
+                    delay(200L)
+                    loadMessages()
+                    markAsRead()
+                }
             }
         }
         context.contentResolver.registerContentObserver(

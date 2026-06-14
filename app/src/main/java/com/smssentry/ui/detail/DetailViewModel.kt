@@ -74,8 +74,19 @@ class DetailViewModel @Inject constructor(
         }
     }
 
+    private var lastDeepCheckTime = 0L
+    private val deepCheckCooldownMs = 10_000L // 10 second cooldown
+
     fun startDeepCheck() {
         val currentMessage = _message.value ?: return
+        val now = System.currentTimeMillis()
+        if (now - lastDeepCheckTime < deepCheckCooldownMs && lastDeepCheckTime > 0) {
+            _investigationState.value = _investigationState.value.copy(
+                error = "Please wait a moment before running again"
+            )
+            return
+        }
+        lastDeepCheckTime = now
 
         _investigationState.value = InvestigationUiState()
 

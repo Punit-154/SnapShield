@@ -17,6 +17,7 @@ import com.smssentry.data.model.Conversation
 import com.smssentry.data.util.ContactResolver
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -24,6 +25,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
@@ -85,6 +87,7 @@ class ConversationListViewModel @Inject constructor(
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     private var smsObserver: ContentObserver? = null
+    private var debounceJob: Job? = null
 
     init {
         loadConversations()
@@ -312,7 +315,11 @@ class ConversationListViewModel @Inject constructor(
     private fun registerSmsObserver() {
         smsObserver = object : ContentObserver(Handler(Looper.getMainLooper())) {
             override fun onChange(selfChange: Boolean) {
-                loadConversations()
+                debounceJob?.cancel()
+                debounceJob = viewModelScope.launch {
+                    delay(300L)
+                    loadConversations()
+                }
             }
         }
         context.contentResolver.registerContentObserver(

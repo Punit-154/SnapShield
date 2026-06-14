@@ -145,7 +145,7 @@ class PrivacyProxyClient(private val baseUrl: String?) {
         return try {
             withContext(Dispatchers.IO) {
                 val request = Request.Builder()
-                    .url("$baseUrl/whois?domain=$domain")
+                    .url("$baseUrl/whois?domain=${java.net.URLEncoder.encode(domain, "UTF-8")}")
                     .get()
                     .build()
                 val response = client.newCall(request).execute()
@@ -185,7 +185,7 @@ class PrivacyProxyClient(private val baseUrl: String?) {
         return try {
             withContext(Dispatchers.IO) {
                 val request = Request.Builder()
-                    .url("$baseUrl/fetch-page?url=$url")
+                    .url("$baseUrl/fetch-page?url=${java.net.URLEncoder.encode(url, "UTF-8")}")
                     .get()
                     .build()
                 val response = client.newCall(request).execute()

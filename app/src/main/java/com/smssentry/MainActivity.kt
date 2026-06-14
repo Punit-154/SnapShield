@@ -190,7 +190,9 @@ class MainActivity : ComponentActivity() {
         }
 
         if (recipient.isNotBlank() || body.isNotBlank()) {
-            Log.d(TAG, "SMS compose intent: recipient=$recipient, body=${body.take(30)}")
+            if (BuildConfig.DEBUG) {
+                Log.d(TAG, "SMS compose intent: recipient=$recipient, body=${body.take(30)}")
+            }
             val encodedRecipient = java.net.URLEncoder.encode(recipient, "UTF-8")
             pendingDeepLink.value = Screen.Compose.createRoute(encodedRecipient)
             // Clear the action so we don't re-navigate on config change

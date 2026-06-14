@@ -8,6 +8,7 @@ import android.content.Intent
 import android.provider.Telephony
 import android.telephony.SmsManager
 import android.util.Log
+import com.smssentry.BuildConfig
 import androidx.core.app.RemoteInput
 
 /**
@@ -51,7 +52,9 @@ class NotificationActionReceiver : BroadcastReceiver() {
             return
         }
 
-        Log.d(TAG, "Sending reply to $sender: ${replyText.take(50)}...")
+        if (BuildConfig.DEBUG) {
+            Log.d(TAG, "Sending reply to $sender: ${replyText.take(50)}...")
+        }
 
         try {
             // Send the SMS

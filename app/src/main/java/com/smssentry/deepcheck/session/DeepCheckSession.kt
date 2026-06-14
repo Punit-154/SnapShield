@@ -1,5 +1,7 @@
 package com.smssentry.deepcheck.session
 
+import android.util.Log
+
 import android.content.Context
 import com.smssentry.R
 import com.smssentry.data.model.DeepCheckUpdate
@@ -88,6 +90,8 @@ class DeepCheckSession(
 
             if (engine == null) {
                 Diagnostics.w(Diagnostics.SESSION, "Engine is null — falling back to rule-based")
+                emitStep("AI model not available — running limited analysis", 15)
+                kotlinx.coroutines.delay(500) // brief pause so user sees the message
                 emitStep(context.getString(R.string.step_rule_based), 50)
                 runRuleBasedAnalysis()
                 return
@@ -361,9 +365,13 @@ class DeepCheckSession(
             applicationScope.launch {
                 try {
                     withContext(dispatchers.io) { historyDao.insert(entry) }
-                } catch (_: Exception) {}
+                } catch (e: Exception) {
+                    Log.w("DeepCheck", "Failed to insert history entry", e)
+                }
             }
-        } catch (_: Exception) {}
+        } catch (e: Exception) {
+            Log.w("DeepCheck", "Failed to record history", e)
+        }
     }
 
     private fun emitFallbackVerdict(llmContext: String? = null) {
