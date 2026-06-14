@@ -4,6 +4,9 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.widget.Toast
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -27,8 +30,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Shield
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -55,6 +58,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -63,7 +67,6 @@ import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
 import java.util.Locale
-import java.util.concurrent.TimeUnit
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -98,6 +101,11 @@ fun ChatScreen(
     val isSending by viewModel.isSending.collectAsState()
     val context = LocalContext.current
 
+    // Derive loading state: true until first real collection completes
+    var hasLoaded by remember { mutableStateOf(false) }
+    LaunchedEffect(messages) { hasLoaded = true }
+    val isLoading = !hasLoaded
+
     var messageText by rememberSaveable { mutableStateOf("") }
     var showMenu by remember { mutableStateOf(false) }
 
@@ -111,6 +119,7 @@ fun ChatScreen(
     }
 
     Scaffold(
+        modifier = Modifier.imePadding(),
         topBar = {
             TopAppBar(
                 title = {
@@ -204,40 +213,79 @@ fun ChatScreen(
         // Build display items (messages + date headers + time gaps)
         val displayItems = remember(messages) { buildDisplayItems(messages) }
 
-        LazyColumn(
-            state = listState,
+        Box(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding),
-            reverseLayout = true,
-            verticalArrangement = Arrangement.Top,
         ) {
-            items(
-                items = displayItems,
-                key = { item ->
-                    when (item) {
-                        is DisplayItem.MessageItem -> "msg_${item.message.id}"
-                        is DisplayItem.DateHeader -> "date_${item.label}"
-                        is DisplayItem.TimeGap -> "gap_${item.timestamp}"
-                    }
-                },
-            ) { item ->
-                when (item) {
-                    is DisplayItem.MessageItem -> {
-                        ChatBubble(
-                            message = item.message,
-                            onLongPress = {
-                                copyToClipboard(context, item.message.text)
-                            },
+            when {
+                isLoading -> {
+                    // Subtle loading indicator
+                    CircularProgressIndicator(
+                        modifier = Modifier
+                            .size(32.dp)
+                            .align(Alignment.Center),
+                        strokeWidth = 2.dp,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                }
+
+                messages.isEmpty() -> {
+                    // Empty state
+                    Column(
+                        modifier = Modifier.align(Alignment.Center),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                    ) {
+                        Text(
+                            text = "No messages yet",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = "Start the conversation!",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                         )
                     }
+                }
 
-                    is DisplayItem.DateHeader -> {
-                        DateHeaderRow(label = item.label)
-                    }
+                else -> {
+                    LazyColumn(
+                        state = listState,
+                        modifier = Modifier.fillMaxSize(),
+                        reverseLayout = true,
+                        verticalArrangement = Arrangement.Top,
+                    ) {
+                        items(
+                            items = displayItems,
+                            key = { item ->
+                                when (item) {
+                                    is DisplayItem.MessageItem -> "msg_${item.message.id}"
+                                    is DisplayItem.DateHeader -> "date_${item.label}"
+                                    is DisplayItem.TimeGap -> "gap_${item.timestamp}"
+                                }
+                            },
+                        ) { item ->
+                            when (item) {
+                                is DisplayItem.MessageItem -> {
+                                    ChatBubble(
+                                        message = item.message,
+                                        onLongPress = {
+                                            copyToClipboard(context, item.message.text)
+                                        },
+                                    )
+                                }
 
-                    is DisplayItem.TimeGap -> {
-                        TimeGapRow(timestamp = item.timestamp)
+                                is DisplayItem.DateHeader -> {
+                                    DateHeaderRow(label = item.label)
+                                }
+
+                                is DisplayItem.TimeGap -> {
+                                    TimeGapRow(timestamp = item.timestamp)
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -339,55 +387,82 @@ private fun ChatInputBar(
     onSend: () -> Unit,
     isSending: Boolean,
 ) {
+    val smsLimit = 160
+    val showCounter = text.length > smsLimit - 20 // Show when nearing limit
+
     Surface(
         shadowElevation = 8.dp,
         color = MaterialTheme.colorScheme.surface,
     ) {
-        Row(
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .navigationBarsPadding()
-                .imePadding()
-                .padding(horizontal = 8.dp, vertical = 8.dp),
-            verticalAlignment = Alignment.Bottom,
+                .navigationBarsPadding(),
         ) {
-            OutlinedTextField(
-                value = text,
-                onValueChange = onTextChange,
-                modifier = Modifier.weight(1f),
-                placeholder = {
-                    Text(
-                        "Message",
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                },
-                shape = RoundedCornerShape(24.dp),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = MaterialTheme.colorScheme.primary,
-                    unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
-                    focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
-                    unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
-                ),
-                maxLines = 4,
-            )
-            Spacer(modifier = Modifier.width(8.dp))
-            IconButton(
-                onClick = onSend,
-                enabled = text.isNotBlank() && !isSending,
-                modifier = Modifier
-                    .size(48.dp)
-                    .clip(CircleShape)
-                    .background(
-                        if (text.isNotBlank() && !isSending) MaterialTheme.colorScheme.primary
-                        else MaterialTheme.colorScheme.surfaceContainerHigh
-                    ),
+            // Character counter
+            AnimatedVisibility(
+                visible = showCounter,
+                enter = fadeIn(),
+                exit = fadeOut(),
             ) {
-                Icon(
-                    imageVector = Icons.AutoMirrored.Filled.Send,
-                    contentDescription = "Send",
-                    tint = if (text.isNotBlank() && !isSending) MaterialTheme.colorScheme.onPrimary
-                    else MaterialTheme.colorScheme.onSurfaceVariant,
+                Text(
+                    text = "${text.length}/$smsLimit",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = if (text.length > smsLimit)
+                        MaterialTheme.colorScheme.error
+                    else
+                        MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 2.dp),
+                    textAlign = TextAlign.End,
                 )
+            }
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 8.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.Bottom,
+            ) {
+                OutlinedTextField(
+                    value = text,
+                    onValueChange = onTextChange,
+                    modifier = Modifier.weight(1f),
+                    placeholder = {
+                        Text(
+                            "Message",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    },
+                    shape = RoundedCornerShape(24.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = MaterialTheme.colorScheme.primary,
+                        unfocusedBorderColor = MaterialTheme.colorScheme.surfaceContainer,
+                        focusedContainerColor = MaterialTheme.colorScheme.surfaceContainer,
+                        unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainer,
+                    ),
+                    maxLines = 4,
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                IconButton(
+                    onClick = onSend,
+                    enabled = text.isNotBlank() && !isSending,
+                    modifier = Modifier
+                        .size(48.dp)
+                        .clip(CircleShape)
+                        .background(
+                            if (text.isNotBlank() && !isSending) MaterialTheme.colorScheme.primary
+                            else MaterialTheme.colorScheme.surfaceContainerHigh
+                        ),
+                ) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.Send,
+                        contentDescription = "Send",
+                        tint = if (text.isNotBlank() && !isSending) MaterialTheme.colorScheme.onPrimary
+                        else MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
             }
         }
     }

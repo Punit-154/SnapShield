@@ -64,17 +64,11 @@ fun SettingsScreen(
         topBar = {
             TopAppBar(
                 title = {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        Text(text = "⚙️", fontSize = 22.sp)
-                        Text(
-                            text = "Settings",
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 20.sp,
-                        )
-                    }
+                    Text(
+                        text = "Settings",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 20.sp,
+                    )
                 },
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {

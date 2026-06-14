@@ -130,7 +130,7 @@ class SmsReceiver : BroadcastReceiver() {
      * Runs scam detection on the message. Returns true if the message was
      * identified as SCAM (and a scam warning notification was shown).
      */
-    private fun processSms(
+    private suspend fun processSms(
         context: Context,
         sender: String,
         displayName: String,
@@ -138,15 +138,13 @@ class SmsReceiver : BroadcastReceiver() {
     ): Boolean {
         return try {
             val db = DeepCheckDatabase.getInstance(context)
-            val result = kotlinx.coroutines.runBlocking {
-                FastPathFilter.filter(
-                    context,
-                    body,
-                    sender,
-                    db.allowlistDao(),
-                    db.historyDao(),
-                )
-            }
+            val result = FastPathFilter.filter(
+                context,
+                body,
+                sender,
+                db.allowlistDao(),
+                db.historyDao(),
+            )
 
             if (result.verdict == "SCAM") {
                 NotificationHelper.showScamWarning(

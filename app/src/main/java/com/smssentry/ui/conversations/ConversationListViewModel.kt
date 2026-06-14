@@ -4,7 +4,10 @@ import android.Manifest
 import android.content.ContentResolver
 import android.content.Context
 import android.content.pm.PackageManager
+import android.database.ContentObserver
 import android.net.Uri
+import android.os.Handler
+import android.os.Looper
 import android.provider.Telephony
 import android.util.Log
 import androidx.core.content.ContextCompat
@@ -54,6 +57,7 @@ class ConversationListViewModel @Inject constructor(
 
     // Deleted conversation for undo support
     private var lastDeletedConversation: Conversation? = null
+    private var pendingDeleteJob: kotlinx.coroutines.Job? = null
 
     val conversations: StateFlow<List<Conversation>> = combine(
         _allConversations, _searchQuery, _selectedFilter
@@ -72,8 +76,11 @@ class ConversationListViewModel @Inject constructor(
         }.sortedByDescending { it.lastTimestamp }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
+    private var smsObserver: ContentObserver? = null
+
     init {
         loadConversations()
+        registerSmsObserver()
     }
 
     fun onSearchQueryChanged(query: String) {
@@ -85,12 +92,17 @@ class ConversationListViewModel @Inject constructor(
     }
 
     fun deleteConversation(threadId: Long) {
+        // Cancel any previous pending delete
+        pendingDeleteJob?.cancel()
+
         val deleted = _allConversations.value.find { it.threadId == threadId }
         lastDeletedConversation = deleted
+        // Remove from UI immediately
         _allConversations.value = _allConversations.value.filter { it.threadId != threadId }
 
-        // Attempt actual deletion from content provider
-        viewModelScope.launch {
+        // Defer actual content provider deletion — gives user time to undo
+        pendingDeleteJob = viewModelScope.launch {
+            kotlinx.coroutines.delay(5000L)
             withContext(Dispatchers.IO) {
                 try {
                     context.contentResolver.delete(
@@ -98,14 +110,18 @@ class ConversationListViewModel @Inject constructor(
                         "${Telephony.Sms.THREAD_ID} = ?",
                         arrayOf(threadId.toString())
                     )
+                    Log.d(TAG, "Deleted conversation $threadId from provider")
                 } catch (e: Exception) {
                     Log.e(TAG, "Failed to delete conversation $threadId", e)
                 }
             }
+            lastDeletedConversation = null
         }
     }
 
     fun undoLastDelete() {
+        pendingDeleteJob?.cancel()
+        pendingDeleteJob = null
         lastDeletedConversation?.let { conversation ->
             _allConversations.value = (_allConversations.value + conversation)
                 .sortedByDescending { it.lastTimestamp }
@@ -238,5 +254,23 @@ class ConversationListViewModel @Inject constructor(
                 )
             } else null
         }
+    }
+
+    private fun registerSmsObserver() {
+        smsObserver = object : ContentObserver(Handler(Looper.getMainLooper())) {
+            override fun onChange(selfChange: Boolean) {
+                loadConversations()
+            }
+        }
+        context.contentResolver.registerContentObserver(
+            Telephony.Sms.CONTENT_URI,
+            true,
+            smsObserver!!
+        )
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        smsObserver?.let { context.contentResolver.unregisterContentObserver(it) }
     }
 }

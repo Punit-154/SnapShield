@@ -208,15 +208,14 @@ object NotificationHelper {
     }
 
     /**
-     * Cancels notifications associated with a given thread ID.
+     * Cancels notifications for a given sender address.
      *
      * @param context  Application context
-     * @param threadId The thread ID whose notification should be dismissed
+     * @param sender   The sender address whose notification should be dismissed
      */
-    fun cancelNotification(context: Context, threadId: Long) {
+    fun cancelNotification(context: Context, sender: String) {
         val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        // We use sender.hashCode() as the notification ID, but threadId can serve
-        // as a fallback. Cancel by the threadId converted to a notification ID.
-        manager.cancel(threadId.toInt())
+        // Match the notification ID used in showNewMessageNotification
+        manager.cancel(sender.hashCode())
     }
 }

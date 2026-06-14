@@ -1,5 +1,10 @@
 package com.smssentry.ui.chat
 
+import android.content.Context
+import android.database.ContentObserver
+import android.os.Handler
+import android.os.Looper
+import android.provider.Telephony
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -7,6 +12,7 @@ import com.smssentry.data.model.SmsMessage
 import com.smssentry.data.repository.SmsRepository
 import com.smssentry.data.util.ContactResolver
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -18,6 +24,7 @@ class ChatViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val smsRepository: SmsRepository,
     private val contactResolver: ContactResolver,
+    @ApplicationContext private val context: Context,
 ) : ViewModel() {
 
     val threadId: Long = savedStateHandle.get<Long>("threadId") ?: -1L
@@ -35,10 +42,17 @@ class ChatViewModel @Inject constructor(
     private val _isSending = MutableStateFlow(false)
     val isSending: StateFlow<Boolean> = _isSending.asStateFlow()
 
+    private var smsObserver: ContentObserver? = null
+
     init {
         resolveContact()
         loadMessages()
         markAsRead()
+        registerSmsObserver()
+        // Dismiss any notification for this sender when opening the chat
+        if (address.isNotBlank()) {
+            com.smssentry.sms.NotificationHelper.cancelNotification(context, address)
+        }
     }
 
     private fun resolveContact() {
@@ -83,5 +97,24 @@ class ChatViewModel @Inject constructor(
             smsRepository.deleteMessage(messageId)
             loadMessages()
         }
+    }
+
+    private fun registerSmsObserver() {
+        smsObserver = object : ContentObserver(Handler(Looper.getMainLooper())) {
+            override fun onChange(selfChange: Boolean) {
+                loadMessages()
+                markAsRead()
+            }
+        }
+        context.contentResolver.registerContentObserver(
+            Telephony.Sms.CONTENT_URI,
+            true,
+            smsObserver!!
+        )
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        smsObserver?.let { context.contentResolver.unregisterContentObserver(it) }
     }
 }

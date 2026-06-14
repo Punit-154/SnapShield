@@ -93,8 +93,9 @@ fun ComposeSmsScreen(
     LaunchedEffect(state.sendResult) {
         when (state.sendResult) {
             SendResult.SUCCESS -> {
-                snackbarHostState.showSnackbar("Message sent successfully!")
+                snackbarHostState.showSnackbar("Message sent")
                 viewModel.clearSendResult()
+                onBackClick()
             }
             SendResult.FAILURE -> {
                 snackbarHostState.showSnackbar("Failed to send message. Check permissions.")
@@ -112,20 +113,11 @@ fun ComposeSmsScreen(
         topBar = {
             TopAppBar(
                 title = {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Text(
-                            text = "✉️",
-                            fontSize = 22.sp
-                        )
-                        Text(
-                            text = "New Message",
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 20.sp
-                        )
-                    }
+                    Text(
+                        text = "New Message",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 20.sp
+                    )
                 },
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
