@@ -3,6 +3,7 @@ package com.smssentry
 import android.app.Application
 import android.util.Log
 import com.smssentry.deepcheck.data.DeepCheckDatabase
+import com.smssentry.sms.NotificationHelper
 import dagger.hilt.android.HiltAndroidApp
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -18,6 +19,7 @@ class SMSSentryApp : Application() {
 
     override fun onCreate() {
         super.onCreate()
+        NotificationHelper.createChannels(this)
         pruneHistory()
     }
 

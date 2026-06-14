@@ -215,17 +215,11 @@ fun DetailScreen(
                                 .padding(16.dp),
                             verticalArrangement = Arrangement.spacedBy(14.dp)
                         ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                Text(text = "\uD83D\uDCCA", fontSize = 18.sp)
-                                Text(
+                            Text(
                                     text = stringResource(R.string.classification),
                                     fontWeight = FontWeight.Bold,
                                     style = MaterialTheme.typography.titleMedium
                                 )
-                            }
 
                             AnimatedVisibility(
                                 visible = badgeVisible,
@@ -273,17 +267,11 @@ fun DetailScreen(
                             .padding(16.dp),
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            Text(text = "\uD83E\uDD16", fontSize = 18.sp)
                             Text(
                                 text = "AI Deep Analysis",
                                 fontWeight = FontWeight.Bold,
                                 style = MaterialTheme.typography.titleMedium
                             )
-                        }
 
                         // Dynamic button based on model state
                         when (modelState) {
@@ -387,7 +375,7 @@ fun DetailScreen(
                                             text = if (investigationState.verdict != null) {
                                                 "Run Again"
                                             } else {
-                                                "⚡ Run Deep Analysis"
+                                                "Run Deep Analysis"
                                             },
                                             fontWeight = FontWeight.Bold
                                         )
@@ -414,16 +402,9 @@ fun DetailScreen(
                 if (investigationState.progress > 0 || investigationState.verdict != null || investigationState.error != null) {
                     DeepCheckTimeline(
                         state = investigationState,
-                        onCancel = { viewModel.cancelDeepCheck() }
-                    )
-                }
-
-                // ── Verdict (with share) ──
-                investigationState.verdict?.let { verdict ->
-                    VerdictCard(
-                        verdict = verdict,
-                        onShareClick = {
-                            shareVerdict(context, sms.sender, verdict)
+                        onCancel = { viewModel.cancelDeepCheck() },
+                        onShareClick = investigationState.verdict?.let { verdict ->
+                            { shareVerdict(context, sms.sender, verdict) }
                         }
                     )
                 }
@@ -495,7 +476,7 @@ private fun AnalysisProgressCard(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "🔍 Analyzing...",
+                    text = "Analyzing…",
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.SemiBold
                 )

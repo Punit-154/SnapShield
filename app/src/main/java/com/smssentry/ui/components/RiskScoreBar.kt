@@ -10,7 +10,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -30,17 +29,11 @@ fun RiskScoreBar(
         else -> ScamRed
     }
 
-    val gradientColors = when {
-        riskScore <= 30 -> listOf(SafeGreen, SafeGreenLight)
-        riskScore <= 70 -> listOf(SuspiciousOrange, SuspiciousOrangeLight)
-        else -> listOf(ScamRedDark, ScamRed)
-    }
-
     // Animated progress
     val animatedProgress by animateFloatAsState(
-        targetValue = if (animate) riskScore / 100f else riskScore / 100f,
+        targetValue = riskScore / 100f,
         animationSpec = tween(
-            durationMillis = if (animate) 1200 else 0,
+            durationMillis = if (animate) 1000 else 0,
             easing = FastOutSlowInEasing
         ),
         label = "riskProgress"
@@ -50,7 +43,7 @@ fun RiskScoreBar(
     val animatedScore by animateIntAsState(
         targetValue = riskScore,
         animationSpec = tween(
-            durationMillis = if (animate) 1200 else 0,
+            durationMillis = if (animate) 1000 else 0,
             easing = FastOutSlowInEasing
         ),
         label = "riskScore"
@@ -61,78 +54,50 @@ fun RiskScoreBar(
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.Bottom
+                verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
                     text = "Risk Score",
-                    style = MaterialTheme.typography.titleSmall,
-                    color = MaterialTheme.colorScheme.onSurface
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                 )
                 Row(
                     verticalAlignment = Alignment.Bottom,
-                    horizontalArrangement = Arrangement.spacedBy(2.dp)
+                    horizontalArrangement = Arrangement.spacedBy(1.dp)
                 ) {
                     Text(
                         text = "$animatedScore",
-                        fontWeight = FontWeight.Bold,
+                        fontWeight = FontWeight.SemiBold,
                         color = color,
-                        fontSize = 24.sp
+                        fontSize = 14.sp
                     )
                     Text(
                         text = "/100",
                         fontWeight = FontWeight.Normal,
-                        color = color.copy(alpha = 0.6f),
-                        fontSize = 14.sp,
-                        modifier = Modifier.padding(bottom = 2.dp)
+                        color = color.copy(alpha = 0.5f),
+                        fontSize = 10.sp,
+                        modifier = Modifier.padding(bottom = 1.dp)
                     )
                 }
             }
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(6.dp))
         }
 
-        // Track
+        // Thin track
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(10.dp)
-                .clip(RoundedCornerShape(5.dp))
+                .height(4.dp)
+                .clip(RoundedCornerShape(2.dp))
                 .background(MaterialTheme.colorScheme.surfaceVariant)
         ) {
-            // Progress fill with gradient
+            // Progress fill — solid color, no gradient
             Box(
                 modifier = Modifier
                     .fillMaxWidth(fraction = animatedProgress)
                     .fillMaxHeight()
-                    .clip(RoundedCornerShape(5.dp))
-                    .background(
-                        brush = Brush.horizontalGradient(gradientColors)
-                    )
-            )
-        }
-
-        // Scale labels
-        Spacer(modifier = Modifier.height(4.dp))
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Text(
-                text = "Safe",
-                style = MaterialTheme.typography.labelSmall,
-                color = SafeGreen.copy(alpha = 0.7f),
-                fontSize = 10.sp
-            )
-            Text(
-                text = "Suspicious",
-                style = MaterialTheme.typography.labelSmall,
-                color = SuspiciousOrange.copy(alpha = 0.7f),
-                fontSize = 10.sp
-            )
-            Text(
-                text = "Scam",
-                style = MaterialTheme.typography.labelSmall,
-                color = ScamRed.copy(alpha = 0.7f),
-                fontSize = 10.sp
+                    .clip(RoundedCornerShape(2.dp))
+                    .background(color)
             )
         }
     }

@@ -5,6 +5,7 @@ import android.content.Context
 import com.smssentry.BuildConfig
 import com.smssentry.data.repository.RealSMSSentryAI
 import com.smssentry.data.repository.SmsRepository
+import com.smssentry.data.util.ContactResolver
 import com.smssentry.deepcheck.data.*
 import com.smssentry.deepcheck.model.LlmInferenceEngine
 import com.smssentry.deepcheck.proxy.PrivacyProxyClient
@@ -48,8 +49,18 @@ abstract class AppModule {
 
         @Provides
         @Singleton
-        fun provideSmsRepository(contentResolver: ContentResolver, @ApplicationContext context: Context): SmsRepository {
-            return SmsRepository(contentResolver, context)
+        fun provideContactResolver(@ApplicationContext context: Context): ContactResolver {
+            return ContactResolver(context)
+        }
+
+        @Provides
+        @Singleton
+        fun provideSmsRepository(
+            contentResolver: ContentResolver,
+            @ApplicationContext context: Context,
+            contactResolver: ContactResolver,
+        ): SmsRepository {
+            return SmsRepository(contentResolver, context, contactResolver)
         }
 
         @Provides

@@ -29,7 +29,8 @@ import com.smssentry.ui.theme.*
 fun DeepCheckTimeline(
     state: InvestigationUiState,
     onCancel: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onShareClick: (() -> Unit)? = null
 ) {
     val listState = rememberLazyListState()
 
@@ -109,8 +110,7 @@ fun DeepCheckTimeline(
         }
 
         state.verdict?.let { verdict ->
-            VerdictCard(verdict = verdict)
-            EducationalExplanationCard(explanation = verdict.educationalExplanation)
+            VerdictCard(verdict = verdict, onShareClick = onShareClick)
 
             if (state.evidence.isNotEmpty()) {
                 Card(

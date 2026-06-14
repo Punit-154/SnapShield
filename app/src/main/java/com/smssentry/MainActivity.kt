@@ -120,6 +120,11 @@ class MainActivity : ComponentActivity() {
             }
         }
 
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_CONTACTS)
+            != PackageManager.PERMISSION_GRANTED) {
+            permissions.add(Manifest.permission.READ_CONTACTS)
+        }
+
         if (permissions.isNotEmpty()) {
             requestSmsPermission.launch(permissions.toTypedArray())
         }

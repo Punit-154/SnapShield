@@ -1,14 +1,12 @@
 package com.smssentry.sms
 
-import android.app.NotificationChannel
-import android.app.NotificationManager
 import android.content.BroadcastReceiver
 import android.content.ContentValues
 import android.content.Context
 import android.content.Intent
 import android.provider.Telephony
 import android.util.Log
-import androidx.core.app.NotificationCompat
+import com.smssentry.data.util.ContactResolver
 import com.smssentry.deepcheck.data.DeepCheckDatabase
 import com.smssentry.deepcheck.prefilter.FastPathFilter
 import kotlinx.coroutines.CoroutineScope
@@ -26,7 +24,6 @@ class SmsReceiver : BroadcastReceiver() {
         const val EXTRA_SENDER = "extra_sender"
         const val EXTRA_BODY = "extra_body"
         const val EXTRA_TIMESTAMP = "extra_timestamp"
-        private const val CHANNEL_ID = "scam_alerts"
     }
 
     override fun onReceive(context: Context, intent: Intent) {
@@ -55,6 +52,8 @@ class SmsReceiver : BroadcastReceiver() {
 
         receiverScope.launch {
             try {
+                val contactResolver = ContactResolver(context.applicationContext)
+
                 for ((sender, bodyBuilder) in smsByAddress) {
                     val body = bodyBuilder.toString()
                     Log.d(TAG, "SMS received from $sender: ${body.take(50)}")
@@ -64,8 +63,28 @@ class SmsReceiver : BroadcastReceiver() {
                     // it is our responsibility to store the message.
                     writeToSmsProvider(context, sender, body, finalTimestamp)
 
-                    // Run scam detection
-                    processSms(context, sender, body)
+                    // Resolve contact display name for notifications
+                    val displayName = contactResolver.getDisplayName(sender)
+
+                    // Resolve thread ID for notification grouping
+                    val threadId = try {
+                        Telephony.Threads.getOrCreateThreadId(context, sender)
+                    } catch (e: Exception) {
+                        Log.w(TAG, "Could not resolve thread ID for $sender", e)
+                        sender.hashCode().toLong()
+                    }
+
+                    // Run scam detection — show scam warning OR regular notification
+                    val isScam = processSms(context, sender, displayName, body)
+                    if (!isScam) {
+                        NotificationHelper.showNewMessageNotification(
+                            context = context,
+                            sender = sender,
+                            displayName = displayName,
+                            body = body,
+                            threadId = threadId
+                        )
+                    }
 
                     // Broadcast internally for UI updates
                     val broadcastIntent = Intent(ACTION_SMS_RECEIVED).apply {
@@ -107,8 +126,17 @@ class SmsReceiver : BroadcastReceiver() {
         }
     }
 
-    private fun processSms(context: Context, sender: String, body: String) {
-        try {
+    /**
+     * Runs scam detection on the message. Returns true if the message was
+     * identified as SCAM (and a scam warning notification was shown).
+     */
+    private fun processSms(
+        context: Context,
+        sender: String,
+        displayName: String,
+        body: String
+    ): Boolean {
+        return try {
             val db = DeepCheckDatabase.getInstance(context)
             val result = kotlinx.coroutines.runBlocking {
                 FastPathFilter.filter(
@@ -121,33 +149,20 @@ class SmsReceiver : BroadcastReceiver() {
             }
 
             if (result.verdict == "SCAM") {
-                showScamWarning(context, sender, body, result.reason ?: "Suspicious content detected")
+                NotificationHelper.showScamWarning(
+                    context = context,
+                    sender = sender,
+                    displayName = displayName,
+                    body = body,
+                    reason = result.reason ?: "Suspicious content detected"
+                )
+                true
+            } else {
+                false
             }
         } catch (e: Exception) {
             Log.e(TAG, "Error processing SMS", e)
+            false
         }
-    }
-
-    private fun showScamWarning(context: Context, sender: String, message: String, reason: String) {
-        val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-
-        val channel = NotificationChannel(
-            CHANNEL_ID,
-            "Security Alerts",
-            NotificationManager.IMPORTANCE_HIGH
-        ).apply {
-            description = "Notifications for detected scam messages"
-        }
-        notificationManager.createNotificationChannel(channel)
-
-        val builder = NotificationCompat.Builder(context, CHANNEL_ID)
-            .setSmallIcon(android.R.drawable.ic_dialog_alert)
-            .setContentTitle("⚠️ Scam Detected!")
-            .setContentText("Message from $sender: $reason")
-            .setStyle(NotificationCompat.BigTextStyle().bigText("From: $sender\nReason: $reason\n\nMessage: $message"))
-            .setPriority(NotificationCompat.PRIORITY_HIGH)
-            .setAutoCancel(true)
-
-        notificationManager.notify(System.currentTimeMillis().toInt(), builder.build())
     }
 }

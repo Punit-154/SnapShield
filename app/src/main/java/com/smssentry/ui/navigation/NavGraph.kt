@@ -11,20 +11,29 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
 import com.smssentry.deepcheck.ui.ModelDownloadScreen
+import com.smssentry.ui.chat.ChatScreen
 import com.smssentry.ui.compose.ComposeSmsScreen
+import com.smssentry.ui.conversations.ConversationListScreen
 import com.smssentry.ui.detail.DetailScreen
-import com.smssentry.ui.inbox.InboxScreen
+import com.smssentry.ui.settings.BlockedNumbersScreen
+import com.smssentry.ui.settings.SettingsScreen
 import com.smssentry.ui.theme.ThemePreferenceRepository
 
 sealed class Screen(val route: String) {
-    data object Inbox : Screen("inbox")
+    data object Conversations : Screen("conversations")
+    data object Chat : Screen("chat/{threadId}/{address}") {
+        fun createRoute(threadId: Long, address: String) =
+            "chat/$threadId/${java.net.URLEncoder.encode(address, "UTF-8")}"
+    }
     data object Detail : Screen("detail/{smsId}") {
         fun createRoute(smsId: String) = "detail/$smsId"
     }
-    data object ModelDownload : Screen("model_download")
     data object Compose : Screen("compose?recipient={recipient}") {
         fun createRoute(recipient: String = "") = "compose?recipient=$recipient"
     }
+    data object Settings : Screen("settings")
+    data object BlockedNumbers : Screen("blocked_numbers")
+    data object ModelDownload : Screen("model_download")
 }
 
 private const val TAG = "NavGraph"
@@ -37,7 +46,7 @@ fun SMSSentryNavGraph(
 ) {
     NavHost(
         navController = navController,
-        startDestination = Screen.Inbox.route,
+        startDestination = Screen.Conversations.route,
         enterTransition = {
             slideInHorizontally(
                 initialOffsetX = { it },
@@ -63,18 +72,41 @@ fun SMSSentryNavGraph(
             ) + fadeOut(animationSpec = tween(NAV_ANIM_DURATION / 2))
         }
     ) {
-        composable(Screen.Inbox.route) {
-            InboxScreen(
-                onMessageClick = { smsId ->
-                    navController.navigate(Screen.Detail.createRoute(smsId))
+        // ── Home: Conversation List ──
+        composable(Screen.Conversations.route) {
+            ConversationListScreen(
+                onConversationClick = { threadId, address ->
+                    navController.navigate(Screen.Chat.createRoute(threadId, address))
                 },
-                onComposeSms = {
+                onComposeClick = {
                     navController.navigate(Screen.Compose.createRoute())
                 },
-                themeRepository = themeRepository
+                onSettingsClick = {
+                    navController.navigate(Screen.Settings.route)
+                }
             )
         }
 
+        // ── Chat Thread ──
+        composable(
+            route = Screen.Chat.route,
+            arguments = listOf(
+                navArgument("threadId") { type = NavType.LongType },
+                navArgument("address") {
+                    type = NavType.StringType
+                    defaultValue = ""
+                }
+            )
+        ) {
+            ChatScreen(
+                onBackClick = { navController.popBackStack() },
+                onDeepCheck = { smsId ->
+                    navController.navigate(Screen.Detail.createRoute(smsId))
+                }
+            )
+        }
+
+        // ── Message Detail / AI Analysis ──
         composable(
             route = Screen.Detail.route,
             arguments = listOf(
@@ -89,6 +121,39 @@ fun SMSSentryNavGraph(
             )
         }
 
+        // ── Compose SMS ──
+        composable(
+            route = Screen.Compose.route,
+            arguments = listOf(
+                navArgument("recipient") {
+                    type = NavType.StringType
+                    defaultValue = ""
+                }
+            )
+        ) {
+            ComposeSmsScreen(
+                onBackClick = { navController.popBackStack() }
+            )
+        }
+
+        // ── Settings ──
+        composable(Screen.Settings.route) {
+            SettingsScreen(
+                onBackClick = { navController.popBackStack() },
+                onBlockedNumbersClick = {
+                    navController.navigate(Screen.BlockedNumbers.route)
+                }
+            )
+        }
+
+        // ── Blocked Numbers ──
+        composable(Screen.BlockedNumbers.route) {
+            BlockedNumbersScreen(
+                onBackClick = { navController.popBackStack() }
+            )
+        }
+
+        // ── Model Download ──
         composable(
             route = Screen.ModelDownload.route,
             enterTransition = {
@@ -106,31 +171,13 @@ fun SMSSentryNavGraph(
         ) {
             ModelDownloadScreen(
                 onBackClick = {
-                    val backQueue = navController.currentBackStack.value.map { it.destination.route }
-                    Log.d(TAG, "backQueue before pop: $backQueue")
                     if (!navController.popBackStack()) {
-                        Log.w(TAG, "popBackStack returned false, navigating to Inbox")
-                        navController.navigate(Screen.Inbox.route) {
-                            popUpTo(Screen.Inbox.route) { inclusive = true }
+                        navController.navigate(Screen.Conversations.route) {
+                            popUpTo(Screen.Conversations.route) { inclusive = true }
                         }
                     }
                 }
             )
         }
-
-        composable(
-            route = Screen.Compose.route,
-            arguments = listOf(
-                navArgument("recipient") {
-                    type = NavType.StringType
-                    defaultValue = ""
-                }
-            )
-        ) {
-            ComposeSmsScreen(
-                onBackClick = { navController.popBackStack() }
-            )
-        }
     }
 }
-
