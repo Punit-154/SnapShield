@@ -48,8 +48,7 @@ class DeepCheckSession(
     @Volatile private var isCancelled = false
     @Volatile private var _isActive = false
     override val isActive: Boolean get() = _isActive
-    private var stepIndex = 0
-    private val totalSteps = 8
+    private var currentProgress = 0
 
     override fun cancel() {
         Diagnostics.w(Diagnostics.SESSION, "Session CANCELLED")
@@ -62,7 +61,7 @@ class DeepCheckSession(
         _isActive = true
         evidenceList.clear()
         isCancelled = false
-        stepIndex = 0
+        currentProgress = 0
 
         try {
             val pre = FastPathFilter.filter(context, smsText, smsSender, allowlistDao, historyDao)
@@ -83,30 +82,30 @@ class DeepCheckSession(
             }
 
             Diagnostics.i(Diagnostics.SESSION, "Fast-path: no match — proceeding to LLM")
-            emitStep(context.getString(R.string.step_analyzing))
+            emitStep(context.getString(R.string.step_analyzing), 5)
 
             if (engine == null) {
                 Diagnostics.w(Diagnostics.SESSION, "Engine is null — falling back to rule-based")
-                emitStep(context.getString(R.string.step_rule_based))
+                emitStep(context.getString(R.string.step_rule_based), 50)
                 runRuleBasedAnalysis()
                 return
             }
 
             Diagnostics.i(Diagnostics.SESSION, "Engine available — loading model...")
-            emitStep(context.getString(R.string.step_loading_model))
+            emitStep(context.getString(R.string.step_loading_model), 10)
             try {
                 withTimeoutOrNull(DeepCheckConfig.MODEL_LOAD_TIMEOUT_MS) {
                     engine.load()
                 } ?: run {
                     Diagnostics.e(Diagnostics.SESSION, "Model load TIMEOUT after ${DeepCheckConfig.MODEL_LOAD_TIMEOUT_MS}ms")
-                    emitStep(context.getString(R.string.step_timeout))
+                    emitStep(context.getString(R.string.step_timeout), 50)
                     runRuleBasedAnalysis()
                     return
                 }
                 Diagnostics.i(Diagnostics.SESSION, "Model loaded successfully")
             } catch (e: Exception) {
                 Diagnostics.e(Diagnostics.SESSION, "Model load EXCEPTION: ${e.message}", e)
-                emitStep(context.getString(R.string.model_unavailable) + ": ${e.message}")
+                emitStep(context.getString(R.string.model_unavailable) + ": ${e.message}", 50)
                 runRuleBasedAnalysis()
                 return
             }
@@ -125,7 +124,7 @@ class DeepCheckSession(
                 // === Pre-execute tools to build enriched single-turn prompt ===
                 val evidenceLines = mutableListOf<String>()
                 try {
-                    emitStep("Running pre-analysis checks...")
+                    emitStep("Running pre-analysis checks...", 25)
                     // Brand mismatch check
                     val brandResult: ToolResult? = withTimeoutOrNull(DeepCheckConfig.TOOL_EXECUTION_TIMEOUT_MS) {
                         withContext(dispatchers.io) {
@@ -180,7 +179,7 @@ class DeepCheckSession(
                 while (turn < DeepCheckConfig.MAX_AGENT_TURNS && !isCancelled) {
                     if (response == null) {
                         Diagnostics.w(Diagnostics.SESSION, "Turn $turn: response is null (timeout)")
-                        emitStep(context.getString(R.string.step_timeout))
+                        emitStep(context.getString(R.string.step_timeout), 80)
                         runRuleBasedAnalysis()
                         return
                     }
@@ -216,7 +215,8 @@ class DeepCheckSession(
                             continue
                         }
 
-                        emitStep(describeToolCall(toolCall.first, context))
+                        val toolProgress = (55 + (turn * 8)).coerceAtMost(90)
+                        emitStep(describeToolCall(toolCall.first, context), toolProgress)
 
                         val toolResult = withTimeoutOrNull(DeepCheckConfig.TOOL_EXECUTION_TIMEOUT_MS) {
                             withContext(dispatchers.io) {
@@ -261,7 +261,7 @@ class DeepCheckSession(
                 runRuleBasedAnalysis()
             } catch (e: Exception) {
                 Diagnostics.e(Diagnostics.SESSION, "LLM inference failed: ${e::class.simpleName} — ${e.message}", e)
-                emitStep("AI analysis failed — using rule-based analysis")
+                emitStep("AI analysis failed — using rule-based analysis", 50)
                 runRuleBasedAnalysis()
             } finally {
                 session.close()
@@ -269,7 +269,7 @@ class DeepCheckSession(
         } catch (e: Exception) {
             Diagnostics.e(Diagnostics.SESSION, "DeepCheck run() FATAL error: ${e::class.simpleName} — ${e.message}", e)
             try {
-                emitStep("Analysis error — using rule-based analysis")
+                emitStep("Analysis error — using rule-based analysis", 50)
                 runRuleBasedAnalysis()
             } catch (inner: Exception) {
                 Diagnostics.e(Diagnostics.SESSION, "Even rule-based fallback failed: ${inner.message}", inner)
@@ -303,10 +303,10 @@ class DeepCheckSession(
         }
     }
 
-    private fun emitStep(description: String) {
-        stepIndex++
-        val progress = ((stepIndex.toFloat() / totalSteps) * 100).toInt().coerceAtMost(99)
-        listener.onUpdate(DeepCheckUpdate.Step(description, progress))
+    private fun emitStep(description: String, progress: Int) {
+        // Only move forward — never let progress go backwards
+        currentProgress = maxOf(currentProgress, progress).coerceIn(0, 99)
+        listener.onUpdate(DeepCheckUpdate.Step(description, currentProgress))
     }
 
     private fun emitEvidence(detail: String) {
@@ -386,7 +386,7 @@ class DeepCheckSession(
         val domains = com.smssentry.deepcheck.prefilter.FastPathFilter.extractDomains(urls)
         val urlsJson = urls.joinToString(",") { "\"$it\"" }
 
-        emitStep(context.getString(R.string.step_checking_reputation))
+        emitStep(context.getString(R.string.step_checking_reputation), 55)
         val repResult = withTimeoutOrNull(DeepCheckConfig.TOOL_EXECUTION_TIMEOUT_MS) {
             withContext(dispatchers.io) {
                 toolExecutor.executeByName("offline_reputation_check", """{"urls":[$urlsJson]}""")
@@ -398,7 +398,7 @@ class DeepCheckSession(
         }
 
         if (domains.isNotEmpty()) {
-            emitStep(context.getString(R.string.step_whois))
+            emitStep(context.getString(R.string.step_whois), 65)
             for (domain in domains.take(2)) {
                 if (isCancelled) return
                 val whoisResult = withTimeoutOrNull(DeepCheckConfig.TOOL_EXECUTION_TIMEOUT_MS) {
@@ -413,7 +413,7 @@ class DeepCheckSession(
             }
         }
 
-        emitStep(context.getString(R.string.step_brand))
+        emitStep(context.getString(R.string.step_brand), 80)
         val mismatchResult = withTimeoutOrNull(DeepCheckConfig.TOOL_EXECUTION_TIMEOUT_MS) {
             withContext(dispatchers.io) {
                 toolExecutor.executeByName("brand_mismatch_check", """{"sms_text":"$smsText","urls":[$urlsJson]}""")
@@ -428,7 +428,7 @@ class DeepCheckSession(
             if (isCancelled) return
             val claimedEntity = officialSites.findMatchingBrand(smsText)
             if (claimedEntity != null) {
-                emitStep(context.getString(R.string.step_official_compare, domain))
+                emitStep(context.getString(R.string.step_official_compare, domain), 90)
                 val compareResult = withTimeoutOrNull(DeepCheckConfig.TOOL_EXECUTION_TIMEOUT_MS) {
                     withContext(dispatchers.io) {
                         toolExecutor.executeByName("compare_official_site", """{"claimed_entity":"$claimedEntity","linked_domain":"$domain"}""")

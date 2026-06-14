@@ -206,11 +206,7 @@ private fun AnimatedInvestigationProgress(
     progress: Int,
     currentStep: String?
 ) {
-    val progressColor = when {
-        progress < 40 -> SafeGreen
-        progress < 70 -> SuspiciousOrange
-        else -> ScamRed
-    }
+    val progressColor = MaterialTheme.colorScheme.primary
 
     val animatedProgress by animateFloatAsState(
         targetValue = progress / 100f,
