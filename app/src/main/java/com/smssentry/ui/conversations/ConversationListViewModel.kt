@@ -129,6 +129,26 @@ class ConversationListViewModel @Inject constructor(
         }
     }
 
+    fun markAllAsRead() {
+        viewModelScope.launch {
+            withContext(Dispatchers.IO) {
+                try {
+                    val values = android.content.ContentValues()
+                    values.put(Telephony.Sms.READ, 1)
+                    context.contentResolver.update(
+                        Telephony.Sms.CONTENT_URI,
+                        values,
+                        "${Telephony.Sms.READ} = 0",
+                        null
+                    )
+                } catch (e: Exception) {
+                    Log.e(TAG, "Failed to mark all as read", e)
+                }
+            }
+            refresh()
+        }
+    }
+
     fun refresh() {
         loadConversations()
     }

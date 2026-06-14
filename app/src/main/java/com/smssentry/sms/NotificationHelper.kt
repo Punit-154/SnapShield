@@ -100,12 +100,12 @@ object NotificationHelper {
             .setLabel("Reply")
             .build()
 
-        val replyIntent = Intent(context, MainActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+        val replyIntent = Intent(context, NotificationActionReceiver::class.java).apply {
+            action = NotificationActionReceiver.ACTION_REPLY
             putExtra(EXTRA_THREAD_ID, threadId)
             putExtra(EXTRA_NOTIFICATION_SENDER, sender)
         }
-        val replyPendingIntent = PendingIntent.getActivity(
+        val replyPendingIntent = PendingIntent.getBroadcast(
             context,
             notificationId + 1,
             replyIntent,
@@ -121,13 +121,12 @@ object NotificationHelper {
             .build()
 
         // Mark-as-read action
-        val markReadIntent = Intent(context, MainActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+        val markReadIntent = Intent(context, NotificationActionReceiver::class.java).apply {
+            action = NotificationActionReceiver.ACTION_MARK_READ
             putExtra(EXTRA_THREAD_ID, threadId)
             putExtra(EXTRA_NOTIFICATION_SENDER, sender)
-            putExtra(EXTRA_MARK_READ, true)
         }
-        val markReadPendingIntent = PendingIntent.getActivity(
+        val markReadPendingIntent = PendingIntent.getBroadcast(
             context,
             notificationId + 2,
             markReadIntent,
@@ -193,7 +192,7 @@ object NotificationHelper {
 
         val notification = NotificationCompat.Builder(context, CHANNEL_SCAM_WARNING)
             .setSmallIcon(android.R.drawable.ic_dialog_alert)
-            .setContentTitle("⚠\uFE0F Scam Warning")
+            .setContentTitle("Scam Warning")
             .setContentText("$displayName: $reason")
             .setStyle(NotificationCompat.BigTextStyle().bigText(bigText))
             .setColor(Color.RED)

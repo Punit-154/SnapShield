@@ -2,6 +2,7 @@ package com.smssentry.ui.conversations
 
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -31,6 +32,7 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -41,6 +43,8 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.smssentry.data.model.Conversation
 import com.smssentry.ui.theme.*
+import android.graphics.BitmapFactory
+import android.net.Uri
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
@@ -149,7 +153,10 @@ fun ConversationListScreen(
                             )
                             DropdownMenuItem(
                                 text = { Text("Mark all as read") },
-                                onClick = { showOverflowMenu = false }
+                                onClick = {
+                                    showOverflowMenu = false
+                                    viewModel.markAllAsRead()
+                                }
                             )
                         }
                     }
@@ -362,19 +369,57 @@ private fun ConversationItem(
         ) {
             // ── Avatar ──
             Box(contentAlignment = Alignment.Center) {
-                Box(
-                    modifier = Modifier
-                        .size(52.dp)
-                        .clip(CircleShape)
-                        .background(avatarColor.copy(alpha = 0.15f)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = avatarLetter,
-                        color = avatarColor,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 20.sp
-                    )
+                val context = LocalContext.current
+                if (conversation.photoUri != null) {
+                    val bitmap = remember(conversation.photoUri) {
+                        try {
+                            val uri = Uri.parse(conversation.photoUri)
+                            val inputStream = context.contentResolver.openInputStream(uri)
+                            inputStream?.use { BitmapFactory.decodeStream(it) }
+                        } catch (e: Exception) { null }
+                    }
+                    if (bitmap != null) {
+                        Image(
+                            bitmap = bitmap.asImageBitmap(),
+                            contentDescription = conversation.displayName,
+                            modifier = Modifier
+                                .size(52.dp)
+                                .clip(CircleShape),
+                            contentScale = ContentScale.Crop
+                        )
+                    } else {
+                        // Letter fallback (photo URI failed to load)
+                        Box(
+                            modifier = Modifier
+                                .size(52.dp)
+                                .clip(CircleShape)
+                                .background(avatarColor.copy(alpha = 0.15f)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = avatarLetter,
+                                color = avatarColor,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 20.sp
+                            )
+                        }
+                    }
+                } else {
+                    // No photo URI — letter avatar
+                    Box(
+                        modifier = Modifier
+                            .size(52.dp)
+                            .clip(CircleShape)
+                            .background(avatarColor.copy(alpha = 0.15f)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = avatarLetter,
+                            color = avatarColor,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 20.sp
+                        )
+                    }
                 }
 
                 // Risk indicator dot

@@ -68,6 +68,15 @@
             </intent-filter>
         </receiver>
 
+        <receiver
+            android:name=".sms.NotificationActionReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.smssentry.ACTION_REPLY" />
+                <action android:name="com.smssentry.ACTION_MARK_READ" />
+            </intent-filter>
+        </receiver>
+
         <service
             android:name=".sms.HeadlessSmsSendService"
             android:permission="android.permission.SEND_RESPOND_VIA_MESSAGE"
