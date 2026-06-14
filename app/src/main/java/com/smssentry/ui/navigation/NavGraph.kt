@@ -142,6 +142,9 @@ fun SMSSentryNavGraph(
                 onBackClick = { navController.popBackStack() },
                 onBlockedNumbersClick = {
                     navController.navigate(Screen.BlockedNumbers.route)
+                },
+                onModelDownloadClick = {
+                    navController.navigate(Screen.ModelDownload.route)
                 }
             )
         }

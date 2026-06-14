@@ -18,6 +18,7 @@
     <string name="undo">Undo</string>
     <string name="no_messages">No messages match your filter</string>
     <string name="set_default_to_view">Set SMSentry as default SMS app to view messages</string>
+    <string name="mark_all_read">Mark all as read</string>
 
     <!-- Model Status -->
     <string name="model_not_downloaded">Model not downloaded</string>
@@ -39,9 +40,6 @@
     <string name="download">Download</string>
     <string name="use_rule_based">Use Rule-Based Only</string>
     <string name="classification">Classification</string>
-    <string name="deep_check">Deep Check</string>
-
-    <!-- Indicators -->
 
     <!-- Deep Check Timeline -->
     <string name="evidence_timeline">Evidence Timeline</string>
@@ -131,17 +129,10 @@
     <!-- Conversation List -->
     <string name="messages_title">Messages</string>
     <string name="search_conversations">Search conversations…</string>
-    <string name="search_messages_header">Messages</string>
     <string name="unread_count">%d unread</string>
-    <string name="delete_conversation_title">Delete conversation?</string>
-    <string name="delete_conversation_body">This will permanently delete all messages with %s.</string>
-    <string name="delete">Delete</string>
     <string name="conversation_deleted">Conversation deleted</string>
-    <string name="mark_all_read">Mark all as read</string>
 
     <!-- Chat Actions -->
-    <string name="copy">Copy</string>
-    <string name="forward">Forward</string>
     <string name="forward_message">Forward message</string>
     <string name="delete_message_title">Delete message?</string>
     <string name="delete_message_body">This message will be permanently deleted.</string>
@@ -154,6 +145,23 @@
 
     <!-- Blocked Numbers -->
     <string name="no_blocked_numbers">No blocked numbers</string>
+    <string name="blocked_numbers_empty_subtitle">Numbers you block will appear here</string>
     <string name="block_number">Block a number</string>
+    <string name="block_action">Block</string>
     <string name="unblock">Unblock</string>
+    <string name="unblock_title">Unblock number?</string>
+    <string name="unblock_body">Unblock %1$s? You will receive messages from this number again.</string>
+
+    <!-- Common actions -->
+    <string name="delete">Delete</string>
+    <string name="copy">Copy</string>
+    <string name="forward">Forward</string>
+    <string name="deep_check">Deep Check</string>
+    <string name="delete_conversation_title">Delete conversation?</string>
+    <string name="delete_conversation_body">All messages with %1$s will be permanently deleted.</string>
+    <string name="search_messages_header">Messages</string>
+    <string name="phone_number_label">Phone number</string>
+    <string name="no_messages_empty">No messages yet</string>
+    <string name="start_conversation">Start the conversation!</string>
+    <string name="message_placeholder">Message</string>
 </resources>

@@ -24,7 +24,12 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.KeyboardType
+import android.content.ContentValues
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 data class BlockedNumber(
@@ -43,6 +48,10 @@ fun BlockedNumbersScreen(
     var isLoading by remember { mutableStateOf(true) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var numberToDelete by remember { mutableStateOf<BlockedNumber?>(null) }
+    var showAddDialog by remember { mutableStateOf(false) }
+    var newNumberText by remember { mutableStateOf("") }
+    val snackbarHostState = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
 
     // Load blocked numbers
     LaunchedEffect(Unit) {
@@ -59,6 +68,21 @@ fun BlockedNumbersScreen(
     }
 
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
+        floatingActionButton = {
+            if (!isLoading && errorMessage == null) {
+                FloatingActionButton(
+                    onClick = { showAddDialog = true },
+                    containerColor = MaterialTheme.colorScheme.primary,
+                ) {
+                    Icon(
+                        Icons.Filled.Add,
+                        contentDescription = "Block a number",
+                        tint = MaterialTheme.colorScheme.onPrimary,
+                    )
+                }
+            }
+        },
         topBar = {
             TopAppBar(
                 title = {
@@ -116,7 +140,7 @@ fun BlockedNumbersScreen(
                             tint = MaterialTheme.colorScheme.error,
                         )
                         Text(
-                            text = errorMessage!!,
+                            text = errorMessage ?: "",
                             style = MaterialTheme.typography.bodyLarge,
                             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
                             modifier = Modifier.padding(horizontal = 16.dp),
@@ -188,8 +212,12 @@ fun BlockedNumbersScreen(
                                 arrayOf(toDelete.id.toString()),
                             )
                             blockedNumbers = blockedNumbers.filter { it.id != toDelete.id }
-                        } catch (_: Exception) {
-                            // Silently fail — possibly lost default SMS role
+                        } catch (e: Exception) {
+                            scope.launch {
+                                snackbarHostState.showSnackbar(
+                                    "Failed to unblock: ${e.message ?: "Unknown error"}"
+                                )
+                            }
                         }
                         numberToDelete = null
                     },
@@ -199,6 +227,70 @@ fun BlockedNumbersScreen(
             },
             dismissButton = {
                 TextButton(onClick = { numberToDelete = null }) {
+                    Text("Cancel")
+                }
+            },
+        )
+    }
+
+    // ── Add blocked number dialog ──────────────────────────────────────
+    if (showAddDialog) {
+        AlertDialog(
+            onDismissRequest = {
+                showAddDialog = false
+                newNumberText = ""
+            },
+            title = { Text("Block a number") },
+            text = {
+                OutlinedTextField(
+                    value = newNumberText,
+                    onValueChange = { newNumberText = it },
+                    label = { Text("Phone number") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        val number = newNumberText.trim()
+                        if (number.isNotEmpty()) {
+                            scope.launch {
+                                try {
+                                    val values = ContentValues().apply {
+                                        put(BlockedNumberContract.BlockedNumbers.COLUMN_ORIGINAL_NUMBER, number)
+                                    }
+                                    withContext(Dispatchers.IO) {
+                                        contentResolver.insert(
+                                            BlockedNumberContract.BlockedNumbers.CONTENT_URI,
+                                            values,
+                                        )
+                                    }
+                                    blockedNumbers = loadBlockedNumbers(contentResolver)
+                                    snackbarHostState.showSnackbar("$number blocked")
+                                } catch (e: Exception) {
+                                    snackbarHostState.showSnackbar(
+                                        "Failed to block: ${e.message ?: "Unknown error"}"
+                                    )
+                                }
+                            }
+                        }
+                        showAddDialog = false
+                        newNumberText = ""
+                    },
+                    enabled = newNumberText.trim().isNotEmpty(),
+                ) {
+                    Text("Block")
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        showAddDialog = false
+                        newNumberText = ""
+                    }
+                ) {
                     Text("Cancel")
                 }
             },

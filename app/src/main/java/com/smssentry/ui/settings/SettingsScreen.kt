@@ -43,6 +43,7 @@ import com.smssentry.ui.theme.ThemeMode
 fun SettingsScreen(
     onBackClick: () -> Unit,
     onBlockedNumbersClick: () -> Unit,
+    onModelDownloadClick: () -> Unit = {},
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsState()
@@ -210,7 +211,7 @@ fun SettingsScreen(
                     ModelRepository.State.FAILED -> MaterialTheme.colorScheme.error
                     else -> MaterialTheme.colorScheme.onSurface
                 },
-                onClick = { /* Could navigate to model download screen */ },
+                onClick = onModelDownloadClick,
             )
 
             HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))

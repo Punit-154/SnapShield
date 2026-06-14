@@ -44,6 +44,8 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.smssentry.data.model.Conversation
 import com.smssentry.data.model.SmsMessage
+import com.smssentry.R
+import androidx.compose.ui.res.stringResource
 import com.smssentry.ui.theme.*
 import android.graphics.BitmapFactory
 import android.net.Uri
@@ -354,7 +356,7 @@ fun ConversationListScreen(
                             if (searchQuery.length >= 2 && messageSearchResults.isNotEmpty()) {
                                 item {
                                     Text(
-                                        "Messages",
+                                        stringResource(R.string.search_messages_header),
                                         style = MaterialTheme.typography.labelMedium,
                                         color = MaterialTheme.colorScheme.primary,
                                         fontWeight = FontWeight.Bold,
@@ -415,8 +417,8 @@ fun ConversationListScreen(
                         conversationToDelete?.let { conv ->
                             AlertDialog(
                                 onDismissRequest = { conversationToDelete = null },
-                                title = { Text("Delete conversation?") },
-                                text = { Text("This will permanently delete all messages with ${conv.displayName}.") },
+                                title = { Text(stringResource(R.string.delete_conversation_title)) },
+                                text = { Text(stringResource(R.string.delete_conversation_body, conv.displayName)) },
                                 confirmButton = {
                                     TextButton(
                                         onClick = {
@@ -426,11 +428,11 @@ fun ConversationListScreen(
                                         colors = ButtonDefaults.textButtonColors(
                                             contentColor = MaterialTheme.colorScheme.error
                                         )
-                                    ) { Text("Delete") }
+                                    ) { Text(stringResource(R.string.delete)) }
                                 },
                                 dismissButton = {
                                     TextButton(onClick = { conversationToDelete = null }) {
-                                        Text("Cancel")
+                                        Text(stringResource(R.string.cancel))
                                     }
                                 }
                             )

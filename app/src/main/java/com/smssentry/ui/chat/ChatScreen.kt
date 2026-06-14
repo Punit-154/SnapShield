@@ -28,6 +28,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import android.content.Intent
+import androidx.compose.ui.res.stringResource
+import com.smssentry.R
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -167,8 +169,8 @@ fun ChatScreen(
     messageToDelete?.let { msg ->
         AlertDialog(
             onDismissRequest = { messageToDelete = null },
-            title = { Text("Delete message?") },
-            text = { Text("This message will be permanently deleted.") },
+            title = { Text(stringResource(R.string.delete_message_title)) },
+            text = { Text(stringResource(R.string.delete_message_body)) },
             confirmButton = {
                 TextButton(
                     onClick = {
@@ -178,11 +180,11 @@ fun ChatScreen(
                     colors = ButtonDefaults.textButtonColors(
                         contentColor = MaterialTheme.colorScheme.error
                     )
-                ) { Text("Delete") }
+                ) { Text(stringResource(R.string.delete)) }
             },
             dismissButton = {
                 TextButton(onClick = { messageToDelete = null }) {
-                    Text("Cancel")
+                    Text(stringResource(R.string.cancel))
                 }
             }
         )
@@ -192,8 +194,8 @@ fun ChatScreen(
     if (showDeleteConversation) {
         AlertDialog(
             onDismissRequest = { showDeleteConversation = false },
-            title = { Text("Delete conversation?") },
-            text = { Text("All messages with $contactName will be permanently deleted.") },
+            title = { Text(stringResource(R.string.delete_conversation_title)) },
+            text = { Text(stringResource(R.string.delete_conversation_body, contactName)) },
             confirmButton = {
                 TextButton(
                     onClick = {
@@ -204,11 +206,11 @@ fun ChatScreen(
                     colors = ButtonDefaults.textButtonColors(
                         contentColor = MaterialTheme.colorScheme.error
                     )
-                ) { Text("Delete") }
+                ) { Text(stringResource(R.string.delete)) }
             },
             dismissButton = {
                 TextButton(onClick = { showDeleteConversation = false }) {
-                    Text("Cancel")
+                    Text(stringResource(R.string.cancel))
                 }
             }
         )
@@ -219,7 +221,7 @@ fun ChatScreen(
         ModalBottomSheet(
             onDismissRequest = { selectedMessage = null }
         ) {
-            val msg = selectedMessage!!
+            val msg = selectedMessage ?: return@ModalBottomSheet
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -227,7 +229,7 @@ fun ChatScreen(
             ) {
                 // Copy
                 DropdownMenuItem(
-                    text = { Text("Copy") },
+                    text = { Text(stringResource(R.string.copy)) },
                     onClick = {
                         copyToClipboard(context, msg.text)
                         selectedMessage = null
@@ -242,13 +244,13 @@ fun ChatScreen(
                 )
                 // Forward / Share
                 DropdownMenuItem(
-                    text = { Text("Forward") },
+                    text = { Text(stringResource(R.string.forward)) },
                     onClick = {
                         val shareIntent = Intent(Intent.ACTION_SEND).apply {
                             type = "text/plain"
                             putExtra(Intent.EXTRA_TEXT, msg.text)
                         }
-                        context.startActivity(Intent.createChooser(shareIntent, "Forward message"))
+                        context.startActivity(Intent.createChooser(shareIntent, context.getString(R.string.forward_message)))
                         selectedMessage = null
                     },
                     leadingIcon = {
@@ -281,7 +283,7 @@ fun ChatScreen(
                 DropdownMenuItem(
                     text = {
                         Text(
-                            "Delete",
+                            stringResource(R.string.delete),
                             color = MaterialTheme.colorScheme.error
                         )
                     },
@@ -462,13 +464,13 @@ fun ChatScreen(
                         horizontalAlignment = Alignment.CenterHorizontally,
                     ) {
                         Text(
-                            text = "No messages yet",
+                            text = stringResource(R.string.no_messages_empty),
                             style = MaterialTheme.typography.titleMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
-                            text = "Start the conversation!",
+                            text = stringResource(R.string.start_conversation),
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                         )
