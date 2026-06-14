@@ -182,6 +182,7 @@
     <string name="error_unblock_failed">Failed to unblock: %1$s</string>
     <string name="error_block_failed">Failed to block: %1$s</string>
     <string name="error_unknown">Unknown error</string>
+    <string name="error_invalid_phone">Enter a valid phone number</string>
     <string name="number_blocked">%1$s blocked</string>
     <string name="unknown">Unknown</string>
 

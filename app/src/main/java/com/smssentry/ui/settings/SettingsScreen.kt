@@ -72,7 +72,7 @@ fun SettingsScreen(
             TopAppBar(
                 title = {
                     Text(
-                        text = "Settings",
+                        text = stringResource(R.string.settings_title),
                         fontWeight = FontWeight.Bold,
                         fontSize = 20.sp,
                     )
@@ -81,7 +81,7 @@ fun SettingsScreen(
                     IconButton(onClick = onBackClick) {
                         Icon(
                             Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Back",
+                            contentDescription = stringResource(R.string.back),
                         )
                     }
                 },
@@ -99,7 +99,7 @@ fun SettingsScreen(
                 .verticalScroll(rememberScrollState()),
         ) {
             // ── Appearance section ──────────────────────────────────────
-            SettingsSectionHeader(title = "Appearance")
+            SettingsSectionHeader(title = stringResource(R.string.section_appearance))
 
             SettingsItem(
                 icon = when (state.themeMode) {
@@ -107,7 +107,7 @@ fun SettingsScreen(
                     ThemeMode.DARK -> Icons.Filled.DarkMode
                     ThemeMode.SYSTEM -> Icons.Filled.BrightnessAuto
                 },
-                title = "Theme",
+                title = stringResource(R.string.theme),
                 subtitle = state.themeMode.label,
                 onClick = { showThemeDialog = true },
             )
@@ -115,12 +115,12 @@ fun SettingsScreen(
             HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
 
             // ── SMS section ────────────────────────────────────────────
-            SettingsSectionHeader(title = "SMS")
+            SettingsSectionHeader(title = stringResource(R.string.section_sms))
 
             SettingsItem(
                 icon = Icons.Filled.Sms,
-                title = "Default SMS app",
-                subtitle = if (state.isDefaultSmsApp) "SMSentry is your default SMS app" else "Tap to set as default",
+                title = stringResource(R.string.default_sms_app),
+                subtitle = if (state.isDefaultSmsApp) stringResource(R.string.default_sms_app_active) else stringResource(R.string.default_sms_app_inactive),
                 trailingIcon = if (state.isDefaultSmsApp) Icons.Filled.CheckCircle else Icons.Filled.Warning,
                 trailingIconTint = if (state.isDefaultSmsApp) {
                     MaterialTheme.colorScheme.primary
@@ -147,23 +147,23 @@ fun SettingsScreen(
 
             SettingsItem(
                 icon = Icons.Filled.Block,
-                title = "Blocked numbers",
-                subtitle = "Manage your blocked numbers list",
+                title = stringResource(R.string.blocked_numbers),
+                subtitle = stringResource(R.string.blocked_numbers_subtitle),
                 onClick = onBlockedNumbersClick,
             )
 
             HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
 
             // ── Personal Learning section ───────────────────────────────────
-            SettingsSectionHeader(title = "Personal Learning")
+            SettingsSectionHeader(title = stringResource(R.string.learning_section_title))
 
             SettingsItem(
                 icon = Icons.Filled.School,
-                title = if (state.isImporting) "Importing..." else "Import existing SMS",
+                title = if (state.isImporting) stringResource(R.string.learning_importing) else stringResource(R.string.learning_import_title),
                 subtitle = if (state.isImporting) {
                     "${state.importProgress} / ${state.importTotal} messages"
                 } else {
-                    "Teach the AI from your message history"
+                    stringResource(R.string.learning_import_subtitle)
                 },
                 onClick = { if (!state.isImporting) viewModel.importExistingSms() },
             )
@@ -182,7 +182,7 @@ fun SettingsScreen(
             state.learningStats?.let { stats ->
                 SettingsItem(
                     icon = Icons.Filled.Info,
-                    title = "Learning data",
+                    title = stringResource(R.string.learning_stats_title),
                     subtitle = "${stats.totalLabeled} messages learned \u2022 ${stats.trustedSenders} trusted senders",
                     onClick = {},
                 )
@@ -190,26 +190,26 @@ fun SettingsScreen(
 
             SettingsItem(
                 icon = Icons.Filled.DeleteForever,
-                title = "Clear learning data",
-                subtitle = "Remove all personal learning history",
+                title = stringResource(R.string.learning_clear_title),
+                subtitle = stringResource(R.string.learning_clear_subtitle),
                 onClick = { showClearDialog = true },
             )
 
             HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
 
             // ── AI Model section ───────────────────────────────────────
-            SettingsSectionHeader(title = "AI Model")
+            SettingsSectionHeader(title = stringResource(R.string.section_ai_model))
 
             SettingsItem(
                 icon = Icons.Filled.Memory,
-                title = "On-device AI model",
+                title = stringResource(R.string.on_device_ai_model),
                 subtitle = when (state.modelState) {
-                    ModelRepository.State.IDLE -> if (state.modelDownloaded) "Downloaded (not loaded)" else "Not downloaded"
-                    ModelRepository.State.DOWNLOADING -> "Downloading…"
-                    ModelRepository.State.VERIFYING -> "Verifying…"
-                    ModelRepository.State.LOADING -> "Loading…"
-                    ModelRepository.State.READY -> "Ready"
-                    ModelRepository.State.FAILED -> "Failed to load"
+                    ModelRepository.State.IDLE -> if (state.modelDownloaded) stringResource(R.string.model_downloaded_idle) else stringResource(R.string.model_not_downloaded_idle)
+                    ModelRepository.State.DOWNLOADING -> stringResource(R.string.model_state_downloading)
+                    ModelRepository.State.VERIFYING -> stringResource(R.string.model_state_verifying)
+                    ModelRepository.State.LOADING -> stringResource(R.string.model_state_loading)
+                    ModelRepository.State.READY -> stringResource(R.string.model_state_ready)
+                    ModelRepository.State.FAILED -> stringResource(R.string.model_state_failed)
                 },
                 trailingIcon = when (state.modelState) {
                     ModelRepository.State.READY -> Icons.Filled.CheckCircle
@@ -227,12 +227,12 @@ fun SettingsScreen(
             HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
 
             // ── About section ──────────────────────────────────────────
-            SettingsSectionHeader(title = "About")
+            SettingsSectionHeader(title = stringResource(R.string.section_about))
 
             SettingsItem(
                 icon = Icons.Filled.Info,
-                title = "SMSentry",
-                subtitle = "Version ${state.appVersion}\nAI-powered SMS protection",
+                title = stringResource(R.string.app_name),
+                subtitle = stringResource(R.string.app_version, state.appVersion, stringResource(R.string.ai_powered_description)),
                 onClick = { /* No-op or show about dialog */ },
             )
 
@@ -292,7 +292,7 @@ fun SettingsScreen(
                     viewModel.clearLearningData()
                     showClearDialog = false
                 }) {
-                    Text("Clear", color = MaterialTheme.colorScheme.error)
+                    Text(stringResource(R.string.clear), color = MaterialTheme.colorScheme.error)
                 }
             },
             dismissButton = {

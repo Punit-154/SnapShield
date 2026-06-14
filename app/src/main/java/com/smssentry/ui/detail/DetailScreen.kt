@@ -111,9 +111,9 @@ fun DetailScreen(
                     // Share button in top bar
                     message?.let { sms ->
                         IconButton(onClick = {
-                            shareMessage(context, sms.sender, sms.text, investigationState.verdict)
+                            shareMessage(context, sms.sender, sms.text, investigationState.verdict, context.getString(R.string.share_via))
                         }) {
-                            Icon(Icons.Default.Share, contentDescription = "Share")
+                            Icon(Icons.Default.Share, contentDescription = stringResource(R.string.share))
                         }
                     }
                 },
@@ -270,7 +270,7 @@ fun DetailScreen(
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                             Text(
-                                text = "AI Deep Analysis",
+                                text = stringResource(R.string.ai_deep_analysis),
                                 fontWeight = FontWeight.Bold,
                                 style = MaterialTheme.typography.titleMedium
                             )
@@ -286,15 +286,15 @@ fun DetailScreen(
                                         containerColor = MaterialTheme.colorScheme.tertiary
                                     )
                                 ) {
-                                    Icon(Icons.Default.Lock, contentDescription = "Download", Modifier.size(18.dp))
+                                    Icon(Icons.Default.Lock, contentDescription = stringResource(R.string.download), Modifier.size(18.dp))
                                     Spacer(modifier = Modifier.width(8.dp))
                                     Text(
-                                        text = "Download AI Model (~2.7 GB)",
+                                        text = stringResource(R.string.download_ai_model),
                                         fontWeight = FontWeight.Bold
                                     )
                                 }
                                 Text(
-                                    text = "Get complete protection against sophisticated scams.",
+                                    text = stringResource(R.string.download_ai_model_desc),
                                     style = MaterialTheme.typography.bodySmall,
                                     textAlign = TextAlign.Center,
                                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
@@ -317,7 +317,7 @@ fun DetailScreen(
                                         color = MaterialTheme.colorScheme.onPrimary
                                     )
                                     Spacer(modifier = Modifier.width(8.dp))
-                                    Text("Downloading...")
+                                    Text(stringResource(R.string.detail_downloading))
                                 }
                             }
 
@@ -336,7 +336,7 @@ fun DetailScreen(
                                         strokeWidth = 2.dp
                                     )
                                     Spacer(modifier = Modifier.width(8.dp))
-                                    Text("Initializing AI Engine...")
+                                    Text(stringResource(R.string.initializing_ai_engine))
                                 }
                             }
 
@@ -367,17 +367,17 @@ fun DetailScreen(
                                         )
                                         Spacer(modifier = Modifier.width(8.dp))
                                         Text(
-                                            text = "Analyzing...",
+                                            text = stringResource(R.string.analyzing),
                                             color = MaterialTheme.colorScheme.onSecondaryContainer
                                         )
                                     } else {
-                                        Icon(Icons.Default.Search, contentDescription = "Analyze", Modifier.size(18.dp))
+                                        Icon(Icons.Default.Search, contentDescription = stringResource(R.string.analyze), Modifier.size(18.dp))
                                         Spacer(modifier = Modifier.width(8.dp))
                                         Text(
                                             text = if (investigationState.verdict != null) {
-                                                "Run Again"
+                                                stringResource(R.string.run_again)
                                             } else {
-                                                "Run Deep Analysis"
+                                                stringResource(R.string.run_deep_analysis)
                                             },
                                             fontWeight = FontWeight.Bold
                                         )
@@ -395,7 +395,7 @@ fun DetailScreen(
                         state = investigationState,
                         onCancel = { viewModel.cancelDeepCheck() },
                         onShareClick = investigationState.verdict?.let { verdict ->
-                            { shareVerdict(context, sms.sender, verdict) }
+                            { shareVerdict(context, sms.sender, verdict, context.getString(R.string.share_verdict)) }
                         }
                     )
                 }
@@ -409,7 +409,7 @@ fun DetailScreen(
                     )
                 } else if (feedbackState == DetailViewModel.FeedbackState.Submitted) {
                     Text(
-                        text = "Thank you for your feedback",
+                        text = stringResource(R.string.feedback_submitted),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.primary,
                         textAlign = TextAlign.Center,
@@ -433,7 +433,7 @@ fun DetailScreen(
                 ) {
                     CircularProgressIndicator()
                     Text(
-                        text = "Loading message...",
+                        text = stringResource(R.string.loading_message),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                     )
@@ -453,7 +453,7 @@ private fun FeedbackSection(
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         Text(
-            text = "Was this analysis correct?",
+            text = stringResource(R.string.feedback_question),
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
         )
@@ -474,11 +474,11 @@ private fun FeedbackSection(
             ) {
                 Icon(
                     Icons.Default.CheckCircle,
-                    contentDescription = "Mark safe",
+                    contentDescription = stringResource(R.string.feedback_mark_safe),
                     modifier = Modifier.size(16.dp)
                 )
                 Spacer(modifier = Modifier.width(6.dp))
-                Text("Mark as Safe", fontWeight = FontWeight.Medium)
+                Text(stringResource(R.string.feedback_mark_safe), fontWeight = FontWeight.Medium)
             }
             OutlinedButton(
                 onClick = onMarkScam,
@@ -493,17 +493,17 @@ private fun FeedbackSection(
             ) {
                 Icon(
                     Icons.Default.Warning,
-                    contentDescription = "Report scam",
+                    contentDescription = stringResource(R.string.feedback_report_scam),
                     modifier = Modifier.size(16.dp)
                 )
                 Spacer(modifier = Modifier.width(6.dp))
-                Text("Report as Scam", fontWeight = FontWeight.Medium)
+                Text(stringResource(R.string.feedback_report_scam), fontWeight = FontWeight.Medium)
             }
         }
     }
 }
 
-private fun shareMessage(context: Context, sender: String, text: String, verdict: DeepCheckVerdict?) {
+private fun shareMessage(context: Context, sender: String, text: String, verdict: DeepCheckVerdict?, chooserTitle: String) {
     val shareText = buildString {
         appendLine("SMS from: $sender")
         appendLine(text)
@@ -519,10 +519,10 @@ private fun shareMessage(context: Context, sender: String, text: String, verdict
         type = "text/plain"
         putExtra(Intent.EXTRA_TEXT, shareText)
     }
-    context.startActivity(Intent.createChooser(intent, "Share via"))
+    context.startActivity(Intent.createChooser(intent, chooserTitle))
 }
 
-private fun shareVerdict(context: Context, sender: String, verdict: DeepCheckVerdict) {
+private fun shareVerdict(context: Context, sender: String, verdict: DeepCheckVerdict, chooserTitle: String) {
     val shareText = buildString {
         appendLine("SMSentry Deep Check Result")
         appendLine("━━━━━━━━━━━━━━━━━━")
@@ -543,5 +543,5 @@ private fun shareVerdict(context: Context, sender: String, verdict: DeepCheckVer
         type = "text/plain"
         putExtra(Intent.EXTRA_TEXT, shareText)
     }
-    context.startActivity(Intent.createChooser(intent, "Share verdict"))
+    context.startActivity(Intent.createChooser(intent, chooserTitle))
 }

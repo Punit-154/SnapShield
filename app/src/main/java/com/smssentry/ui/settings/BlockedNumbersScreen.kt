@@ -2,6 +2,8 @@ package com.smssentry.ui.settings
 
 import android.Manifest
 import android.content.ContentResolver
+import android.content.Context
+import android.telephony.PhoneNumberUtils
 import android.content.pm.PackageManager
 import android.os.Build
 import android.provider.BlockedNumberContract
@@ -28,6 +30,8 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.input.KeyboardType
 import android.content.ContentValues
+import androidx.compose.ui.res.stringResource
+import com.smssentry.R
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -50,6 +54,7 @@ fun BlockedNumbersScreen(
     var numberToDelete by remember { mutableStateOf<BlockedNumber?>(null) }
     var showAddDialog by remember { mutableStateOf(false) }
     var newNumberText by remember { mutableStateOf("") }
+    var addNumberError by remember { mutableStateOf<String?>(null) }
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
 
@@ -58,11 +63,11 @@ fun BlockedNumbersScreen(
         isLoading = true
         errorMessage = null
         try {
-            blockedNumbers = loadBlockedNumbers(contentResolver)
+            blockedNumbers = loadBlockedNumbers(contentResolver, context)
         } catch (e: SecurityException) {
-            errorMessage = "SMSentry must be the default SMS app to manage blocked numbers."
+            errorMessage = context.getString(R.string.error_default_sms_required)
         } catch (e: Exception) {
-            errorMessage = "Could not load blocked numbers: ${e.message}"
+            errorMessage = "Could not load blocked numbers."
         }
         isLoading = false
     }
@@ -77,7 +82,7 @@ fun BlockedNumbersScreen(
                 ) {
                     Icon(
                         Icons.Filled.Add,
-                        contentDescription = "Block a number",
+                        contentDescription = stringResource(R.string.block_number),
                         tint = MaterialTheme.colorScheme.onPrimary,
                     )
                 }
@@ -92,7 +97,7 @@ fun BlockedNumbersScreen(
                     ) {
                         Text(text = "🚫", fontSize = 22.sp)
                         Text(
-                            text = "Blocked Numbers",
+                            text = stringResource(R.string.blocked_numbers),
                             fontWeight = FontWeight.Bold,
                             fontSize = 20.sp,
                         )
@@ -102,7 +107,7 @@ fun BlockedNumbersScreen(
                     IconButton(onClick = onBackClick) {
                         Icon(
                             Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Back",
+                            contentDescription = stringResource(R.string.back),
                         )
                     }
                 },
@@ -135,7 +140,7 @@ fun BlockedNumbersScreen(
                     ) {
                         Icon(
                             Icons.Filled.Block,
-                            contentDescription = "Error",
+                            contentDescription = stringResource(R.string.error_icon_desc),
                             modifier = Modifier.size(48.dp),
                             tint = MaterialTheme.colorScheme.error,
                         )
@@ -158,17 +163,17 @@ fun BlockedNumbersScreen(
                     ) {
                         Icon(
                             Icons.Filled.PersonOff,
-                            contentDescription = "No blocked numbers",
+                            contentDescription = stringResource(R.string.no_blocked_numbers),
                             modifier = Modifier.size(64.dp),
                             tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f),
                         )
                         Text(
-                            text = "No blocked numbers",
+                            text = stringResource(R.string.no_blocked_numbers),
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Medium,
                         )
                         Text(
-                            text = "Numbers you block will appear here",
+                            text = stringResource(R.string.blocked_numbers_empty_subtitle),
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
                         )
@@ -198,9 +203,9 @@ fun BlockedNumbersScreen(
     numberToDelete?.let { toDelete ->
         AlertDialog(
             onDismissRequest = { numberToDelete = null },
-            title = { Text("Unblock number?") },
+            title = { Text(stringResource(R.string.unblock_title)) },
             text = {
-                Text("Unblock ${toDelete.number}? You will receive messages from this number again.")
+                Text(stringResource(R.string.unblock_body, toDelete.number))
             },
             confirmButton = {
                 TextButton(
@@ -215,19 +220,19 @@ fun BlockedNumbersScreen(
                         } catch (e: Exception) {
                             scope.launch {
                                 snackbarHostState.showSnackbar(
-                                    "Failed to unblock: ${e.message ?: "Unknown error"}"
+                                    context.getString(R.string.error_unblock_failed, e.message ?: context.getString(R.string.error_unknown))
                                 )
                             }
                         }
                         numberToDelete = null
                     },
                 ) {
-                    Text("Unblock", color = MaterialTheme.colorScheme.error)
+                    Text(stringResource(R.string.unblock), color = MaterialTheme.colorScheme.error)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { numberToDelete = null }) {
-                    Text("Cancel")
+                    Text(stringResource(R.string.cancel))
                 }
             },
         )
@@ -240,26 +245,40 @@ fun BlockedNumbersScreen(
                 showAddDialog = false
                 newNumberText = ""
             },
-            title = { Text("Block a number") },
+            title = { Text(stringResource(R.string.block_number)) },
             text = {
-                OutlinedTextField(
-                    value = newNumberText,
-                    onValueChange = { newNumberText = it },
-                    label = { Text("Phone number") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                )
+                Column {
+                    OutlinedTextField(
+                        value = newNumberText,
+                        onValueChange = {
+                            newNumberText = it
+                            addNumberError = null
+                        },
+                        label = { Text(stringResource(R.string.phone_number_label)) },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+                        singleLine = true,
+                        isError = addNumberError != null,
+                        supportingText = addNumberError?.let { err -> { Text(err, color = MaterialTheme.colorScheme.error) } },
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
             },
             confirmButton = {
                 TextButton(
                     onClick = {
-                        val number = newNumberText.trim()
-                        if (number.isNotEmpty()) {
+                        val rawInput = newNumberText.trim()
+                        // Validate: normalize, check length and character set
+                        val normalized = PhoneNumberUtils.normalizeNumber(rawInput) ?: ""
+                        val isValid = normalized.isNotEmpty()
+                                && normalized.length in 3..20
+                                && normalized.matches(Regex("""^\+?[0-9]+$"""))
+                        if (!isValid) {
+                            addNumberError = context.getString(R.string.error_invalid_phone)
+                        } else {
                             scope.launch {
                                 try {
                                     val values = ContentValues().apply {
-                                        put(BlockedNumberContract.BlockedNumbers.COLUMN_ORIGINAL_NUMBER, number)
+                                        put(BlockedNumberContract.BlockedNumbers.COLUMN_ORIGINAL_NUMBER, normalized)
                                     }
                                     withContext(Dispatchers.IO) {
                                         contentResolver.insert(
@@ -267,21 +286,22 @@ fun BlockedNumbersScreen(
                                             values,
                                         )
                                     }
-                                    blockedNumbers = loadBlockedNumbers(contentResolver)
-                                    snackbarHostState.showSnackbar("$number blocked")
+                                    blockedNumbers = loadBlockedNumbers(contentResolver, context)
+                                    snackbarHostState.showSnackbar(context.getString(R.string.number_blocked, normalized))
                                 } catch (e: Exception) {
                                     snackbarHostState.showSnackbar(
-                                        "Failed to block: ${e.message ?: "Unknown error"}"
+                                        context.getString(R.string.error_block_failed, e.message ?: context.getString(R.string.error_unknown))
                                     )
                                 }
                             }
+                            showAddDialog = false
+                            newNumberText = ""
+                            addNumberError = null
                         }
-                        showAddDialog = false
-                        newNumberText = ""
                     },
                     enabled = newNumberText.trim().isNotEmpty(),
                 ) {
-                    Text("Block")
+                    Text(stringResource(R.string.block_action))
                 }
             },
             dismissButton = {
@@ -289,9 +309,10 @@ fun BlockedNumbersScreen(
                     onClick = {
                         showAddDialog = false
                         newNumberText = ""
+                        addNumberError = null
                     }
                 ) {
-                    Text("Cancel")
+                    Text(stringResource(R.string.cancel))
                 }
             },
         )
@@ -320,7 +341,7 @@ private fun BlockedNumberItem(
         ) {
             Icon(
                 Icons.Filled.Block,
-                contentDescription = "Blocked",
+                contentDescription = stringResource(R.string.blocked_icon_desc),
                 tint = MaterialTheme.colorScheme.error.copy(alpha = 0.7f),
                 modifier = Modifier.size(24.dp),
             )
@@ -336,7 +357,7 @@ private fun BlockedNumberItem(
             IconButton(onClick = onDeleteClick) {
                 Icon(
                     Icons.Filled.Delete,
-                    contentDescription = "Unblock",
+                    contentDescription = stringResource(R.string.unblock),
                     tint = MaterialTheme.colorScheme.error,
                 )
             }
@@ -346,6 +367,7 @@ private fun BlockedNumberItem(
 
 private suspend fun loadBlockedNumbers(
     contentResolver: ContentResolver,
+    context: Context,
 ): List<BlockedNumber> = withContext(Dispatchers.IO) {
     val list = mutableListOf<BlockedNumber>()
     val cursor = contentResolver.query(
@@ -365,7 +387,7 @@ private suspend fun loadBlockedNumbers(
             list.add(
                 BlockedNumber(
                     id = it.getLong(idIdx),
-                    number = it.getString(numberIdx) ?: "Unknown",
+                    number = it.getString(numberIdx) ?: context.getString(R.string.unknown),
                 ),
             )
         }
