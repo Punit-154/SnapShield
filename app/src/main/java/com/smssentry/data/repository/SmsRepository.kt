@@ -362,4 +362,62 @@ class SmsRepository @Inject constructor(
         return ContextCompat.checkSelfPermission(context, Manifest.permission.READ_SMS) ==
             PackageManager.PERMISSION_GRANTED
     }
+
+    // ── Global Search ───────────────────────────────────────────────────
+
+    /**
+     * Search all SMS messages across all conversations for the given query string.
+     * Returns up to [limit] matching messages with their thread and sender info.
+     */
+    suspend fun searchMessages(query: String, limit: Int = 50): List<SmsMessage> = withContext(Dispatchers.IO) {
+        if (!hasSmsPermission() || query.isBlank()) return@withContext emptyList()
+
+        val projection = arrayOf(
+            Telephony.Sms._ID,
+            Telephony.Sms.THREAD_ID,
+            Telephony.Sms.ADDRESS,
+            Telephony.Sms.BODY,
+            Telephony.Sms.DATE,
+            Telephony.Sms.TYPE,
+            Telephony.Sms.READ,
+        )
+
+        val results = mutableListOf<SmsMessage>()
+        val cursor = contentResolver.query(
+            Telephony.Sms.CONTENT_URI,
+            projection,
+            "${Telephony.Sms.BODY} LIKE ?",
+            arrayOf("%$query%"),
+            "${Telephony.Sms.DATE} DESC LIMIT $limit",
+        )
+
+        cursor?.use {
+            val idIdx      = it.getColumnIndexOrThrow(Telephony.Sms._ID)
+            val threadIdx  = it.getColumnIndexOrThrow(Telephony.Sms.THREAD_ID)
+            val addrIdx    = it.getColumnIndexOrThrow(Telephony.Sms.ADDRESS)
+            val bodyIdx    = it.getColumnIndexOrThrow(Telephony.Sms.BODY)
+            val dateIdx    = it.getColumnIndexOrThrow(Telephony.Sms.DATE)
+            val typeIdx    = it.getColumnIndexOrThrow(Telephony.Sms.TYPE)
+            val readIdx    = it.getColumnIndexOrThrow(Telephony.Sms.READ)
+
+            while (it.moveToNext()) {
+                val id      = it.getString(idIdx) ?: continue
+                val address = it.getString(addrIdx) ?: "Unknown"
+                val body    = it.getString(bodyIdx)?.takeIf { b -> b.isNotBlank() } ?: continue
+
+                results.add(
+                    SmsMessage(
+                        id = id,
+                        threadId = it.getLong(threadIdx),
+                        sender = address,
+                        text = body,
+                        timestamp = it.getLong(dateIdx),
+                        isSent = it.getInt(typeIdx) == Telephony.Sms.MESSAGE_TYPE_SENT,
+                        isRead = it.getInt(readIdx) == 1,
+                    )
+                )
+            }
+        }
+        results
+    }
 }

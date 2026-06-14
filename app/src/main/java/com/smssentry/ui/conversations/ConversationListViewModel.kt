@@ -28,6 +28,8 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import com.smssentry.data.model.SmsMessage
+import com.smssentry.data.repository.SmsRepository
 import javax.inject.Inject
 
 enum class ConversationFilter(val label: String) {
@@ -39,6 +41,7 @@ enum class ConversationFilter(val label: String) {
 @HiltViewModel
 class ConversationListViewModel @Inject constructor(
     private val contactResolver: ContactResolver,
+    private val smsRepository: SmsRepository,
     @ApplicationContext private val context: Context
 ) : ViewModel() {
 
@@ -56,6 +59,11 @@ class ConversationListViewModel @Inject constructor(
 
     private val _selectedFilter = MutableStateFlow(ConversationFilter.ALL)
     val selectedFilter: StateFlow<ConversationFilter> = _selectedFilter.asStateFlow()
+
+    // Global message search results
+    private val _messageSearchResults = MutableStateFlow<List<SmsMessage>>(emptyList())
+    val messageSearchResults: StateFlow<List<SmsMessage>> = _messageSearchResults.asStateFlow()
+    private var searchJob: Job? = null
 
     // Pinned conversations persisted in SharedPreferences
     private val pinPrefs = context.getSharedPreferences("pinned_conversations", Context.MODE_PRIVATE)
@@ -96,6 +104,16 @@ class ConversationListViewModel @Inject constructor(
 
     fun onSearchQueryChanged(query: String) {
         _searchQuery.value = query
+        // Trigger debounced global message search
+        searchJob?.cancel()
+        if (query.length >= 2) {
+            searchJob = viewModelScope.launch {
+                delay(300L)
+                _messageSearchResults.value = smsRepository.searchMessages(query)
+            }
+        } else {
+            _messageSearchResults.value = emptyList()
+        }
     }
 
     fun onFilterSelected(filter: ConversationFilter) {

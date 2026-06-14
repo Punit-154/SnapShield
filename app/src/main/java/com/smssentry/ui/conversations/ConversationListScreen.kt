@@ -43,6 +43,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.smssentry.data.model.Conversation
+import com.smssentry.data.model.SmsMessage
 import com.smssentry.ui.theme.*
 import android.graphics.BitmapFactory
 import android.net.Uri
@@ -66,6 +67,7 @@ fun ConversationListScreen(
     val isLoading by viewModel.isLoading.collectAsState()
     val searchQuery by viewModel.searchQuery.collectAsState()
     val selectedFilter by viewModel.selectedFilter.collectAsState()
+    val messageSearchResults by viewModel.messageSearchResults.collectAsState()
 
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -345,6 +347,67 @@ fun ConversationListScreen(
                                             alpha = 0.5f
                                         )
                                     )
+                                }
+                            }
+
+                            // ── Global Message Search Results ──
+                            if (searchQuery.length >= 2 && messageSearchResults.isNotEmpty()) {
+                                item {
+                                    Text(
+                                        "Messages",
+                                        style = MaterialTheme.typography.labelMedium,
+                                        color = MaterialTheme.colorScheme.primary,
+                                        fontWeight = FontWeight.Bold,
+                                        modifier = Modifier.padding(start = 16.dp, top = 16.dp, bottom = 8.dp)
+                                    )
+                                }
+                                items(
+                                    messageSearchResults,
+                                    key = { "msg_${it.id}" }
+                                ) { msg ->
+                                    val dateFormat = remember { SimpleDateFormat("MMM d", Locale.getDefault()) }
+                                    Surface(
+                                        onClick = { onConversationClick(msg.threadId, msg.sender) },
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(horizontal = 8.dp, vertical = 2.dp),
+                                        shape = RoundedCornerShape(12.dp),
+                                        color = MaterialTheme.colorScheme.surfaceContainerLow,
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.padding(12.dp),
+                                            verticalAlignment = Alignment.Top
+                                        ) {
+                                            Icon(
+                                                Icons.Default.Search,
+                                                contentDescription = "Search result",
+                                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                modifier = Modifier.size(20.dp)
+                                            )
+                                            Spacer(modifier = Modifier.width(12.dp))
+                                            Column(modifier = Modifier.weight(1f)) {
+                                                Text(
+                                                    text = msg.sender,
+                                                    style = MaterialTheme.typography.bodyMedium,
+                                                    fontWeight = FontWeight.SemiBold,
+                                                    maxLines = 1,
+                                                    overflow = TextOverflow.Ellipsis
+                                                )
+                                                Text(
+                                                    text = msg.text.take(120),
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                    maxLines = 2,
+                                                    overflow = TextOverflow.Ellipsis
+                                                )
+                                            }
+                                            Text(
+                                                text = dateFormat.format(Date(msg.timestamp)),
+                                                style = MaterialTheme.typography.labelSmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        }
+                                    }
                                 }
                             }
                         }

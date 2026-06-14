@@ -31,6 +31,14 @@ class PrivacyProxyClient(
         .connectTimeout(5, TimeUnit.SECONDS)
         .readTimeout(10, TimeUnit.SECONDS)
         .writeTimeout(5, TimeUnit.SECONDS)
+        .certificatePinner(
+            okhttp3.CertificatePinner.Builder()
+                // Pin Cloudflare's intermediate CA (E1) — used for workers.dev
+                .add("*.workers.dev", "sha256/jQJTbIh0grw0/1TkHSumWb+Fs0Ggogr621gT3PvPKG0=")
+                // Pin Cloudflare's intermediate CA (R2 backup)
+                .add("*.workers.dev", "sha256/5C8kvU039KouVrl52D0eZSGf4Onjo4Khs8tmyTlV3nU=")
+                .build()
+        )
         .addInterceptor { chain ->
             val original = chain.request()
             val builder = original.newBuilder()
