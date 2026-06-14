@@ -20,6 +20,7 @@ import com.smssentry.deepcheck.proxy.PrivacyProxyClient
 import com.smssentry.deepcheck.tools.ToolExecutor
 import com.smssentry.deepcheck.tools.ToolResult
 import com.smssentry.deepcheck.util.HashUtil
+import com.smssentry.deepcheck.util.TextSanitizer
 import com.smssentry.di.DispatcherProvider
 import com.smssentry.domain.service.DeepCheckSession as DeepCheckSessionInterface
 import kotlinx.coroutines.CoroutineScope
@@ -100,7 +101,9 @@ class DeepCheckSession(
                 return
             }
 
-            val session = engine.createSession(SYSTEM_PROMPT)
+            val session = withContext(dispatchers.io) {
+                engine.createSession(SYSTEM_PROMPT)
+            }
             try {
                 val toolExecutor = ToolExecutor(allowlistDao, historyDao, reputationDb, officialSites, proxyClient)
                 val seenToolCalls = mutableSetOf<String>()
@@ -171,11 +174,11 @@ class DeepCheckSession(
                                         else "SAFE"
                             emitVerdict(DeepCheckVerdict(
                                 isScam = label == "SCAM",
-                                summary = response.take(300),
+                                summary = TextSanitizer.summarize(response),
                                 threatType = null,
                                 evidence = evidenceList.map { EvidenceItem("AI Analysis", it, "MEDIUM") },
                                 recommendedActions = emptyList(),
-                                educationalExplanation = response
+                                educationalExplanation = TextSanitizer.toParagraph(response)
                             ))
                             return
                         }
@@ -290,7 +293,7 @@ class DeepCheckSession(
                         context.getString(R.string.action_verify_org)
                     )
                 },
-                educationalExplanation = llmSummary ?: ""
+                educationalExplanation = TextSanitizer.toParagraph(llmSummary ?: "")
             )
         )
     }
@@ -363,9 +366,10 @@ class DeepCheckSession(
 
     private fun mapLegacyVerdict(v: com.smssentry.deepcheck.model.VerdictJson): DeepCheckVerdict {
         val isScam = v.verdict == "SCAM"
+        val cleanedReasoning = TextSanitizer.toParagraph(v.reasoning)
         return DeepCheckVerdict(
             isScam = isScam,
-            summary = v.reasoning,
+            summary = TextSanitizer.summarize(v.reasoning),
             threatType = if (isScam) "unknown" else null,
             evidence = v.evidence.map { detail ->
                 EvidenceItem(source = "AI Analysis", detail = detail, severity = if (isScam) "HIGH" else "LOW")
@@ -381,19 +385,21 @@ class DeepCheckSession(
                     context.getString(R.string.action_verify_org)
                 )
                 else -> emptyList()
-            }
+            },
+            educationalExplanation = cleanedReasoning
         )
     }
 
     private fun mapEducationalVerdict(parsed: ParsedEducationalVerdict): DeepCheckVerdict {
         val isScam = parsed.verdictLabel == "SCAM"
+        val cleanExplanation = TextSanitizer.toParagraph(parsed.explanation)
         return DeepCheckVerdict(
             isScam = isScam,
-            summary = parsed.explanation.take(150).let { if (parsed.explanation.length > 150) "$it..." else it },
+            summary = TextSanitizer.summarize(parsed.explanation),
             threatType = parsed.scamType.takeIf { it != "safe" },
             evidence = evidenceList.map { EvidenceItem("AI Analysis", it, if (isScam) "HIGH" else "MEDIUM") },
             recommendedActions = emptyList(),
-            educationalExplanation = parsed.explanation
+            educationalExplanation = cleanExplanation
         )
     }
 

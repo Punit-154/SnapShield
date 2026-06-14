@@ -104,7 +104,8 @@ class ModelRepository @Inject constructor(
 
     fun getEngine(): LlmInferenceEngine {
         cachedEngine?.let { return it }
-        val engine = LiteRtLmEngine(modelFile.absolutePath)
+        val cacheDir = File(context.cacheDir, "litert_cache").also { it.mkdirs() }
+        val engine = LiteRtLmEngine(modelFile.absolutePath, cacheDir.absolutePath)
         cachedEngine = engine
         return engine
     }
