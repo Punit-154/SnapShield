@@ -298,7 +298,7 @@ fun ChatScreen(
                     leadingIcon = {
                         Icon(
                             Icons.Default.ContentCopy,
-                            contentDescription = "Copy",
+                            contentDescription = stringResource(R.string.cd_copy),
                             modifier = Modifier.size(20.dp)
                         )
                     }
@@ -317,7 +317,7 @@ fun ChatScreen(
                     leadingIcon = {
                         Icon(
                             Icons.Default.Share,
-                            contentDescription = "Forward",
+                            contentDescription = stringResource(R.string.cd_forward),
                             modifier = Modifier.size(20.dp)
                         )
                     }
@@ -325,7 +325,7 @@ fun ChatScreen(
                 // Deep Check (only for received messages)
                 if (!msg.isSent) {
                     DropdownMenuItem(
-                        text = { Text("Deep Check") },
+                        text = { Text(stringResource(R.string.deep_check)) },
                         onClick = {
                             selectedMessage = null
                             onDeepCheck(msg.id)
@@ -333,7 +333,7 @@ fun ChatScreen(
                         leadingIcon = {
                             Icon(
                                 Icons.Default.Shield,
-                                contentDescription = "Deep Check",
+                                contentDescription = stringResource(R.string.cd_deep_check),
                                 tint = MaterialTheme.colorScheme.primary,
                                 modifier = Modifier.size(20.dp)
                             )
@@ -355,7 +355,7 @@ fun ChatScreen(
                     leadingIcon = {
                         Icon(
                             Icons.Default.Delete,
-                            contentDescription = "Delete",
+                            contentDescription = stringResource(R.string.cd_delete),
                             tint = MaterialTheme.colorScheme.error,
                             modifier = Modifier.size(20.dp)
                         )
@@ -377,7 +377,7 @@ fun ChatScreen(
                         leadingIcon = {
                             Icon(
                                 Icons.Default.Block,
-                                contentDescription = "Block sender",
+                                contentDescription = stringResource(R.string.cd_block_sender),
                                 tint = MaterialTheme.colorScheme.error,
                                 modifier = Modifier.size(20.dp)
                             )
@@ -444,14 +444,14 @@ fun ChatScreen(
                     IconButton(onClick = onBackClick) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Back",
+                            contentDescription = stringResource(R.string.cd_back),
                         )
                     }
                 },
                 actions = {
                     Box {
                         IconButton(onClick = { showMenu = true }) {
-                            Icon(Icons.Default.MoreVert, contentDescription = "More options")
+                            Icon(Icons.Default.MoreVert, contentDescription = stringResource(R.string.cd_more_options))
                         }
                         DropdownMenu(
                             expanded = showMenu,
@@ -462,12 +462,12 @@ fun ChatScreen(
                                     Row(verticalAlignment = Alignment.CenterVertically) {
                                         Icon(
                                             Icons.Default.Shield,
-                                            contentDescription = "Deep Check",
+                                            contentDescription = stringResource(R.string.cd_deep_check),
                                             modifier = Modifier.size(20.dp),
                                             tint = MaterialTheme.colorScheme.primary,
                                         )
                                         Spacer(modifier = Modifier.width(8.dp))
-                                        Text("Deep Check")
+                                        Text(stringResource(R.string.deep_check))
                                     }
                                 },
                                 onClick = {
@@ -482,13 +482,13 @@ fun ChatScreen(
                                     Row(verticalAlignment = Alignment.CenterVertically) {
                                         Icon(
                                             Icons.Default.Delete,
-                                            contentDescription = "Delete conversation",
+                                            contentDescription = stringResource(R.string.cd_delete_conversation),
                                             modifier = Modifier.size(20.dp),
                                             tint = MaterialTheme.colorScheme.error,
                                         )
                                         Spacer(modifier = Modifier.width(8.dp))
                                         Text(
-                                            "Delete conversation",
+                                            stringResource(R.string.delete_conversation_menu),
                                             color = MaterialTheme.colorScheme.error
                                         )
                                     }
@@ -676,7 +676,7 @@ private fun DateHeaderRow(label: String) {
 
 @Composable
 private fun TimeGapRow(timestamp: Long) {
-    val timeFormat = SimpleDateFormat("h:mm a", Locale.getDefault())
+    val timeFormat = remember { SimpleDateFormat("h:mm a", Locale.getDefault()) }
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -769,7 +769,7 @@ private fun ChatInputBar(
                 ) {
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.Send,
-                        contentDescription = "Send",
+                        contentDescription = stringResource(R.string.cd_send),
                         tint = if (text.isNotBlank() && !isSending) MaterialTheme.colorScheme.onPrimary
                         else MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -785,5 +785,5 @@ private fun copyToClipboard(context: Context, text: String) {
     val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
     val clip = ClipData.newPlainText("SMS Message", text)
     clipboard.setPrimaryClip(clip)
-    Toast.makeText(context, "Copied to clipboard", Toast.LENGTH_SHORT).show()
+    Toast.makeText(context, context.getString(R.string.cd_copied_to_clipboard), Toast.LENGTH_SHORT).show()
 }

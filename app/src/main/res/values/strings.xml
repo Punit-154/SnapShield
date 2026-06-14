@@ -213,4 +213,64 @@
     <string name="no_messages_empty">No messages yet</string>
     <string name="start_conversation">Start the conversation!</string>
     <string name="message_placeholder">Message</string>
+
+    <!-- Theme mode labels -->
+    <string name="theme_system">System default</string>
+    <string name="theme_light">Light</string>
+    <string name="theme_dark">Dark</string>
+
+    <!-- Share text body strings -->
+    <string name="share_sms_from">SMS from: %1$s</string>
+    <string name="share_analysis_scam">⚠️ SCAM DETECTED</string>
+    <string name="share_analysis_safe">✅ SAFE</string>
+    <string name="share_smssentry_analysis">SMSentry Analysis: %1$s</string>
+    <string name="share_analyzed_by">— Analyzed by SMSentry</string>
+    <string name="share_deep_check_result">SMSentry Deep Check Result</string>
+    <string name="share_sender">Sender: %1$s</string>
+    <string name="share_verdict_scam">🛑 SCAM DETECTED</string>
+    <string name="share_verdict_safe">🛡️ MESSAGE SAFE</string>
+    <string name="share_verdict_label">Verdict: %1$s</string>
+    <string name="share_threat">Threat: %1$s</string>
+    <string name="share_actions">Actions:</string>
+
+    <!-- Content descriptions for accessibility -->
+    <string name="cd_close_search">Close search</string>
+    <string name="cd_search">Search</string>
+    <string name="cd_settings">Settings</string>
+    <string name="cd_more_options">More options</string>
+    <string name="cd_compose_message">Compose message</string>
+    <string name="cd_pin">Pin</string>
+    <string name="cd_unpin">Unpin</string>
+    <string name="cd_pinned">Pinned</string>
+    <string name="cd_search_result">Search result</string>
+    <string name="cd_send">Send</string>
+    <string name="cd_pick_contact">Pick contact</string>
+    <string name="cd_message_read">Read</string>
+    <string name="cd_message_delivered">Delivered</string>
+    <string name="cd_privacy_protected">Privacy protected</string>
+    <string name="cd_copied_to_clipboard">Copied to clipboard</string>
+    <string name="cd_back">Back</string>
+    <string name="cd_copy">Copy</string>
+    <string name="cd_forward">Forward</string>
+    <string name="cd_deep_check">Deep Check</string>
+    <string name="cd_delete">Delete</string>
+    <string name="cd_block_sender">Block sender</string>
+    <string name="cd_delete_conversation">Delete conversation</string>
+    <string name="cd_contact_avatar">Contact avatar</string>
+
+    <!-- Privacy indicator -->
+    <string name="privacy_on_device">On-Device Analysis</string>
+    <string name="privacy_never_leave">Your messages never leave your phone</string>
+
+    <!-- Conversation list -->
+    <string name="no_results">No results</string>
+    <string name="no_conversations_found">No conversations found</string>
+    <string name="try_adjusting_filter">Try adjusting your search or filter.</string>
+    <string name="start_conversation_hint">Start a conversation by tapping the compose button below.</string>
+
+    <!-- Learning stats format -->
+    <string name="learning_stats_subtitle">%1$d messages learned • %2$d trusted senders</string>
+
+    <!-- Import progress format -->
+    <string name="learning_import_progress">%1$d / %2$d messages</string>
 </resources>

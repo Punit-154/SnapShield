@@ -18,6 +18,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Done
 import androidx.compose.material.icons.filled.DoneAll
+import androidx.compose.ui.res.stringResource
+import com.smssentry.R
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -101,7 +103,7 @@ fun ChatBubble(
                     Spacer(modifier = Modifier.width(4.dp))
                     Icon(
                         imageVector = if (message.isRead) Icons.Default.DoneAll else Icons.Default.Done,
-                        contentDescription = if (message.isRead) "Read" else "Delivered",
+                        contentDescription = if (message.isRead) stringResource(R.string.cd_message_read) else stringResource(R.string.cd_message_delivered),
                         modifier = Modifier.size(14.dp),
                         tint = if (message.isRead) MaterialTheme.colorScheme.primary
                         else MaterialTheme.colorScheme.onSurfaceVariant,

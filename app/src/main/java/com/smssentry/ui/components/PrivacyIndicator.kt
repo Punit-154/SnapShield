@@ -12,9 +12,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.smssentry.R
 import com.smssentry.ui.theme.*
 
 @Composable
@@ -32,22 +34,23 @@ fun PrivacyIndicator(
     ) {
         Icon(
             imageVector = Icons.Default.Lock,
-            contentDescription = "Privacy protected",
+            contentDescription = stringResource(R.string.cd_privacy_protected),
             tint = SafeGreen,
             modifier = Modifier.size(22.dp)
         )
         Column {
             Text(
-                text = "On-Device Analysis",
+                text = stringResource(R.string.privacy_on_device),
                 fontWeight = FontWeight.SemiBold,
                 fontSize = 14.sp,
                 color = SafeGreenDark
             )
             Text(
-                text = "Your messages never leave your phone",
+                text = stringResource(R.string.privacy_never_leave),
                 fontSize = 12.sp,
                 color = SafeGreen.copy(alpha = 0.8f)
             )
         }
     }
 }
+

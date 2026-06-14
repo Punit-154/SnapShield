@@ -48,12 +48,16 @@ class SmsRepository @Inject constructor(
             Telephony.Sms.READ,
         )
 
+        // Limit the raw query to avoid OOM on devices with 100K+ messages.
+        // We fetch up to limit * 20 rows (heuristic: ~20 msgs/thread average)
+        // to build accurate thread info while bounding memory usage.
+        val queryLimit = limit * 20
         val cursor = contentResolver.query(
             Telephony.Sms.CONTENT_URI,
             projection,
             null,
             null,
-            "${Telephony.Sms.DATE} DESC",
+            "${Telephony.Sms.DATE} DESC LIMIT $queryLimit",
         )
 
         // Collect all messages, grouped by thread_id. Because we sort by date DESC
@@ -404,12 +408,19 @@ class SmsRepository @Inject constructor(
             Telephony.Sms.READ,
         )
 
+        // Escape SQL LIKE wildcards so literal '%' and '_' in user input
+        // don't match unintended patterns
+        val escapedQuery = query
+            .replace("\\", "\\\\")
+            .replace("%", "\\%")
+            .replace("_", "\\_")
+
         val results = mutableListOf<SmsMessage>()
         val cursor = contentResolver.query(
             Telephony.Sms.CONTENT_URI,
             projection,
-            "${Telephony.Sms.BODY} LIKE ?",
-            arrayOf("%$query%"),
+            "${Telephony.Sms.BODY} LIKE ? ESCAPE '\\'",
+            arrayOf("%$escapedQuery%"),
             "${Telephony.Sms.DATE} DESC LIMIT $limit",
         )
 

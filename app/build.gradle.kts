@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.plugin.serialization")
@@ -5,6 +7,12 @@ plugins {
     id("com.google.devtools.ksp")
     id("org.jetbrains.kotlin.plugin.compose")
 }
+
+// Load API key from local.properties (gitignored — never committed)
+val localProps = Properties()
+val localPropsFile = rootProject.file("local.properties")
+if (localPropsFile.exists()) localProps.load(localPropsFile.inputStream())
+val apiKey = localProps.getProperty("SMSSENTRY_API_KEY", "")
 
 android {
     namespace = "com.smssentry"
@@ -43,10 +51,12 @@ android {
     //     }
     // }
 
+
+
     buildTypes {
         debug {
             buildConfigField("String", "PROXY_URL", "\"https://smsentry-proxy.joel010-alfred.workers.dev\"")
-            buildConfigField("String", "PROXY_API_KEY", "\"7938e31b-af45-4274-8870-480ab286343c\"")
+            buildConfigField("String", "PROXY_API_KEY", "\"$apiKey\"")
         }
         release {
             isMinifyEnabled = true
@@ -56,10 +66,11 @@ android {
                 "proguard-rules.pro"
             )
             buildConfigField("String", "PROXY_URL", "\"https://smsentry-proxy.joel010-alfred.workers.dev\"")
-            buildConfigField("String", "PROXY_API_KEY", "\"7938e31b-af45-4274-8870-480ab286343c\"")
+            buildConfigField("String", "PROXY_API_KEY", "\"$apiKey\"")
             // signingConfig = signingConfigs.getByName("release")
         }
     }
+
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17

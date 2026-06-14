@@ -30,6 +30,7 @@ class ContactResolver @Inject constructor(
      * Resolve a phone number to a contact name and photo.
      * Returns ContactInfo with the original address as displayName if no contact found.
      */
+    @Synchronized
     fun resolve(address: String): ContactInfo {
         if (address.isBlank()) return ContactInfo(displayName = "Unknown")
 

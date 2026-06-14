@@ -17,6 +17,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.smssentry.data.model.DeepCheckVerdict
+import com.smssentry.R
+import androidx.compose.ui.res.stringResource
 import com.smssentry.ui.theme.*
 
 @Composable
@@ -252,12 +254,12 @@ fun VerdictCard(
                     ) {
                         Icon(
                             Icons.Default.Share,
-                            contentDescription = "Share verdict",
+                            contentDescription = stringResource(R.string.share_verdict),
                             modifier = Modifier.size(16.dp)
                         )
                         Spacer(modifier = Modifier.width(6.dp))
                         Text(
-                            "Share",
+                            stringResource(R.string.share),
                             style = MaterialTheme.typography.labelMedium
                         )
                     }

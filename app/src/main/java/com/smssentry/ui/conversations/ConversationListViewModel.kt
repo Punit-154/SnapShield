@@ -279,10 +279,17 @@ class ConversationListViewModel @Inject constructor(
 
         return cursor?.use {
             if (it.moveToFirst()) {
-                val address = it.getString(it.getColumnIndexOrThrow(Telephony.Sms.ADDRESS))
-                    ?: return@use null
-                val timestamp = it.getLong(it.getColumnIndexOrThrow(Telephony.Sms.DATE))
-                val body = it.getString(it.getColumnIndexOrThrow(Telephony.Sms.BODY)) ?: snippet
+                val addressIdx = it.getColumnIndex(Telephony.Sms.ADDRESS)
+                val dateIdx = it.getColumnIndex(Telephony.Sms.DATE)
+                val bodyIdx = it.getColumnIndex(Telephony.Sms.BODY)
+                val readIdx = it.getColumnIndex(Telephony.Sms.READ)
+
+                // ADDRESS is essential — bail out if the column is missing
+                if (addressIdx == -1 || dateIdx == -1) return@use null
+
+                val address = it.getString(addressIdx) ?: return@use null
+                val timestamp = it.getLong(dateIdx)
+                val body = if (bodyIdx != -1) it.getString(bodyIdx) ?: snippet else snippet
 
                 // Count unread messages in thread
                 var unreadCount = 0
@@ -298,13 +305,13 @@ class ConversationListViewModel @Inject constructor(
                 // Iterate through all messages in this thread
                 it.moveToPosition(-1) // reset cursor
                 while (it.moveToNext()) {
-                    val read = it.getInt(it.getColumnIndexOrThrow(Telephony.Sms.READ))
-                    if (read == 0) unreadCount++
+                    if (readIdx != -1) {
+                        val read = it.getInt(readIdx)
+                        if (read == 0) unreadCount++
+                    }
 
-                    if (!isFlagged) {
-                        val msgBody = it.getString(
-                            it.getColumnIndexOrThrow(Telephony.Sms.BODY)
-                        )?.lowercase() ?: ""
+                    if (!isFlagged && bodyIdx != -1) {
+                        val msgBody = it.getString(bodyIdx)?.lowercase() ?: ""
                         val hitCount = scamIndicators.count { indicator ->
                             msgBody.contains(indicator)
                         }

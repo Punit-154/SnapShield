@@ -505,15 +505,16 @@ private fun FeedbackSection(
 
 private fun shareMessage(context: Context, sender: String, text: String, verdict: DeepCheckVerdict?, chooserTitle: String) {
     val shareText = buildString {
-        appendLine("SMS from: $sender")
+        appendLine(context.getString(R.string.share_sms_from, sender))
         appendLine(text)
         if (verdict != null) {
             appendLine()
-            appendLine("SMSentry Analysis: ${if (verdict.isScam) "⚠️ SCAM DETECTED" else "✅ SAFE"}")
+            val analysis = if (verdict.isScam) context.getString(R.string.share_analysis_scam) else context.getString(R.string.share_analysis_safe)
+            appendLine(context.getString(R.string.share_smssentry_analysis, analysis))
             appendLine(verdict.summary)
         }
         appendLine()
-        appendLine("— Analyzed by SMSentry")
+        appendLine(context.getString(R.string.share_analyzed_by))
     }
     val intent = Intent(Intent.ACTION_SEND).apply {
         type = "text/plain"
@@ -524,20 +525,21 @@ private fun shareMessage(context: Context, sender: String, text: String, verdict
 
 private fun shareVerdict(context: Context, sender: String, verdict: DeepCheckVerdict, chooserTitle: String) {
     val shareText = buildString {
-        appendLine("SMSentry Deep Check Result")
+        appendLine(context.getString(R.string.share_deep_check_result))
         appendLine("━━━━━━━━━━━━━━━━━━")
-        appendLine("Sender: $sender")
-        appendLine("Verdict: ${if (verdict.isScam) "🛑 SCAM DETECTED" else "🛡️ MESSAGE SAFE"}")
-        verdict.threatType?.let { appendLine("Threat: ${it.replace("_", " ")}") }
+        appendLine(context.getString(R.string.share_sender, sender))
+        val verdictLabel = if (verdict.isScam) context.getString(R.string.share_verdict_scam) else context.getString(R.string.share_verdict_safe)
+        appendLine(context.getString(R.string.share_verdict_label, verdictLabel))
+        verdict.threatType?.let { appendLine(context.getString(R.string.share_threat, it.replace("_", " "))) }
         appendLine()
         appendLine(verdict.summary)
         if (verdict.recommendedActions.isNotEmpty()) {
             appendLine()
-            appendLine("Actions:")
+            appendLine(context.getString(R.string.share_actions))
             verdict.recommendedActions.forEach { appendLine("• $it") }
         }
         appendLine()
-        appendLine("— Analyzed by SMSentry")
+        appendLine(context.getString(R.string.share_analyzed_by))
     }
     val intent = Intent(Intent.ACTION_SEND).apply {
         type = "text/plain"
@@ -545,3 +547,4 @@ private fun shareVerdict(context: Context, sender: String, verdict: DeepCheckVer
     }
     context.startActivity(Intent.createChooser(intent, chooserTitle))
 }
+

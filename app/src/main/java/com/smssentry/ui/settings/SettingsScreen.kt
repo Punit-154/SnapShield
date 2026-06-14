@@ -108,7 +108,7 @@ fun SettingsScreen(
                     ThemeMode.SYSTEM -> Icons.Filled.BrightnessAuto
                 },
                 title = stringResource(R.string.theme),
-                subtitle = state.themeMode.label,
+                subtitle = stringResource(state.themeMode.labelRes),
                 onClick = { showThemeDialog = true },
             )
 
@@ -161,7 +161,7 @@ fun SettingsScreen(
                 icon = Icons.Filled.School,
                 title = if (state.isImporting) stringResource(R.string.learning_importing) else stringResource(R.string.learning_import_title),
                 subtitle = if (state.isImporting) {
-                    "${state.importProgress} / ${state.importTotal} messages"
+                    stringResource(R.string.learning_import_progress, state.importProgress, state.importTotal)
                 } else {
                     stringResource(R.string.learning_import_subtitle)
                 },
@@ -183,7 +183,7 @@ fun SettingsScreen(
                 SettingsItem(
                     icon = Icons.Filled.Info,
                     title = stringResource(R.string.learning_stats_title),
-                    subtitle = "${stats.totalLabeled} messages learned \u2022 ${stats.trustedSenders} trusted senders",
+                    subtitle = stringResource(R.string.learning_stats_subtitle, stats.totalLabeled, stats.trustedSenders),
                     onClick = {},
                 )
             }
@@ -266,7 +266,7 @@ fun SettingsScreen(
                                 },
                             )
                             Spacer(modifier = Modifier.width(12.dp))
-                            Text(text = mode.label, style = MaterialTheme.typography.bodyLarge)
+                            Text(text = stringResource(mode.labelRes), style = MaterialTheme.typography.bodyLarge)
                         }
                     }
                 }

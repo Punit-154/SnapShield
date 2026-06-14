@@ -122,7 +122,7 @@ fun ComposeSmsScreen(
                     IconButton(onClick = onBackClick) {
                         Icon(
                             Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Back"
+                            contentDescription = stringResource(R.string.cd_back)
                         )
                     }
                 },
@@ -162,7 +162,7 @@ fun ComposeSmsScreen(
                     ) {
                         Icon(
                             Icons.Filled.Contacts,
-                            contentDescription = "Pick contact",
+                            contentDescription = stringResource(R.string.cd_pick_contact),
                             tint = MaterialTheme.colorScheme.primary,
                         )
                     }
@@ -276,7 +276,7 @@ fun ComposeSmsScreen(
                 } else {
                     Icon(
                         Icons.AutoMirrored.Filled.Send,
-                        contentDescription = "Send",
+                        contentDescription = stringResource(R.string.cd_send),
                         modifier = Modifier.size(20.dp)
                     )
                     Spacer(modifier = Modifier.width(8.dp))

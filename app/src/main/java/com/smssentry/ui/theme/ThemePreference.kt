@@ -1,18 +1,20 @@
 package com.smssentry.ui.theme
 
 import android.content.Context
+import androidx.annotation.StringRes
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import com.smssentry.R
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
-enum class ThemeMode(val label: String) {
-    SYSTEM("System default"),
-    LIGHT("Light"),
-    DARK("Dark")
+enum class ThemeMode(val label: String, @StringRes val labelRes: Int) {
+    SYSTEM("System default", R.string.theme_system),
+    LIGHT("Light", R.string.theme_light),
+    DARK("Dark", R.string.theme_dark)
 }
 
 private val Context.themeDataStore: DataStore<Preferences> by preferencesDataStore(name = "theme_preferences")
