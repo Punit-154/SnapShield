@@ -24,15 +24,47 @@ data class Tool(
     val parameters: String
 )
 
+import kotlinx.coroutines.CompletableDeferred
+
 open class LlmConversationSession(
     private val conversation: com.google.ai.edge.litertlm.Conversation? = null
 ) {
+    /**
+     * Send a user turn and collect the full model response.
+     *
+     * Uses sendMessageAsync + MessageCallback (the Gallery pattern) instead
+     * of the blocking sendMessage. This is critical because:
+     * 1. sendMessage blocks the IO thread for the entire inference (~30-60s on 4B)
+     * 2. sendMessageAsync streams tokens via callbacks, keeping the thread free
+     * 3. Coroutine cancellation works properly at the await() suspension point
+     */
     open suspend fun sendTurn(userText: String): String = withContext(Dispatchers.IO) {
         val conv = conversation ?: throw IllegalStateException("No active conversation")
-        val msg = Message.user(userText)
-        val response = conv.sendMessage(msg)
-        LiteRtLmEngine.extractTextFromMessage(response)
+        val result = CompletableDeferred<String>()
+        val responseBuilder = StringBuilder()
+
+        conv.sendMessageAsync(
+            com.google.ai.edge.litertlm.Contents.of(userText),
+            object : com.google.ai.edge.litertlm.MessageCallback {
+                override fun onMessage(message: Message) {
+                    // Each callback delivers the accumulated text so far
+                    responseBuilder.clear()
+                    responseBuilder.append(LiteRtLmEngine.extractTextFromMessage(message))
+                }
+
+                override fun onDone() {
+                    result.complete(responseBuilder.toString())
+                }
+
+                override fun onError(throwable: Throwable) {
+                    result.completeExceptionally(throwable)
+                }
+            }
+        )
+
+        result.await()
     }
+
     open fun close() {
         conversation?.close()
     }
