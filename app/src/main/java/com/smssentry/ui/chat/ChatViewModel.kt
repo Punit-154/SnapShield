@@ -49,6 +49,13 @@ class ChatViewModel @Inject constructor(
 
     fun clearSendError() { _sendError.value = null }
 
+    // ── Pagination state ─────────────────────────────────────────────────
+    private val pageSize = 50
+    private var isLoadingMore = false
+
+    private val _canLoadMore = MutableStateFlow(true)
+    val canLoadMore: StateFlow<Boolean> = _canLoadMore.asStateFlow()
+
     private var smsObserver: ContentObserver? = null
     private var debounceJob: Job? = null
 
@@ -75,8 +82,37 @@ class ChatViewModel @Inject constructor(
 
     private fun loadMessages() {
         viewModelScope.launch {
-            val msgs = smsRepository.getThreadMessages(threadId)
+            val msgs = smsRepository.getThreadMessages(threadId, limit = pageSize)
             _messages.value = msgs
+            _canLoadMore.value = msgs.size >= pageSize
+        }
+    }
+
+    /**
+     * Load the next page of older messages and prepend them to the current list.
+     */
+    fun loadMoreMessages() {
+        if (isLoadingMore || !_canLoadMore.value) return
+        val currentMessages = _messages.value
+        if (currentMessages.isEmpty()) return
+
+        val oldestTimestamp = currentMessages.minOf { it.timestamp }
+        isLoadingMore = true
+
+        viewModelScope.launch {
+            try {
+                val older = smsRepository.getThreadMessages(threadId, pageSize, oldestTimestamp)
+                if (older.isEmpty()) {
+                    _canLoadMore.value = false
+                } else {
+                    _messages.value = older + currentMessages
+                    if (older.size < pageSize) {
+                        _canLoadMore.value = false
+                    }
+                }
+            } finally {
+                isLoadingMore = false
+            }
         }
     }
 

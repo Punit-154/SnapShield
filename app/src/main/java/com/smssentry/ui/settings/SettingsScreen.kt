@@ -329,7 +329,7 @@ private fun SettingsItem(
         ) {
             Icon(
                 imageVector = icon,
-                contentDescription = null,
+                contentDescription = title,
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.size(24.dp),
             )
@@ -350,7 +350,7 @@ private fun SettingsItem(
                 Spacer(modifier = Modifier.width(8.dp))
                 Icon(
                     imageVector = trailingIcon,
-                    contentDescription = null,
+                    contentDescription = title,
                     tint = trailingIconTint,
                     modifier = Modifier.size(20.dp),
                 )

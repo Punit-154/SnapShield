@@ -32,7 +32,7 @@ fun PrivacyIndicator(
     ) {
         Icon(
             imageVector = Icons.Default.Lock,
-            contentDescription = null,
+            contentDescription = "Privacy protected",
             tint = SafeGreen,
             modifier = Modifier.size(22.dp)
         )

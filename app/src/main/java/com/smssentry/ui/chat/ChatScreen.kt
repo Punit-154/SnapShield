@@ -116,6 +116,7 @@ fun ChatScreen(
     val isSending by viewModel.isSending.collectAsState()
     val sendError by viewModel.sendError.collectAsState()
     val contactPhotoUri by viewModel.contactPhotoUri.collectAsState()
+    val canLoadMore by viewModel.canLoadMore.collectAsState()
     val context = LocalContext.current
 
     // Derive loading state: true until first real collection completes
@@ -148,6 +149,17 @@ fun ChatScreen(
     LaunchedEffect(messages.size) {
         if (messages.isNotEmpty()) {
             listState.animateScrollToItem(0)
+        }
+    }
+
+    // Detect scroll to top (oldest messages) and load more.
+    // reverseLayout=true means index 0 = newest (bottom), high indices = oldest (top).
+    val layoutInfo = listState.layoutInfo
+    LaunchedEffect(layoutInfo.visibleItemsInfo.lastOrNull()?.index, canLoadMore) {
+        val lastVisible = layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: return@LaunchedEffect
+        val totalItems = layoutInfo.totalItemsCount
+        if (totalItems > 0 && lastVisible >= totalItems - 4 && canLoadMore) {
+            viewModel.loadMoreMessages()
         }
     }
 
@@ -223,7 +235,7 @@ fun ChatScreen(
                     leadingIcon = {
                         Icon(
                             Icons.Default.ContentCopy,
-                            contentDescription = null,
+                            contentDescription = "Copy",
                             modifier = Modifier.size(20.dp)
                         )
                     }
@@ -242,7 +254,7 @@ fun ChatScreen(
                     leadingIcon = {
                         Icon(
                             Icons.Default.Share,
-                            contentDescription = null,
+                            contentDescription = "Forward",
                             modifier = Modifier.size(20.dp)
                         )
                     }
@@ -258,7 +270,7 @@ fun ChatScreen(
                         leadingIcon = {
                             Icon(
                                 Icons.Default.Shield,
-                                contentDescription = null,
+                                contentDescription = "Deep Check",
                                 tint = MaterialTheme.colorScheme.primary,
                                 modifier = Modifier.size(20.dp)
                             )
@@ -280,7 +292,7 @@ fun ChatScreen(
                     leadingIcon = {
                         Icon(
                             Icons.Default.Delete,
-                            contentDescription = null,
+                            contentDescription = "Delete",
                             tint = MaterialTheme.colorScheme.error,
                             modifier = Modifier.size(20.dp)
                         )
@@ -364,7 +376,7 @@ fun ChatScreen(
                                     Row(verticalAlignment = Alignment.CenterVertically) {
                                         Icon(
                                             Icons.Default.Shield,
-                                            contentDescription = null,
+                                            contentDescription = "Deep Check",
                                             modifier = Modifier.size(20.dp),
                                             tint = MaterialTheme.colorScheme.primary,
                                         )
@@ -384,7 +396,7 @@ fun ChatScreen(
                                     Row(verticalAlignment = Alignment.CenterVertically) {
                                         Icon(
                                             Icons.Default.Delete,
-                                            contentDescription = null,
+                                            contentDescription = "Delete conversation",
                                             modifier = Modifier.size(20.dp),
                                             tint = MaterialTheme.colorScheme.error,
                                         )

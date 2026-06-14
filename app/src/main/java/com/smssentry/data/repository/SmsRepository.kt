@@ -117,7 +117,11 @@ class SmsRepository @Inject constructor(
 
     // ── Thread messages ──────────────────────────────────────────────────
 
-    suspend fun getThreadMessages(threadId: Long): List<SmsMessage> = withContext(Dispatchers.IO) {
+    suspend fun getThreadMessages(
+        threadId: Long,
+        limit: Int = 50,
+        beforeTimestamp: Long = Long.MAX_VALUE,
+    ): List<SmsMessage> = withContext(Dispatchers.IO) {
         if (!hasSmsPermission()) return@withContext emptyList()
 
         val projection = arrayOf(
@@ -134,9 +138,9 @@ class SmsRepository @Inject constructor(
         val cursor = contentResolver.query(
             Telephony.Sms.CONTENT_URI,
             projection,
-            "${Telephony.Sms.THREAD_ID} = ?",
-            arrayOf(threadId.toString()),
-            "${Telephony.Sms.DATE} ASC",
+            "${Telephony.Sms.THREAD_ID} = ? AND ${Telephony.Sms.DATE} < ?",
+            arrayOf(threadId.toString(), beforeTimestamp.toString()),
+            "${Telephony.Sms.DATE} DESC LIMIT $limit",
         )
 
         cursor?.use {
@@ -171,7 +175,8 @@ class SmsRepository @Inject constructor(
             }
         }
 
-        messages
+        // Query fetched newest-first; reverse so callers get oldest-first order
+        messages.reversed()
     }
 
     // ── Mark thread as read ──────────────────────────────────────────────

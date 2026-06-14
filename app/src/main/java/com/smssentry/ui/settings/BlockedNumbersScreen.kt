@@ -111,7 +111,7 @@ fun BlockedNumbersScreen(
                     ) {
                         Icon(
                             Icons.Filled.Block,
-                            contentDescription = null,
+                            contentDescription = "Error",
                             modifier = Modifier.size(48.dp),
                             tint = MaterialTheme.colorScheme.error,
                         )
@@ -134,7 +134,7 @@ fun BlockedNumbersScreen(
                     ) {
                         Icon(
                             Icons.Filled.PersonOff,
-                            contentDescription = null,
+                            contentDescription = "No blocked numbers",
                             modifier = Modifier.size(64.dp),
                             tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f),
                         )
@@ -228,7 +228,7 @@ private fun BlockedNumberItem(
         ) {
             Icon(
                 Icons.Filled.Block,
-                contentDescription = null,
+                contentDescription = "Blocked",
                 tint = MaterialTheme.colorScheme.error.copy(alpha = 0.7f),
                 modifier = Modifier.size(24.dp),
             )

@@ -286,7 +286,7 @@ fun DetailScreen(
                                         containerColor = MaterialTheme.colorScheme.tertiary
                                     )
                                 ) {
-                                    Icon(Icons.Default.Lock, contentDescription = null, Modifier.size(18.dp))
+                                    Icon(Icons.Default.Lock, contentDescription = "Download", Modifier.size(18.dp))
                                     Spacer(modifier = Modifier.width(8.dp))
                                     Text(
                                         text = "Download AI Model (~2.7 GB)",
@@ -371,7 +371,7 @@ fun DetailScreen(
                                             color = MaterialTheme.colorScheme.onSecondaryContainer
                                         )
                                     } else {
-                                        Icon(Icons.Default.Search, contentDescription = null, Modifier.size(18.dp))
+                                        Icon(Icons.Default.Search, contentDescription = "Analyze", Modifier.size(18.dp))
                                         Spacer(modifier = Modifier.width(8.dp))
                                         Text(
                                             text = if (investigationState.verdict != null) {
@@ -474,7 +474,7 @@ private fun FeedbackSection(
             ) {
                 Icon(
                     Icons.Default.CheckCircle,
-                    contentDescription = null,
+                    contentDescription = "Mark safe",
                     modifier = Modifier.size(16.dp)
                 )
                 Spacer(modifier = Modifier.width(6.dp))
@@ -493,7 +493,7 @@ private fun FeedbackSection(
             ) {
                 Icon(
                     Icons.Default.Warning,
-                    contentDescription = null,
+                    contentDescription = "Report scam",
                     modifier = Modifier.size(16.dp)
                 )
                 Spacer(modifier = Modifier.width(6.dp))

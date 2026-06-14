@@ -277,7 +277,7 @@ fun ComposeSmsScreen(
                 } else {
                     Icon(
                         Icons.AutoMirrored.Filled.Send,
-                        contentDescription = null,
+                        contentDescription = "Send",
                         modifier = Modifier.size(20.dp)
                     )
                     Spacer(modifier = Modifier.width(8.dp))

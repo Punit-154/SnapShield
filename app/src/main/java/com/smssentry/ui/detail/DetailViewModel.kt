@@ -169,17 +169,7 @@ class DetailViewModel @Inject constructor(
         _showDownloadPrompt.value = false
     }
 
-    fun checkModelAndPromptDownload() {
-        if (modelRepository.state.value != ModelRepository.State.READY &&
-            modelRepository.state.value != ModelRepository.State.LOADING
-        ) {
-            _showDownloadPrompt.value = true
-        }
-    }
 
-    fun refreshModelState() {
-        // Model state is managed by ModelRepository
-    }
 
     fun submitFeedback(label: String) {
         val msg = _message.value ?: return
