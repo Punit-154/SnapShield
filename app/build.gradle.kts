@@ -46,6 +46,7 @@ android {
     buildTypes {
         debug {
             buildConfigField("String", "PROXY_URL", "\"https://smsentry-proxy.joel010-alfred.workers.dev\"")
+            buildConfigField("String", "PROXY_API_KEY", "\"7938e31b-af45-4274-8870-480ab286343c\"")
         }
         release {
             isMinifyEnabled = true
@@ -55,6 +56,7 @@ android {
                 "proguard-rules.pro"
             )
             buildConfigField("String", "PROXY_URL", "\"https://smsentry-proxy.joel010-alfred.workers.dev\"")
+            buildConfigField("String", "PROXY_API_KEY", "\"7938e31b-af45-4274-8870-480ab286343c\"")
             // signingConfig = signingConfigs.getByName("release")
         }
     }

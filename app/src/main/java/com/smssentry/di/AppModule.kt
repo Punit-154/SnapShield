@@ -109,7 +109,7 @@ abstract class AppModule {
         @Provides
         @Singleton
         fun providePrivacyProxyClient(): PrivacyProxyClient {
-            return PrivacyProxyClient(BuildConfig.PROXY_URL)
+            return PrivacyProxyClient(BuildConfig.PROXY_URL, BuildConfig.PROXY_API_KEY)
         }
 
         @Provides

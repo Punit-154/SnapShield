@@ -20,7 +20,10 @@ data class WhoisResult(
     val registrar: String?
 )
 
-class PrivacyProxyClient(private val baseUrl: String?) {
+class PrivacyProxyClient(
+    private val baseUrl: String?,
+    private val apiKey: String? = null
+) {
 
     private val TAG = "PrivacyProxyClient"
 
@@ -28,6 +31,14 @@ class PrivacyProxyClient(private val baseUrl: String?) {
         .connectTimeout(5, TimeUnit.SECONDS)
         .readTimeout(10, TimeUnit.SECONDS)
         .writeTimeout(5, TimeUnit.SECONDS)
+        .addInterceptor { chain ->
+            val original = chain.request()
+            val builder = original.newBuilder()
+            if (!apiKey.isNullOrBlank()) {
+                builder.addHeader("X-API-Key", apiKey)
+            }
+            chain.proceed(builder.build())
+        }
         .build()
 
     private val json = Json { ignoreUnknownKeys = true }
