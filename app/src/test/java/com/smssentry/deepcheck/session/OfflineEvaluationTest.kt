@@ -1,9 +1,14 @@
 package com.smssentry.deepcheck.session
 
+import android.content.Context
+import androidx.test.core.app.ApplicationProvider
 import com.smssentry.data.model.DeepCheckUpdate
 import com.smssentry.deepcheck.data.AllowlistEntry
 import com.smssentry.deepcheck.data.OfficialSitesRepository
 import com.smssentry.deepcheck.data.TestDatabaseProvider
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.*
 import org.junit.Before
@@ -17,6 +22,8 @@ class OfflineEvaluationTest : TestDatabaseProvider() {
     private val officialSites = OfficialSitesRepository(
         mapOf("hsbc" to "hsbc.co.in", "sbi" to "onlinesbi.sbi")
     )
+
+    private val testScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
     @Before
     override fun setupDatabase() {
@@ -81,7 +88,9 @@ class OfflineEvaluationTest : TestDatabaseProvider() {
     fun `Task 1 - Clean OTP fast-path SAFE`() = runBlocking {
         val rubric = rubrics[0]
         val updates = mutableListOf<DeepCheckUpdate>()
+        val context = ApplicationProvider.getApplicationContext<Context>()
         val session = DeepCheckSession(
+            context = context,
             engine = null,
             allowlistDao = allowlistDao,
             historyDao = historyDao,
@@ -92,7 +101,8 @@ class OfflineEvaluationTest : TestDatabaseProvider() {
             smsSender = rubric.sender,
             listener = object : com.smssentry.domain.service.DeepCheckListener {
                 override fun onUpdate(update: DeepCheckUpdate) { updates.add(update) }
-            }
+            },
+            applicationScope = testScope
         )
         session.run()
 
@@ -107,7 +117,9 @@ class OfflineEvaluationTest : TestDatabaseProvider() {
         val rubric = rubrics[1]
         rubric.setup?.invoke(allowlistDao, historyDao)
         val updates = mutableListOf<DeepCheckUpdate>()
+        val context = ApplicationProvider.getApplicationContext<Context>()
         val session = DeepCheckSession(
+            context = context,
             engine = null,
             allowlistDao = allowlistDao,
             historyDao = historyDao,
@@ -118,7 +130,8 @@ class OfflineEvaluationTest : TestDatabaseProvider() {
             smsSender = rubric.sender,
             listener = object : com.smssentry.domain.service.DeepCheckListener {
                 override fun onUpdate(update: DeepCheckUpdate) { updates.add(update) }
-            }
+            },
+            applicationScope = testScope
         )
         session.run()
 
@@ -131,7 +144,9 @@ class OfflineEvaluationTest : TestDatabaseProvider() {
     fun `Task 3 - Phishing domain detected as SCAM`() = runBlocking {
         val rubric = rubrics[2]
         val updates = mutableListOf<DeepCheckUpdate>()
+        val context = ApplicationProvider.getApplicationContext<Context>()
         val session = DeepCheckSession(
+            context = context,
             engine = null,
             allowlistDao = allowlistDao,
             historyDao = historyDao,
@@ -142,7 +157,8 @@ class OfflineEvaluationTest : TestDatabaseProvider() {
             smsSender = rubric.sender,
             listener = object : com.smssentry.domain.service.DeepCheckListener {
                 override fun onUpdate(update: DeepCheckUpdate) { updates.add(update) }
-            }
+            },
+            applicationScope = testScope
         )
         session.run()
 
@@ -156,7 +172,9 @@ class OfflineEvaluationTest : TestDatabaseProvider() {
     fun `Task 4 - IP address scam fast-path SCAM`() = runBlocking {
         val rubric = rubrics[3]
         val updates = mutableListOf<DeepCheckUpdate>()
+        val context = ApplicationProvider.getApplicationContext<Context>()
         val session = DeepCheckSession(
+            context = context,
             engine = null,
             allowlistDao = allowlistDao,
             historyDao = historyDao,
@@ -167,7 +185,8 @@ class OfflineEvaluationTest : TestDatabaseProvider() {
             smsSender = rubric.sender,
             listener = object : com.smssentry.domain.service.DeepCheckListener {
                 override fun onUpdate(update: DeepCheckUpdate) { updates.add(update) }
-            }
+            },
+            applicationScope = testScope
         )
         session.run()
 
@@ -182,10 +201,12 @@ class OfflineEvaluationTest : TestDatabaseProvider() {
         val updates = mutableListOf<DeepCheckUpdate>()
         val mockEngine = MockLlmEngine(
             listOf(
-                """{"verdict": "SCAM", "confidence": 0.85, "reasoning": "Lottery scam with suspicious TLD .win and brand impersonation of Microsoft.", "evidence": ["Suspicious TLD .win", "Brand impersonation of Microsoft", "Urgency language requesting personal details"]}"""
+                "<<<VERDICT:SCAM,0.85,lottery>>>\nThis is a scam lottery message pretending to be from Microsoft."
             )
         )
+        val context = ApplicationProvider.getApplicationContext<Context>()
         val session = DeepCheckSession(
+            context = context,
             engine = mockEngine,
             allowlistDao = allowlistDao,
             historyDao = historyDao,
@@ -196,7 +217,8 @@ class OfflineEvaluationTest : TestDatabaseProvider() {
             smsSender = rubric.sender,
             listener = object : com.smssentry.domain.service.DeepCheckListener {
                 override fun onUpdate(update: DeepCheckUpdate) { updates.add(update) }
-            }
+            },
+            applicationScope = testScope
         )
         session.run()
 
@@ -204,13 +226,16 @@ class OfflineEvaluationTest : TestDatabaseProvider() {
         assertNotNull("Should emit a FinalVerdict", verdict)
         val v = verdict!!.verdict
         assertTrue("Lottery scam should be flagged as SCAM", v.isScam)
+        assertEquals("This is a scam lottery message pretending to be from Microsoft.", v.educationalExplanation)
     }
 
     @Test
     fun `All 5 evaluations produce a FinalVerdict`() = runBlocking {
+        val context = ApplicationProvider.getApplicationContext<Context>()
         for (rubric in rubrics) {
             val updates = mutableListOf<DeepCheckUpdate>()
             val session = DeepCheckSession(
+                context = context,
                 engine = null,
                 allowlistDao = allowlistDao,
                 historyDao = historyDao,
@@ -221,7 +246,8 @@ class OfflineEvaluationTest : TestDatabaseProvider() {
                 smsSender = rubric.sender,
                 listener = object : com.smssentry.domain.service.DeepCheckListener {
                     override fun onUpdate(update: DeepCheckUpdate) { updates.add(update) }
-                }
+                },
+                applicationScope = testScope
             )
             session.run()
 
@@ -232,9 +258,11 @@ class OfflineEvaluationTest : TestDatabaseProvider() {
 
     @Test
     fun `All evaluations complete without error updates`() = runBlocking {
+        val context = ApplicationProvider.getApplicationContext<Context>()
         for (rubric in rubrics) {
             val updates = mutableListOf<DeepCheckUpdate>()
             val session = DeepCheckSession(
+                context = context,
                 engine = null,
                 allowlistDao = allowlistDao,
                 historyDao = historyDao,
@@ -245,7 +273,8 @@ class OfflineEvaluationTest : TestDatabaseProvider() {
                 smsSender = rubric.sender,
                 listener = object : com.smssentry.domain.service.DeepCheckListener {
                     override fun onUpdate(update: DeepCheckUpdate) { updates.add(update) }
-                }
+                },
+                applicationScope = testScope
             )
             session.run()
 

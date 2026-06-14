@@ -12,6 +12,8 @@ import com.smssentry.deepcheck.data.ReputationDb
 import com.smssentry.deepcheck.data.HistoryEntry
 import com.smssentry.deepcheck.model.LlmInferenceEngine
 import com.smssentry.deepcheck.model.VerdictParser
+import com.smssentry.deepcheck.model.ParsedEducationalVerdict
+import com.smssentry.deepcheck.model.EducationalVerdictParser
 import com.smssentry.deepcheck.prefilter.FastPathFilter
 import com.smssentry.deepcheck.proxy.PrivacyProxyClient
 import com.smssentry.deepcheck.tools.ToolExecutor
@@ -93,88 +95,101 @@ class DeepCheckSession(
                 return
             }
 
-            val conversation = StringBuilder()
-            conversation.appendLine("System: $SYSTEM_PROMPT")
-            conversation.appendLine("User: SMS from $smsSender: \"$smsText\"")
-
-            var turn = 0
-            val maxTurns = 4
-            val seenToolCalls = mutableSetOf<String>()
-
-            while (turn < maxTurns && !isCancelled) {
-                val prompt = conversation.toString()
-                val response = withTimeoutOrNull(8_000L) {
-                    engine.generate(prompt)
+            val session = engine.createSession(SYSTEM_PROMPT)
+            try {
+                val toolExecutor = ToolExecutor(allowlistDao, historyDao, reputationDb, officialSites, proxyClient)
+                val seenToolCalls = mutableSetOf<String>()
+                var turn = 0
+                val maxTurns = 5
+                var response = withTimeoutOrNull(8_000L) {
+                    session.sendTurn("Analyze this SMS from $smsSender:\n\"$smsText\"")
                 }
 
-                if (response == null) {
-                    emitStep(context.getString(R.string.step_timeout))
-                    runRuleBasedAnalysis()
-                    return
-                }
-
-                val json = VerdictParser.extractJson(response)
-                if (json != null) {
-                    val verdict = VerdictParser.parseVerdict(json)
-                    if (verdict != null) {
-                        emitVerdict(mapVerdict(verdict))
+                while (turn < maxTurns && !isCancelled) {
+                    if (response == null) {
+                        emitStep(context.getString(R.string.step_timeout))
+                        runRuleBasedAnalysis()
                         return
                     }
-                }
 
-                val toolCall = parseToolCall(response)
-                if (toolCall != null) {
-                    val callKey = "${toolCall.first}:${toolCall.second}"
-                    if (!seenToolCalls.add(callKey)) {
-                        conversation.appendLine("Assistant: $response")
-                        conversation.appendLine("Tool: You already called this tool with these arguments. Use the prior result or call a different tool.")
+                    // 1. Educational verdict tag check
+                    val eduVerdict = EducationalVerdictParser.parse(response)
+                    if (eduVerdict != null) {
+                        emitVerdict(mapEducationalVerdict(eduVerdict))
+                        return
+                    }
+
+                    // 2. Legacy JSON fallback check
+                    val json = VerdictParser.extractJson(response)
+                    val verdict = json?.let { VerdictParser.parseVerdict(it) }
+                    if (verdict != null) {
+                        emitVerdict(mapLegacyVerdict(verdict))
+                        return
+                    }
+
+                    // 3. Tool call check
+                    val toolCall = parseToolCall(response)
+                    if (toolCall != null) {
+                        val callKey = "${toolCall.first}:${toolCall.second}"
+                        if (!seenToolCalls.add(callKey)) {
+                            response = withTimeoutOrNull(8_000L) {
+                                session.sendTurn("OBSERVATION: Already called. Use prior result or different tool.")
+                            }
+                            turn++
+                            continue
+                        }
+
+                        emitStep(describeToolCall(toolCall.first, context))
+
+                        val toolResult = withTimeoutOrNull(5_000L) {
+                            toolExecutor.executeByName(toolCall.first, toolCall.second)
+                        } ?: "OBSERVATION: Tool timed out."
+
+                        if (toolResult.startsWith("evidence:")) {
+                            val ev = toolResult.removePrefix("evidence:").trim()
+                            evidenceList.add(ev)
+                            emitEvidence(ev)
+                        }
+
+                        response = withTimeoutOrNull(8_000L) {
+                            session.sendTurn("OBSERVATION: ${toolResult.take(200)}")
+                        }
                         turn++
-                        continue
+                    } else {
+                        response = withTimeoutOrNull(8_000L) {
+                            session.sendTurn(RETRY_VERDICT_PROMPT)
+                        }
+                        turn++
                     }
-
-                    emitStep(describeToolCall(toolCall.first, context))
-
-                    val toolExecutor = ToolExecutor(
-                        allowlistDao, historyDao, reputationDb, officialSites, proxyClient
-                    )
-                    val toolResult = withTimeoutOrNull(5_000L) {
-                        toolExecutor.executeByName(toolCall.first, toolCall.second)
-                    } ?: "Tool timed out."
-
-                    val truncated = toolResult.take(200)
-                    if (toolResult.startsWith("evidence:")) {
-                        val evidence = toolResult.removePrefix("evidence:").trim()
-                        evidenceList.add(evidence)
-                        emitEvidence(evidence)
-                    }
-                    conversation.appendLine("Assistant: $response")
-                    conversation.appendLine("Tool: $truncated")
-                    turn++
-                } else {
-                    conversation.appendLine("Assistant: $response")
-                    conversation.appendLine("User: $RETRY_JSON_PROMPT")
-                    turn++
                 }
+                runRuleBasedAnalysis()
+            } finally {
+                session.close()
             }
-            runRuleBasedAnalysis()
         } finally {
-            // Engine lifecycle is managed by ModelManager; do not close it here
             _isActive = false
         }
     }
 
     private fun parseToolCall(response: String): Pair<String, String>? {
-        val jsonMatch = Regex("""\{[^}]+\}""").find(response) ?: return null
-        val json = jsonMatch.value
-
-        return try {
-            val toolNameMatch = Regex(""""tool_name"\s*:\s*"(\w+)"""").find(json)
-            val argumentsMatch = Regex(""""arguments"\s*:\s*(\{[^}]+\})""").find(json)
-            if (toolNameMatch != null && argumentsMatch != null) {
-                Pair(toolNameMatch.groupValues[1], argumentsMatch.groupValues[1])
+        val actionLine = response.lines().firstOrNull { it.trimStart().startsWith("ACTION:") }
+        if (actionLine != null) {
+            val content = actionLine.removePrefix("ACTION:").trim()
+            val pipeIdx = content.indexOf('|')
+            return if (pipeIdx >= 0) {
+                Pair(content.substring(0, pipeIdx).trim(), content.substring(pipeIdx + 1).trim())
             } else {
-                null
+                Pair(content.trim(), "")
             }
+        }
+
+        // Fallback: old JSON format
+        val jsonMatch = Regex("""\{[^}]+\}""").find(response) ?: return null
+        return try {
+            val json = jsonMatch.value
+            val name = Regex(""""tool_name"\s*:\s*"(\w+)"""").find(json)?.groupValues?.get(1)
+            val args = Regex(""""arguments"\s*:\s*(\{[^}]+\})""").find(json)?.groupValues?.get(1)
+            if (name != null && args != null) Pair(name, args) else null
         } catch (e: Exception) {
             null
         }
@@ -205,7 +220,7 @@ class DeepCheckSession(
 
     private fun recordHistory(verdict: DeepCheckVerdict) {
         try {
-            val hash = HashUtil.hashSms(smsSender, smsText.take(10))
+            val hash = HashUtil.hashSms(smsSender, smsText)
             val verdictStr = when {
                 verdict.isScam -> "SCAM"
                 verdict.evidence.size >= 2 -> "SCAM"
@@ -313,7 +328,7 @@ class DeepCheckSession(
         emitFallbackVerdict()
     }
 
-    private fun mapVerdict(v: com.smssentry.deepcheck.model.VerdictJson): DeepCheckVerdict {
+    private fun mapLegacyVerdict(v: com.smssentry.deepcheck.model.VerdictJson): DeepCheckVerdict {
         val isScam = v.verdict == "SCAM"
         return DeepCheckVerdict(
             isScam = isScam,
@@ -337,17 +352,27 @@ class DeepCheckSession(
         )
     }
 
-    companion object {
-        private const val SYSTEM_PROMPT = "You are a security expert. Analyze the SMS for scams. Use tools if needed. Output JSON: {verdict: SAFE|SCAM|SUSPICIOUS, confidence: 0-1, reasoning: string, evidence: [string]}"
-        private const val RETRY_JSON_PROMPT = "Please provide your final verdict in the requested JSON format."
+    private fun mapEducationalVerdict(parsed: ParsedEducationalVerdict): DeepCheckVerdict {
+        val isScam = parsed.verdictLabel == "SCAM"
+        return DeepCheckVerdict(
+            isScam = isScam || parsed.verdictLabel == "SUSPICIOUS",
+            summary = parsed.explanation.take(150).let { if (parsed.explanation.length > 150) "$it..." else it },
+            threatType = parsed.scamType.takeIf { it != "safe" },
+            evidence = evidenceList.map { EvidenceItem("AI Analysis", it, if (isScam) "HIGH" else "MEDIUM") },
+            recommendedActions = emptyList(),
+            educationalExplanation = parsed.explanation
+        )
+    }
 
+    companion object {
         fun describeToolCall(toolName: String, context: Context): String = when (toolName) {
-            "lookup_allowlist" -> context.getString(R.string.step_allowlist)
-            "search_personal_db" -> context.getString(R.string.step_history)
-            "offline_reputation_check" -> context.getString(R.string.step_checking_reputation)
-            "brand_mismatch_check" -> context.getString(R.string.step_brand)
-            "whois_lookup" -> context.getString(R.string.step_whois)
-            "compare_official_site" -> context.getString(R.string.step_official_site)
+            "whois", "whois_lookup"                      -> context.getString(R.string.step_whois)
+            "search_scam_db", "offline_reputation_check" -> context.getString(R.string.step_checking_reputation)
+            "fetch_page"                                 -> "Fetching page content..."
+            "official_site", "compare_official_site"     -> context.getString(R.string.step_official_site)
+            "brand_mismatch", "brand_mismatch_check"     -> context.getString(R.string.step_brand)
+            "lookup_allowlist"                           -> context.getString(R.string.step_allowlist)
+            "search_personal_db"                         -> context.getString(R.string.step_history)
             else -> context.getString(R.string.step_running_tool, toolName)
         }
     }

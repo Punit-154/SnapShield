@@ -23,6 +23,7 @@ class ModelDownloadManager(private val context: Context) {
             "https://huggingface.co/litert-community/gemma-4-E4B-it-litert-lm/resolve/main/gemma-4-E4B-it.litertlm"
         const val MODEL_FILE_NAME = "gemma-4-E4B-it.litertlm"
         const val MIN_FILE_SIZE_BYTES = 3_659_000_000L
+        const val MODEL_SHA256 = "0b2a8980ce155fd97673d8e820b4d29d9c7d99b8fa6806f425d969b145bd52e0"
     }
 
     private val _state = MutableStateFlow(State.IDLE)
@@ -185,6 +186,13 @@ class ModelDownloadManager(private val context: Context) {
                     return@withContext
                 }
 
+                if (!verifyChecksum(modelFile)) {
+                    modelFile.delete()
+                    _error.value = "Model checksum verification failed."
+                    _state.value = State.FAILED
+                    return@withContext
+                }
+
                 _state.value = State.COMPLETE
             }
         } catch (e: IOException) {
@@ -212,5 +220,22 @@ class ModelDownloadManager(private val context: Context) {
         cancelDownload()
         _error.value = null
         _state.value = State.IDLE
+    }
+
+    private fun verifyChecksum(file: File): Boolean {
+        return try {
+            val digest = java.security.MessageDigest.getInstance("SHA-256")
+            file.inputStream().buffered().use { stream ->
+                val buffer = ByteArray(8192)
+                var read: Int
+                while (stream.read(buffer).also { read = it } != -1) {
+                    digest.update(buffer, 0, read)
+                }
+            }
+            val actual = digest.digest().joinToString("") { "%02x".format(it) }
+            actual.equals(MODEL_SHA256, ignoreCase = true)
+        } catch (e: Exception) {
+            false
+        }
     }
 }

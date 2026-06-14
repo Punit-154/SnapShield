@@ -30,12 +30,13 @@ class ToolExecutor(
     suspend fun executeByName(toolName: String, arguments: String): String {
         return try {
             when (toolName) {
+                "whois", "whois_lookup" -> executeWhoisLookup(arguments)
+                "search_scam_db", "offline_reputation_check" -> executeOfflineReputationCheck(arguments)
+                "official_site", "compare_official_site" -> executeCompareOfficialSite(arguments)
+                "brand_mismatch", "brand_mismatch_check" -> executeBrandMismatchCheck(arguments)
+                "fetch_page" -> FetchPageTool(proxyClient).fetch(arguments.trim())
                 "lookup_allowlist" -> executeLookupAllowlist(arguments)
                 "search_personal_db" -> executeSearchPersonalDb(arguments)
-                "offline_reputation_check" -> executeOfflineReputationCheck(arguments)
-                "brand_mismatch_check" -> executeBrandMismatchCheck(arguments)
-                "whois_lookup" -> executeWhoisLookup(arguments)
-                "compare_official_site" -> executeCompareOfficialSite(arguments)
                 else -> "Unknown tool: $toolName"
             }
         } catch (e: Exception) {
@@ -67,10 +68,23 @@ class ToolExecutor(
         }
     }
 
+    private fun getParam(arguments: String, key: String): String {
+        val trimmed = arguments.trim()
+        if (trimmed.startsWith("{") && trimmed.endsWith("}")) {
+            val args = parseJsonObject(trimmed)
+            return getString(args, key) ?: ""
+        }
+        return trimmed
+    }
+
     private suspend fun executeLookupAllowlist(arguments: String): String {
-        val args = parseJsonObject(arguments)
-        val sender = getString(args, "sender")
-        val domain = getString(args, "domain")
+        val trimmed = arguments.trim()
+        val (sender, domain) = if (trimmed.startsWith("{") && trimmed.endsWith("}")) {
+            val args = parseJsonObject(trimmed)
+            Pair(getString(args, "sender"), getString(args, "domain"))
+        } else {
+            Pair(trimmed, trimmed)
+        }
 
         var found = false
         if (!sender.isNullOrBlank() && allowlistDao.containsSender(sender)) {
@@ -84,9 +98,15 @@ class ToolExecutor(
     }
 
     private suspend fun executeSearchPersonalDb(arguments: String): String {
-        val args = parseJsonObject(arguments)
-        val sender = getString(args, "sender") ?: return "Missing sender parameter."
-        val smsPrefix = getString(args, "sms_prefix") ?: return "Missing sms_prefix parameter."
+        val trimmed = arguments.trim()
+        val (sender, smsPrefix) = if (trimmed.startsWith("{") && trimmed.endsWith("}")) {
+            val args = parseJsonObject(trimmed)
+            Pair(getString(args, "sender") ?: "", getString(args, "sms_prefix") ?: "")
+        } else {
+            val parts = trimmed.split('|', limit = 2)
+            if (parts.size == 2) Pair(parts[0].trim(), parts[1].trim()) else Pair("", trimmed)
+        }
+        if (sender.isBlank() || smsPrefix.isBlank()) return "Missing sender or sms_prefix parameter."
         val hash = HashUtil.hashSms(sender, smsPrefix)
         val entry = historyDao.get(hash)
         return if (entry != null) {
@@ -97,8 +117,13 @@ class ToolExecutor(
     }
 
     private suspend fun executeOfflineReputationCheck(arguments: String): String {
-        val args = parseJsonObject(arguments)
-        val urls = getStringArray(args, "urls")
+        val trimmed = arguments.trim()
+        val urls = if (trimmed.startsWith("{") && trimmed.endsWith("}")) {
+            val args = parseJsonObject(trimmed)
+            getStringArray(args, "urls")
+        } else {
+            listOf(trimmed)
+        }
         if (urls.isEmpty()) return "No URLs provided."
 
         val domains = FastPathFilter.extractDomains(urls)
@@ -114,9 +139,13 @@ class ToolExecutor(
     }
 
     private fun executeBrandMismatchCheck(arguments: String): String {
-        val args = parseJsonObject(arguments)
-        val smsText = getString(args, "sms_text") ?: return "Missing sms_text parameter."
-        val urls = getStringArray(args, "urls")
+        val trimmed = arguments.trim()
+        val (smsText, urls) = if (trimmed.startsWith("{") && trimmed.endsWith("}")) {
+            val args = parseJsonObject(trimmed)
+            Pair(getString(args, "sms_text") ?: "", getStringArray(args, "urls"))
+        } else {
+            Pair(trimmed, FastPathFilter.extractUrls(trimmed))
+        }
 
         val mismatch = BrandMismatchHeuristic.check(smsText, urls, officialSites)
         return if (mismatch != null) {
@@ -127,8 +156,8 @@ class ToolExecutor(
     }
 
     private suspend fun executeWhoisLookup(arguments: String): String {
-        val args = parseJsonObject(arguments)
-        val domain = getString(args, "domain") ?: return "Missing domain parameter."
+        val domain = getParam(arguments, "domain")
+        if (domain.isBlank()) return "Missing domain parameter."
 
         if (proxyClient == null || !proxyClient.isAvailable()) {
             return "WHOIS unavailable (offline)."
@@ -154,9 +183,15 @@ class ToolExecutor(
     }
 
     private fun executeCompareOfficialSite(arguments: String): String {
-        val args = parseJsonObject(arguments)
-        val claimedEntity = getString(args, "claimed_entity") ?: return "Missing claimed_entity parameter."
-        val linkedDomain = getString(args, "linked_domain") ?: return "Missing linked_domain parameter."
+        val trimmed = arguments.trim()
+        val (claimedEntity, linkedDomain) = if (trimmed.startsWith("{") && trimmed.endsWith("}")) {
+            val args = parseJsonObject(trimmed)
+            Pair(getString(args, "claimed_entity") ?: "", getString(args, "linked_domain") ?: "")
+        } else {
+            val parts = trimmed.split('|', limit = 2)
+            if (parts.size == 2) Pair(parts[0].trim(), parts[1].trim()) else Pair(trimmed, "")
+        }
+        if (claimedEntity.isBlank() || linkedDomain.isBlank()) return "Missing claimed_entity or linked_domain parameter."
 
         val officialDomain = officialSites.lookupOfficialDomain(claimedEntity)
             ?: return "Unknown entity: $claimedEntity — cannot verify."

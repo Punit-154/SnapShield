@@ -110,6 +110,7 @@ fun DeepCheckTimeline(
 
         state.verdict?.let { verdict ->
             VerdictCard(verdict = verdict)
+            EducationalExplanationCard(explanation = verdict.educationalExplanation)
 
             if (state.evidence.isNotEmpty()) {
                 Card(
@@ -149,6 +150,52 @@ fun DeepCheckTimeline(
                     modifier = Modifier.padding(16.dp),
                     color = MaterialTheme.colorScheme.onErrorContainer
                 )
+            }
+        }
+    }
+}
+
+@Composable
+fun EducationalExplanationCard(explanation: String, modifier: Modifier = Modifier) {
+    if (explanation.isBlank()) return
+    var expanded by remember { mutableStateOf(false) }
+    val preview = if (explanation.length > 220) explanation.take(220) + "..." else explanation
+
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Column(modifier = Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Icon(
+                    Icons.Default.Warning,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                    modifier = Modifier.size(20.dp)
+                )
+                Text(
+                    text = "What this means for you",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSecondaryContainer
+                )
+            }
+            AnimatedContent(targetState = expanded, transitionSpec = { fadeIn() togetherWith fadeOut() }, label = "explanation") { isExpanded ->
+                Text(
+                    text = if (isExpanded) explanation else preview,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSecondaryContainer
+                )
+            }
+            if (explanation.length > 220) {
+                TextButton(
+                    onClick = { expanded = !expanded },
+                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.onSecondaryContainer)
+                ) {
+                    Text(if (expanded) "Show less" else "Read more")
+                }
             }
         }
     }

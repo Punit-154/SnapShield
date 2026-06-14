@@ -2,6 +2,10 @@ package com.smssentry.deepcheck.model
 
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import com.google.ai.edge.litertlm.Message
+import com.google.ai.edge.litertlm.Content
 
 sealed class LlmResponse {
     data class Text(val text: String) : LlmResponse()
@@ -21,9 +25,24 @@ data class Tool(
     val parameters: String
 )
 
+open class LlmConversationSession(
+    private val conversation: com.google.ai.edge.litertlm.Conversation? = null
+) {
+    open suspend fun sendTurn(userText: String): String = withContext(Dispatchers.IO) {
+        val conv = conversation ?: throw IllegalStateException("No active conversation")
+        val msg = Message.of(userText)
+        val response = conv.sendMessage(msg)
+        response.contents.contents.filterIsInstance<Content.Text>().joinToString("") { it.text }
+    }
+    open fun close() {
+        conversation?.close()
+    }
+}
+
 interface LlmInferenceEngine {
     suspend fun load()
     suspend fun generate(prompt: String): String
+    fun createSession(systemPrompt: String): LlmConversationSession
     fun close()
 }
 
@@ -78,5 +97,29 @@ object VerdictParser {
         } catch (e: Exception) {
             null
         }
+    }
+}
+
+data class ParsedEducationalVerdict(
+    val verdictLabel: String,
+    val confidence: Float,
+    val scamType: String,
+    val explanation: String
+)
+
+object EducationalVerdictParser {
+    private val TAG_PATTERN = Regex("""<<<VERDICT:(\w+),([\d.]+),([^>]+)>>>""")
+
+    fun parse(rawOutput: String): ParsedEducationalVerdict? {
+        val match = TAG_PATTERN.find(rawOutput) ?: return null
+        val (verdictStr, confidenceStr, scamType) = match.destructured
+        val explanation = rawOutput.substringAfter(match.value).trim()
+        if (explanation.isBlank()) return null
+        return ParsedEducationalVerdict(
+            verdictLabel = when (verdictStr.uppercase()) { "SCAM" -> "SCAM"; "SAFE" -> "SAFE"; else -> "SUSPICIOUS" },
+            confidence = confidenceStr.toFloatOrNull()?.coerceIn(0f, 1f) ?: 0.5f,
+            scamType = scamType.trim(),
+            explanation = explanation
+        )
     }
 }

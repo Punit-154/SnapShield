@@ -13,3 +13,15 @@
 -keep,includedescriptorclasses class com.smssentry.**$$serializer { *; }
 -keepclassmembers class com.smssentry.** { *** Companion; }
 -keepclasseswithmembers class com.smssentry.** { kotlinx.serialization.KSerializer serializer(...); }
+
+# LiteRT-LM
+-keep class com.google.ai.edge.litertlm.** { *; }
+-dontwarn com.google.ai.edge.litertlm.**
+
+# Room
+-keep class * extends androidx.room.RoomDatabase
+-keep @androidx.room.Entity class *
+-keepclassmembers class * { @androidx.room.* <methods>; }
+
+# Hilt
+-keep class dagger.hilt.** { *; }

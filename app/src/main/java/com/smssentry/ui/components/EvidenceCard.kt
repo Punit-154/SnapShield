@@ -23,12 +23,17 @@ fun EvidenceCard(
     modifier: Modifier = Modifier
 ) {
     val (severityColor, severityBackground) = getSeverityColors(evidence.severity)
+    val containerColor = when (evidence.severity.uppercase()) {
+        "HIGH", "CRITICAL" -> ScamRed.copy(alpha = 0.08f)
+        "MEDIUM" -> SuspiciousOrange.copy(alpha = 0.08f)
+        else -> MaterialTheme.colorScheme.surfaceVariant
+    }
 
     Card(
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
+            containerColor = containerColor
         ),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
     ) {

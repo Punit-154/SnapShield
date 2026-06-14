@@ -19,7 +19,16 @@ open class OfficialSitesRepository {
         sites = try {
             json.decodeFromString<Map<String, String>>(raw).mapKeys { it.key.lowercase() }
         } catch (e: Exception) {
-            emptyMap()
+            mapOf(
+                "google" to "google.com",
+                "paypal" to "paypal.com",
+                "netflix" to "netflix.com",
+                "amazon" to "amazon.com",
+                "apple" to "apple.com",
+                "microsoft" to "microsoft.com",
+                "facebook" to "facebook.com",
+                "instagram" to "instagram.com"
+            ).mapKeys { it.key.lowercase() }
         }
     }
 

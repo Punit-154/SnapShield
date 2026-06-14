@@ -35,8 +35,9 @@ class DeepCheckSessionTest : TestDatabaseProvider() {
             "__ERROR__"
         ))
         val updates = mutableListOf<DeepCheckUpdate>()
+        val context = androidx.test.core.app.ApplicationProvider.getApplicationContext<android.content.Context>()
         val session = DeepCheckSession(
-            engine, allowlistDao, historyDao, null, officialSites, null,
+            context, engine, allowlistDao, historyDao, null, officialSites, null,
             "Hello", "+1234567890",
             object : com.smssentry.domain.service.DeepCheckListener {
                 override fun onUpdate(update: DeepCheckUpdate) { updates.add(update) }
@@ -55,8 +56,9 @@ class DeepCheckSessionTest : TestDatabaseProvider() {
             "__TIMEOUT__"
         ))
         val updates = mutableListOf<DeepCheckUpdate>()
+        val context = androidx.test.core.app.ApplicationProvider.getApplicationContext<android.content.Context>()
         val session = DeepCheckSession(
-            engine, allowlistDao, historyDao, null, officialSites, null,
+            context, engine, allowlistDao, historyDao, null, officialSites, null,
             "Suspicious message with http://evil.xyz link",
             "Scammer",
             object : com.smssentry.domain.service.DeepCheckListener {
@@ -74,8 +76,9 @@ class DeepCheckSessionTest : TestDatabaseProvider() {
             "__ERROR__"
         ))
         val updates = mutableListOf<DeepCheckUpdate>()
+        val context = androidx.test.core.app.ApplicationProvider.getApplicationContext<android.content.Context>()
         val session = DeepCheckSession(
-            engine, allowlistDao, historyDao, null, officialSites, null,
+            context, engine, allowlistDao, historyDao, null, officialSites, null,
             "Click http://scam.xyz/verify now!",
             "Unknown",
             object : com.smssentry.domain.service.DeepCheckListener {
@@ -89,14 +92,15 @@ class DeepCheckSessionTest : TestDatabaseProvider() {
 
     @Test
     fun `happy path with tool call then verdict`() = runBlocking {
-        val verdictJson = """{"verdict":"SAFE","confidence":0.95,"reasoning":"Domain is allowlisted.","evidence":["Domain verified"]}"""
+        val verdictText = "<<<VERDICT:SAFE,0.95,safe>>>\nDomain is verified. This is a safe message."
         val engine = MockLlmEngine(listOf(
-            """{"tool_name":"lookup_allowlist","arguments":{"sender":"+1234567890"}}""",
-            verdictJson
+            "ACTION: whois|example.com",
+            verdictText
         ))
         val updates = mutableListOf<DeepCheckUpdate>()
+        val context = androidx.test.core.app.ApplicationProvider.getApplicationContext<android.content.Context>()
         val session = DeepCheckSession(
-            engine, allowlistDao, historyDao, null, officialSites, null,
+            context, engine, allowlistDao, historyDao, null, officialSites, null,
             "Test message", "+1234567890",
             object : com.smssentry.domain.service.DeepCheckListener {
                 override fun onUpdate(update: DeepCheckUpdate) { updates.add(update) }
@@ -106,20 +110,24 @@ class DeepCheckSessionTest : TestDatabaseProvider() {
         session.run()
         val finalVerdict = updates.filterIsInstance<DeepCheckUpdate.FinalVerdict>().lastOrNull()
         assertNotNull(finalVerdict)
+        assertFalse(finalVerdict!!.verdict.isScam)
+        assertEquals("Domain is verified. This is a safe message.", finalVerdict.verdict.educationalExplanation)
     }
 
     @Test
     fun `max turns exceeded triggers fallback`() = runBlocking {
         val engine = MockLlmEngine(listOf(
-            """{"tool_name":"lookup_allowlist","arguments":{}}""",
-            """{"tool_name":"search_personal_db","arguments":{"sender":"x","sms_prefix":"y"}}""",
-            """{"tool_name":"offline_reputation_check","arguments":{"urls":[]}}""",
-            """{"tool_name":"whois_lookup","arguments":{"domain":"x.com"}}""",
-            """{"tool_name":"compare_official_site","arguments":{"claimed_entity":"x","linked_domain":"y.com"}}"""
+            "ACTION: whois|1.com",
+            "ACTION: whois|2.com",
+            "ACTION: whois|3.com",
+            "ACTION: whois|4.com",
+            "ACTION: whois|5.com",
+            "ACTION: whois|6.com"
         ))
         val updates = mutableListOf<DeepCheckUpdate>()
+        val context = androidx.test.core.app.ApplicationProvider.getApplicationContext<android.content.Context>()
         val session = DeepCheckSession(
-            engine, allowlistDao, historyDao, null, officialSites, null,
+            context, engine, allowlistDao, historyDao, null, officialSites, null,
             "Suspicious test with http://evil.xyz link",
             "Scammer",
             object : com.smssentry.domain.service.DeepCheckListener {
@@ -137,8 +145,9 @@ class DeepCheckSessionTest : TestDatabaseProvider() {
             "__TIMEOUT__"
         ))
         val updates = mutableListOf<DeepCheckUpdate>()
+        val context = androidx.test.core.app.ApplicationProvider.getApplicationContext<android.content.Context>()
         val session = DeepCheckSession(
-            engine, allowlistDao, historyDao, null, officialSites, null,
+            context, engine, allowlistDao, historyDao, null, officialSites, null,
             "Test", "Sender",
             object : com.smssentry.domain.service.DeepCheckListener {
                 override fun onUpdate(update: DeepCheckUpdate) { updates.add(update) }

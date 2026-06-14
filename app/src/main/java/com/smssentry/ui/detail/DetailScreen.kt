@@ -9,6 +9,8 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material.icons.filled.Search
+
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -205,7 +207,7 @@ fun DetailScreen(
                         )
                     ) {
                         Icon(
-                            Icons.Default.Warning,
+                            androidx.compose.material.icons.Icons.Default.Search,
                             contentDescription = null,
                             modifier = Modifier.size(18.dp)
                         )
@@ -217,10 +219,17 @@ fun DetailScreen(
                     }
 
                     if (!isModelReady) {
-                        Text(
-                            text = stringResource(R.string.model_not_loaded_fallback),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                        Spacer(modifier = Modifier.height(4.dp))
+                        AssistChip(
+                            onClick = onNavigateToDownload,
+                            label = { Text("Download AI Model for deeper analysis") },
+                            leadingIcon = {
+                                Icon(
+                                    Icons.Default.Search,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            },
                             modifier = Modifier.align(Alignment.CenterHorizontally)
                         )
                     }
