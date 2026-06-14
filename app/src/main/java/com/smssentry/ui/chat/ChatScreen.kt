@@ -97,10 +97,11 @@ import java.util.Locale
 private fun formatDateHeader(timestamp: Long): String {
     val msgCal = Calendar.getInstance().apply { timeInMillis = timestamp }
     val todayCal = Calendar.getInstance()
+    val yesterdayCal = Calendar.getInstance().apply { add(Calendar.DAY_OF_YEAR, -1) }
 
     return when {
         isSameDay(msgCal, todayCal) -> "Today"
-        isSameDay(msgCal, todayCal.apply { add(Calendar.DAY_OF_YEAR, -1) }) -> "Yesterday"
+        isSameDay(msgCal, yesterdayCal) -> "Yesterday"
         else -> SimpleDateFormat("MMMM d, yyyy", Locale.getDefault()).format(Date(timestamp))
     }
 }

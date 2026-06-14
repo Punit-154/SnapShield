@@ -350,6 +350,8 @@ class ConversationListViewModel @Inject constructor(
 
     override fun onCleared() {
         super.onCleared()
+        debounceJob?.cancel()
+        pendingDeleteJob?.cancel()
         smsObserver?.let { context.contentResolver.unregisterContentObserver(it) }
     }
 }

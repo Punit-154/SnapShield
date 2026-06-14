@@ -1,6 +1,5 @@
 package com.smssentry.ui.navigation
 
-import android.util.Log
 import androidx.compose.animation.*
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
@@ -36,7 +35,6 @@ sealed class Screen(val route: String) {
     data object ModelDownload : Screen("model_download")
 }
 
-private const val TAG = "NavGraph"
 private const val NAV_ANIM_DURATION = 350
 
 @Composable

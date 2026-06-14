@@ -19,6 +19,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import java.util.concurrent.atomic.AtomicBoolean
 import javax.inject.Inject
 
 @HiltViewModel
@@ -51,7 +52,7 @@ class ChatViewModel @Inject constructor(
 
     // ── Pagination state ─────────────────────────────────────────────────
     private val pageSize = 50
-    private var isLoadingMore = false
+    private val isLoadingMore = AtomicBoolean(false)
 
     private val _canLoadMore = MutableStateFlow(true)
     val canLoadMore: StateFlow<Boolean> = _canLoadMore.asStateFlow()
@@ -92,12 +93,12 @@ class ChatViewModel @Inject constructor(
      * Load the next page of older messages and prepend them to the current list.
      */
     fun loadMoreMessages() {
-        if (isLoadingMore || !_canLoadMore.value) return
+        if (!isLoadingMore.compareAndSet(false, true)) return
+        if (!_canLoadMore.value) { isLoadingMore.set(false); return }
         val currentMessages = _messages.value
-        if (currentMessages.isEmpty()) return
+        if (currentMessages.isEmpty()) { isLoadingMore.set(false); return }
 
         val oldestTimestamp = currentMessages.minOf { it.timestamp }
-        isLoadingMore = true
 
         viewModelScope.launch {
             try {
@@ -105,13 +106,14 @@ class ChatViewModel @Inject constructor(
                 if (older.isEmpty()) {
                     _canLoadMore.value = false
                 } else {
-                    _messages.value = older + currentMessages
+                    // Re-read current messages to avoid stale data
+                    _messages.value = older + _messages.value
                     if (older.size < pageSize) {
                         _canLoadMore.value = false
                     }
                 }
             } finally {
-                isLoadingMore = false
+                isLoadingMore.set(false)
             }
         }
     }
@@ -181,6 +183,7 @@ class ChatViewModel @Inject constructor(
 
     override fun onCleared() {
         super.onCleared()
+        debounceJob?.cancel()
         smsObserver?.let { context.contentResolver.unregisterContentObserver(it) }
     }
 }
