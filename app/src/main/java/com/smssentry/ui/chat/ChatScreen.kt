@@ -3,10 +3,12 @@ package com.smssentry.ui.chat
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import android.graphics.BitmapFactory
 import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -25,12 +27,18 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
+import android.content.Intent
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Shield
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -38,6 +46,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
@@ -46,6 +55,7 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
@@ -59,6 +69,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -103,6 +115,7 @@ fun ChatScreen(
     val contactName by viewModel.contactName.collectAsState()
     val isSending by viewModel.isSending.collectAsState()
     val sendError by viewModel.sendError.collectAsState()
+    val contactPhotoUri by viewModel.contactPhotoUri.collectAsState()
     val context = LocalContext.current
 
     // Derive loading state: true until first real collection completes
@@ -112,6 +125,9 @@ fun ChatScreen(
 
     var messageText by rememberSaveable { mutableStateOf("") }
     var showMenu by remember { mutableStateOf(false) }
+    var selectedMessage by remember { mutableStateOf<SmsMessage?>(null) }
+    var messageToDelete by remember { mutableStateOf<SmsMessage?>(null) }
+    var showDeleteConversation by remember { mutableStateOf(false) }
 
     val listState = rememberLazyListState()
 
@@ -135,6 +151,145 @@ fun ChatScreen(
         }
     }
 
+    // ── Delete confirmation dialog ──
+    messageToDelete?.let { msg ->
+        AlertDialog(
+            onDismissRequest = { messageToDelete = null },
+            title = { Text("Delete message?") },
+            text = { Text("This message will be permanently deleted.") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        viewModel.deleteMessage(msg.id)
+                        messageToDelete = null
+                    },
+                    colors = ButtonDefaults.textButtonColors(
+                        contentColor = MaterialTheme.colorScheme.error
+                    )
+                ) { Text("Delete") }
+            },
+            dismissButton = {
+                TextButton(onClick = { messageToDelete = null }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+
+    // ── Delete conversation confirmation ──
+    if (showDeleteConversation) {
+        AlertDialog(
+            onDismissRequest = { showDeleteConversation = false },
+            title = { Text("Delete conversation?") },
+            text = { Text("All messages with $contactName will be permanently deleted.") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showDeleteConversation = false
+                        viewModel.deleteConversation()
+                        onBackClick()
+                    },
+                    colors = ButtonDefaults.textButtonColors(
+                        contentColor = MaterialTheme.colorScheme.error
+                    )
+                ) { Text("Delete") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteConversation = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+
+    // ── Long-press action sheet ──
+    if (selectedMessage != null) {
+        ModalBottomSheet(
+            onDismissRequest = { selectedMessage = null }
+        ) {
+            val msg = selectedMessage!!
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 32.dp)
+            ) {
+                // Copy
+                DropdownMenuItem(
+                    text = { Text("Copy") },
+                    onClick = {
+                        copyToClipboard(context, msg.text)
+                        selectedMessage = null
+                    },
+                    leadingIcon = {
+                        Icon(
+                            Icons.Default.ContentCopy,
+                            contentDescription = null,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                )
+                // Forward / Share
+                DropdownMenuItem(
+                    text = { Text("Forward") },
+                    onClick = {
+                        val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                            type = "text/plain"
+                            putExtra(Intent.EXTRA_TEXT, msg.text)
+                        }
+                        context.startActivity(Intent.createChooser(shareIntent, "Forward message"))
+                        selectedMessage = null
+                    },
+                    leadingIcon = {
+                        Icon(
+                            Icons.Default.Share,
+                            contentDescription = null,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                )
+                // Deep Check (only for received messages)
+                if (!msg.isSent) {
+                    DropdownMenuItem(
+                        text = { Text("Deep Check") },
+                        onClick = {
+                            selectedMessage = null
+                            onDeepCheck(msg.id)
+                        },
+                        leadingIcon = {
+                            Icon(
+                                Icons.Default.Shield,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                    )
+                }
+                // Delete
+                DropdownMenuItem(
+                    text = {
+                        Text(
+                            "Delete",
+                            color = MaterialTheme.colorScheme.error
+                        )
+                    },
+                    onClick = {
+                        messageToDelete = msg
+                        selectedMessage = null
+                    },
+                    leadingIcon = {
+                        Icon(
+                            Icons.Default.Delete,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                )
+            }
+        }
+    }
+
     Scaffold(
         modifier = Modifier.imePadding(),
         snackbarHost = { SnackbarHost(snackbarHostState) },
@@ -143,6 +298,16 @@ fun ChatScreen(
                 title = {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         // Avatar
+                        val photoBitmap = remember(contactPhotoUri) {
+                            contactPhotoUri?.let { uriStr ->
+                                try {
+                                    val stream = context.contentResolver.openInputStream(
+                                        android.net.Uri.parse(uriStr)
+                                    )
+                                    stream?.use { BitmapFactory.decodeStream(it)?.asImageBitmap() }
+                                } catch (_: Exception) { null }
+                            }
+                        }
                         Box(
                             modifier = Modifier
                                 .size(36.dp)
@@ -150,12 +315,21 @@ fun ChatScreen(
                                 .background(MaterialTheme.colorScheme.primaryContainer),
                             contentAlignment = Alignment.Center,
                         ) {
-                            Text(
-                                text = contactName.firstOrNull()?.uppercase() ?: "?",
-                                style = MaterialTheme.typography.titleSmall,
-                                color = MaterialTheme.colorScheme.onPrimaryContainer,
-                                fontWeight = FontWeight.Bold,
-                            )
+                            if (photoBitmap != null) {
+                                Image(
+                                    bitmap = photoBitmap,
+                                    contentDescription = contactName,
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentScale = ContentScale.Crop,
+                                )
+                            } else {
+                                Text(
+                                    text = contactName.firstOrNull()?.uppercase() ?: "?",
+                                    style = MaterialTheme.typography.titleSmall,
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                    fontWeight = FontWeight.Bold,
+                                )
+                            }
                         }
                         Spacer(modifier = Modifier.width(12.dp))
                         Column {
@@ -203,6 +377,27 @@ fun ChatScreen(
                                     // Find the latest received message for deep check
                                     val latestReceived = messages.lastOrNull { !it.isSent }
                                     latestReceived?.let { onDeepCheck(it.id) }
+                                },
+                            )
+                            DropdownMenuItem(
+                                text = {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Icon(
+                                            Icons.Default.Delete,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(20.dp),
+                                            tint = MaterialTheme.colorScheme.error,
+                                        )
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Text(
+                                            "Delete conversation",
+                                            color = MaterialTheme.colorScheme.error
+                                        )
+                                    }
+                                },
+                                onClick = {
+                                    showMenu = false
+                                    showDeleteConversation = true
                                 },
                             )
                         }
@@ -290,7 +485,7 @@ fun ChatScreen(
                                     ChatBubble(
                                         message = item.message,
                                         onLongPress = {
-                                            copyToClipboard(context, item.message.text)
+                                            selectedMessage = item.message
                                         },
                                     )
                                 }

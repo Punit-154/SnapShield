@@ -114,6 +114,13 @@ class ChatViewModel @Inject constructor(
         }
     }
 
+    fun deleteConversation() {
+        if (threadId <= 0) return
+        viewModelScope.launch {
+            smsRepository.deleteConversation(threadId)
+        }
+    }
+
     private fun registerSmsObserver() {
         smsObserver = object : ContentObserver(Handler(Looper.getMainLooper())) {
             override fun onChange(selfChange: Boolean) {

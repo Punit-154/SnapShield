@@ -226,6 +226,8 @@ fun ConversationListScreen(
                     }
 
                     else -> {
+                        var conversationToDelete by remember { mutableStateOf<Conversation?>(null) }
+
                         LazyColumn(
                             contentPadding = PaddingValues(horizontal = 0.dp, vertical = 4.dp),
                             verticalArrangement = Arrangement.spacedBy(0.dp),
@@ -238,18 +240,8 @@ fun ConversationListScreen(
                                 val dismissState = rememberSwipeToDismissBoxState(
                                     confirmValueChange = { dismissValue ->
                                         if (dismissValue == SwipeToDismissBoxValue.EndToStart) {
-                                            viewModel.deleteConversation(conversation.threadId)
-                                            scope.launch {
-                                                val result = snackbarHostState.showSnackbar(
-                                                    message = "Conversation deleted",
-                                                    actionLabel = "Undo",
-                                                    duration = SnackbarDuration.Short
-                                                )
-                                                if (result == SnackbarResult.ActionPerformed) {
-                                                    viewModel.undoLastDelete()
-                                                }
-                                            }
-                                            true
+                                            conversationToDelete = conversation
+                                            false // Don't actually dismiss, show dialog instead
                                         } else {
                                             false
                                         }
@@ -276,18 +268,19 @@ fun ConversationListScreen(
                                             Box(
                                                 modifier = Modifier
                                                     .fillMaxSize()
-                                                    .background(MaterialTheme.colorScheme.errorContainer),
+                                                    .background(MaterialTheme.colorScheme.errorContainer)
+                                                    .padding(horizontal = 20.dp),
                                                 contentAlignment = Alignment.CenterEnd
                                             ) {
                                                 Icon(
                                                     Icons.Default.Delete,
                                                     contentDescription = "Delete",
-                                                    modifier = Modifier.padding(24.dp),
                                                     tint = MaterialTheme.colorScheme.onErrorContainer
                                                 )
                                             }
                                         },
-                                        enableDismissFromStartToEnd = false
+                                        enableDismissFromStartToEnd = false,
+                                        enableDismissFromEndToStart = true
                                     ) {
                                         ConversationItem(
                                             conversation = conversation,
@@ -309,6 +302,30 @@ fun ConversationListScreen(
                                     )
                                 }
                             }
+                        }
+
+                        conversationToDelete?.let { conv ->
+                            AlertDialog(
+                                onDismissRequest = { conversationToDelete = null },
+                                title = { Text("Delete conversation?") },
+                                text = { Text("This will permanently delete all messages with ${conv.displayName}.") },
+                                confirmButton = {
+                                    TextButton(
+                                        onClick = {
+                                            viewModel.deleteConversation(conv.threadId)
+                                            conversationToDelete = null
+                                        },
+                                        colors = ButtonDefaults.textButtonColors(
+                                            contentColor = MaterialTheme.colorScheme.error
+                                        )
+                                    ) { Text("Delete") }
+                                },
+                                dismissButton = {
+                                    TextButton(onClick = { conversationToDelete = null }) {
+                                        Text("Cancel")
+                                    }
+                                }
+                            )
                         }
                     }
                 }

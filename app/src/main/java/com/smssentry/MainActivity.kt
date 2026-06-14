@@ -135,15 +135,66 @@ class MainActivity : ComponentActivity() {
     private fun handleNotificationIntent(intent: Intent?) {
         if (intent == null) return
 
+        // 1. Notification tap deep-link
         val threadId = intent.getLongExtra(NotificationHelper.EXTRA_THREAD_ID, -1L)
         val sender = intent.getStringExtra(NotificationHelper.EXTRA_NOTIFICATION_SENDER)
 
         if (threadId > 0 && sender != null) {
             Log.d(TAG, "Deep-link: threadId=$threadId, sender=$sender")
             pendingDeepLink.value = Screen.Chat.createRoute(threadId, sender)
-            // Clear the extras so we don't re-navigate on config change
             intent.removeExtra(NotificationHelper.EXTRA_THREAD_ID)
             intent.removeExtra(NotificationHelper.EXTRA_NOTIFICATION_SENDER)
+            return
+        }
+
+        // 2. SMS/MMS compose intents from other apps (Contacts, browser, etc.)
+        handleSmsComposeIntent(intent)
+    }
+
+    /**
+     * Handles ACTION_SENDTO (sms:/smsto:), ACTION_SEND (text/plain share),
+     * and ACTION_VIEW (sms: URI) intents by navigating to the compose screen.
+     */
+    private fun handleSmsComposeIntent(intent: Intent) {
+        val action = intent.action ?: return
+        var recipient = ""
+        var body = ""
+
+        when (action) {
+            Intent.ACTION_SENDTO, Intent.ACTION_VIEW -> {
+                // Parse sms:, smsto:, mms:, mmsto: URIs
+                val data = intent.data
+                if (data != null) {
+                    val scheme = data.scheme?.lowercase()
+                    if (scheme in listOf("sms", "smsto", "mms", "mmsto")) {
+                        recipient = data.schemeSpecificPart?.let { part ->
+                            // Strip query params (e.g., "?body=hello")
+                            part.split("?").firstOrNull()?.trim() ?: ""
+                        } ?: ""
+                    }
+                }
+                // Some apps put the body in the "sms_body" or "body" extra
+                body = intent.getStringExtra("sms_body")
+                    ?: intent.getStringExtra(Intent.EXTRA_TEXT)
+                    ?: ""
+            }
+
+            Intent.ACTION_SEND -> {
+                // Share intent — text shared from another app
+                if (intent.type == "text/plain") {
+                    body = intent.getStringExtra(Intent.EXTRA_TEXT) ?: ""
+                }
+            }
+
+            else -> return
+        }
+
+        if (recipient.isNotBlank() || body.isNotBlank()) {
+            Log.d(TAG, "SMS compose intent: recipient=$recipient, body=${body.take(30)}")
+            val encodedRecipient = java.net.URLEncoder.encode(recipient, "UTF-8")
+            pendingDeepLink.value = Screen.Compose.createRoute(encodedRecipient)
+            // Clear the action so we don't re-navigate on config change
+            intent.action = null
         }
     }
 

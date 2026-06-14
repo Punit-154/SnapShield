@@ -25,7 +25,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.unit.dp
 import com.smssentry.data.model.SmsMessage
 import java.text.SimpleDateFormat
@@ -45,6 +47,7 @@ fun ChatBubble(
     val maxBubbleWidth = (LocalConfiguration.current.screenWidthDp * 0.78f).dp
     val timeFormat = SimpleDateFormat("h:mm a", Locale.getDefault())
     val timeText = timeFormat.format(Date(message.timestamp))
+    val haptic = LocalHapticFeedback.current
 
     val isSent = message.isSent
 
@@ -67,7 +70,10 @@ fun ChatBubble(
                     )
                     .combinedClickable(
                         onClick = {},
-                        onLongClick = onLongPress,
+                        onLongClick = {
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            onLongPress()
+                        },
                     )
                     .padding(horizontal = 12.dp, vertical = 8.dp),
             ) {
