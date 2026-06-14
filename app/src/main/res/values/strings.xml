@@ -110,4 +110,21 @@
     <string name="compose_sent">Message sent successfully!</string>
     <string name="compose_failed">Failed to send message. Check permissions.</string>
     <string name="compose_empty_fields">Please enter recipient and message.</string>
+
+    <!-- Personal Learning -->
+    <string name="reason_user_trusted_sender">This sender is trusted based on your personal message history.</string>
+    <string name="reason_user_flagged_sender">You have previously flagged messages from this sender as scam.</string>
+    <string name="feedback_question">Was this analysis correct?</string>
+    <string name="feedback_mark_safe">Mark as Safe</string>
+    <string name="feedback_report_scam">Report as Scam</string>
+    <string name="feedback_submitted">Thank you for your feedback</string>
+    <string name="learning_section_title">Personal Learning</string>
+    <string name="learning_import_title">Import existing SMS</string>
+    <string name="learning_import_subtitle">Teach the AI from your message history</string>
+    <string name="learning_importing">Importing…</string>
+    <string name="learning_stats_title">Learning data</string>
+    <string name="learning_clear_title">Clear learning data</string>
+    <string name="learning_clear_subtitle">Remove all personal learning history</string>
+    <string name="learning_clear_confirm_title">Clear Personal Data?</string>
+    <string name="learning_clear_confirm_body">This will permanently remove all learned patterns, sender trust scores, and feedback history. The AI will start fresh.</string>
 </resources>

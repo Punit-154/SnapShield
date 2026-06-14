@@ -6,6 +6,8 @@ import android.os.Build
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.smssentry.deepcheck.data.ModelRepository
+import com.smssentry.learning.LearningStats
+import com.smssentry.learning.PersonalLearningRepository
 import com.smssentry.ui.theme.ThemeMode
 import com.smssentry.ui.theme.ThemePreferenceRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -15,6 +17,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -24,12 +27,17 @@ data class SettingsUiState(
     val modelState: ModelRepository.State = ModelRepository.State.IDLE,
     val modelDownloaded: Boolean = false,
     val appVersion: String = "",
+    val isImporting: Boolean = false,
+    val importProgress: Int = 0,
+    val importTotal: Int = 0,
+    val learningStats: LearningStats? = null,
 )
 
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
     private val application: Application,
     private val modelRepository: ModelRepository,
+    private val personalLearningRepo: PersonalLearningRepository,
 ) : ViewModel() {
 
     // ThemePreferenceRepository is not provided by Hilt; create from context.
@@ -38,12 +46,15 @@ class SettingsViewModel @Inject constructor(
     private val _isDefaultSmsApp = MutableStateFlow(checkDefaultSmsApp())
     val isDefaultSmsApp: StateFlow<Boolean> = _isDefaultSmsApp.asStateFlow()
 
+    private val _state = MutableStateFlow(SettingsUiState(appVersion = getAppVersion()))
+
     val state: StateFlow<SettingsUiState> = combine(
         themePreferenceRepository.themeMode,
         modelRepository.state,
         _isDefaultSmsApp,
-    ) { themeMode, modelState, isDefault ->
-        SettingsUiState(
+        _state,
+    ) { themeMode, modelState, isDefault, local ->
+        local.copy(
             themeMode = themeMode,
             isDefaultSmsApp = isDefault,
             modelState = modelState,
@@ -55,6 +66,10 @@ class SettingsViewModel @Inject constructor(
         started = SharingStarted.WhileSubscribed(5_000),
         initialValue = SettingsUiState(appVersion = getAppVersion()),
     )
+
+    init {
+        refreshLearningStats()
+    }
 
     fun setThemeMode(mode: ThemeMode) {
         viewModelScope.launch {
@@ -80,6 +95,31 @@ class SettingsViewModel @Inject constructor(
             info.versionName ?: "Unknown"
         } catch (_: Exception) {
             "Unknown"
+        }
+    }
+
+    fun importExistingSms() {
+        viewModelScope.launch {
+            _state.update { it.copy(isImporting = true, importProgress = 0) }
+            personalLearningRepo.importExistingSms { processed, total ->
+                _state.update { it.copy(importProgress = processed, importTotal = total) }
+            }
+            refreshLearningStats()
+            _state.update { it.copy(isImporting = false) }
+        }
+    }
+
+    fun clearLearningData() {
+        viewModelScope.launch {
+            personalLearningRepo.clearAll()
+            refreshLearningStats()
+        }
+    }
+
+    private fun refreshLearningStats() {
+        viewModelScope.launch {
+            val stats = personalLearningRepo.getStats()
+            _state.update { it.copy(learningStats = stats) }
         }
     }
 }

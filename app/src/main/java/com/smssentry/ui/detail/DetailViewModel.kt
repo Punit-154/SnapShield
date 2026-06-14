@@ -6,6 +6,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.smssentry.data.model.*
 import com.smssentry.data.repository.SmsRepository
+import com.smssentry.learning.PersonalLearningRepository
 import com.smssentry.deepcheck.data.*
 import com.smssentry.deepcheck.proxy.PrivacyProxyClient
 import com.smssentry.deepcheck.session.DeepCheckSession
@@ -35,7 +36,9 @@ class DetailViewModel @Inject constructor(
     private val smsRepository: SmsRepository,
     @ApplicationContext private val context: Context,
     @ApplicationScope private val applicationScope: CoroutineScope,
-    private val dispatchers: DispatcherProvider
+    private val dispatchers: DispatcherProvider,
+    private val personalLearningRepo: PersonalLearningRepository,
+    private val personalLearningDao: com.smssentry.learning.data.PersonalLearningDao
 ) : ViewModel() {
 
     private val smsId: String = savedStateHandle.get<String>("smsId") ?: ""
@@ -50,6 +53,11 @@ class DetailViewModel @Inject constructor(
     val showDownloadPrompt: StateFlow<Boolean> = _showDownloadPrompt.asStateFlow()
 
     val modelState: StateFlow<ModelRepository.State> = modelRepository.state
+
+    private val _feedbackState = MutableStateFlow<FeedbackState>(FeedbackState.None)
+    val feedbackState: StateFlow<FeedbackState> = _feedbackState.asStateFlow()
+
+    enum class FeedbackState { None, Submitted, Error }
 
     private var deepCheckSession: DeepCheckSessionInterface? = null
 
@@ -129,7 +137,9 @@ class DetailViewModel @Inject constructor(
                     }
                 },
                 applicationScope = applicationScope,
-                dispatchers = dispatchers
+                dispatchers = dispatchers,
+                personalLearningRepo = personalLearningRepo,
+                personalLearningDao = personalLearningDao
             )
 
             deepCheckSession = session
@@ -158,5 +168,25 @@ class DetailViewModel @Inject constructor(
 
     fun refreshModelState() {
         // Model state is managed by ModelRepository
+    }
+
+    fun submitFeedback(label: String) {
+        val msg = _message.value ?: return
+        val verdict = _investigationState.value.verdict
+        viewModelScope.launch {
+            try {
+                personalLearningRepo.submitFeedback(
+                    address = msg.sender,
+                    body = msg.text,
+                    smsTimestamp = msg.timestamp,
+                    userLabel = label,
+                    aiPrediction = verdict?.let { if (it.isScam) "SCAM" else "SAFE" },
+                    aiConfidence = null
+                )
+                _feedbackState.value = FeedbackState.Submitted
+            } catch (e: Exception) {
+                _feedbackState.value = FeedbackState.Error
+            }
+        }
     }
 }

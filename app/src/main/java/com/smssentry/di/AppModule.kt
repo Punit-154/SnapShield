@@ -80,6 +80,11 @@ abstract class AppModule {
         }
 
         @Provides
+        fun providePersonalLearningDao(db: DeepCheckDatabase): com.smssentry.learning.data.PersonalLearningDao {
+            return db.personalLearningDao()
+        }
+
+        @Provides
         @Singleton
         fun provideReputationDb(@ApplicationContext context: Context): ReputationDb {
             return ReputationDb(context)

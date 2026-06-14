@@ -18,9 +18,11 @@ import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.BrightnessAuto
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.DarkMode
+import androidx.compose.material.icons.filled.DeleteForever
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material.icons.filled.Memory
+import androidx.compose.material.icons.filled.School
 import androidx.compose.material.icons.filled.Sms
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
@@ -46,6 +48,7 @@ fun SettingsScreen(
     val state by viewModel.state.collectAsState()
     val context = LocalContext.current
     var showThemeDialog by remember { mutableStateOf(false) }
+    var showClearDialog by remember { mutableStateOf(false) }
 
     // Launcher for default SMS app role request
     val roleRequestLauncher = rememberLauncherForActivityResult(
@@ -140,6 +143,49 @@ fun SettingsScreen(
 
             HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
 
+            // ── Personal Learning section ───────────────────────────────────
+            SettingsSectionHeader(title = "Personal Learning")
+
+            SettingsItem(
+                icon = Icons.Filled.School,
+                title = if (state.isImporting) "Importing..." else "Import existing SMS",
+                subtitle = if (state.isImporting) {
+                    "${state.importProgress} / ${state.importTotal} messages"
+                } else {
+                    "Teach the AI from your message history"
+                },
+                onClick = { if (!state.isImporting) viewModel.importExistingSms() },
+            )
+
+            if (state.isImporting) {
+                LinearProgressIndicator(
+                    progress = {
+                        if (state.importTotal > 0) state.importProgress.toFloat() / state.importTotal else 0f
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp),
+                )
+            }
+
+            state.learningStats?.let { stats ->
+                SettingsItem(
+                    icon = Icons.Filled.Info,
+                    title = "Learning data",
+                    subtitle = "${stats.totalLabeled} messages learned \u2022 ${stats.trustedSenders} trusted senders",
+                    onClick = {},
+                )
+            }
+
+            SettingsItem(
+                icon = Icons.Filled.DeleteForever,
+                title = "Clear learning data",
+                subtitle = "Remove all personal learning history",
+                onClick = { showClearDialog = true },
+            )
+
+            HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
+
             // ── AI Model section ───────────────────────────────────────
             SettingsSectionHeader(title = "AI Model")
 
@@ -216,6 +262,30 @@ fun SettingsScreen(
             },
             confirmButton = {
                 TextButton(onClick = { showThemeDialog = false }) {
+                    Text("Cancel")
+                }
+            },
+        )
+    }
+
+    // ── Clear learning data dialog ─────────────────────────────────
+    if (showClearDialog) {
+        AlertDialog(
+            onDismissRequest = { showClearDialog = false },
+            title = { Text("Clear learning data?") },
+            text = {
+                Text("This will remove all personal learning history, including feedback and sender trust data. This action cannot be undone.")
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    viewModel.clearLearningData()
+                    showClearDialog = false
+                }) {
+                    Text("Clear", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showClearDialog = false }) {
                     Text("Cancel")
                 }
             },

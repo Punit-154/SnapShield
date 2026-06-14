@@ -12,9 +12,11 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -409,6 +411,23 @@ fun DetailScreen(
                     )
                 }
 
+                // ── Feedback Section ──
+                val feedbackState by viewModel.feedbackState.collectAsState()
+                if (investigationState.verdict != null && feedbackState != DetailViewModel.FeedbackState.Submitted) {
+                    FeedbackSection(
+                        onMarkSafe = { viewModel.submitFeedback("SAFE") },
+                        onMarkScam = { viewModel.submitFeedback("SCAM") }
+                    )
+                } else if (feedbackState == DetailViewModel.FeedbackState.Submitted) {
+                    Text(
+                        text = "Thank you for your feedback",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.primary,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+
                 Spacer(modifier = Modifier.height(16.dp))
             }
         } ?: run {
@@ -517,6 +536,66 @@ private fun AnalysisProgressCard(
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
                     )
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun FeedbackSection(
+    onMarkSafe: () -> Unit,
+    onMarkScam: () -> Unit
+) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Text(
+            text = "Was this analysis correct?",
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            OutlinedButton(
+                onClick = onMarkSafe,
+                modifier = Modifier.weight(1f),
+                shape = RoundedCornerShape(12.dp),
+                colors = ButtonDefaults.outlinedButtonColors(
+                    contentColor = SafeGreen
+                ),
+                border = ButtonDefaults.outlinedButtonBorder(enabled = true).copy(
+                    brush = Brush.horizontalGradient(listOf(SafeGreen, SafeGreen))
+                )
+            ) {
+                Icon(
+                    Icons.Default.CheckCircle,
+                    contentDescription = null,
+                    modifier = Modifier.size(16.dp)
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+                Text("Mark as Safe", fontWeight = FontWeight.Medium)
+            }
+            OutlinedButton(
+                onClick = onMarkScam,
+                modifier = Modifier.weight(1f),
+                shape = RoundedCornerShape(12.dp),
+                colors = ButtonDefaults.outlinedButtonColors(
+                    contentColor = ScamRed
+                ),
+                border = ButtonDefaults.outlinedButtonBorder(enabled = true).copy(
+                    brush = Brush.horizontalGradient(listOf(ScamRed, ScamRed))
+                )
+            ) {
+                Icon(
+                    Icons.Default.Warning,
+                    contentDescription = null,
+                    modifier = Modifier.size(16.dp)
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+                Text("Report as Scam", fontWeight = FontWeight.Medium)
             }
         }
     }

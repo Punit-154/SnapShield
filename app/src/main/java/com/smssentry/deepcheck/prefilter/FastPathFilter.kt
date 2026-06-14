@@ -6,6 +6,7 @@ import com.smssentry.deepcheck.data.AllowlistDao
 import com.smssentry.deepcheck.data.HistoryDao
 import com.smssentry.deepcheck.util.DomainMatchUtil
 import com.smssentry.deepcheck.util.HashUtil
+import com.smssentry.learning.data.PersonalLearningDao
 
 data class PreFilterResult(
     val verdict: String?,
@@ -30,10 +31,21 @@ object FastPathFilter {
         smsBody: String,
         sender: String,
         allowlistDao: AllowlistDao,
-        historyDao: HistoryDao
+        historyDao: HistoryDao,
+        personalLearningDao: PersonalLearningDao? = null
     ): PreFilterResult {
+        // Step 1: Allowlist sender
         if (allowlistDao.containsSender(sender)) {
             return PreFilterResult("SAFE", 0.99f, context.getString(R.string.reason_allowlist_sender))
+        }
+
+        // Step 1b: Personal learning — trusted sender
+        if (personalLearningDao != null) {
+            val trust = personalLearningDao.getSenderTrust(sender)
+            if (trust != null && trust.trustScore >= 0.85f &&
+                (trust.safeCount + trust.suspiciousCount) >= 3) {
+                return PreFilterResult("SAFE", 0.90f, context.getString(R.string.reason_user_trusted_sender))
+            }
         }
 
         val urls = extractUrls(smsBody)
@@ -70,6 +82,14 @@ object FastPathFilter {
         val historyEntry = historyDao.get(hash)
         if (historyEntry != null && historyEntry.verdict == "SCAM") {
             return PreFilterResult("SCAM", 0.98f, context.getString(R.string.reason_previous_scam))
+        }
+
+        // Step 7: Personal learning — flagged sender
+        if (personalLearningDao != null) {
+            val trust = personalLearningDao.getSenderTrust(sender)
+            if (trust != null && trust.trustScore <= 0.15f && trust.scamCount >= 2) {
+                return PreFilterResult("SCAM", 0.90f, context.getString(R.string.reason_user_flagged_sender))
+            }
         }
 
         return PreFilterResult(null, 0.0f, null)

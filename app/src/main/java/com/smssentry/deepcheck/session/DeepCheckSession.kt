@@ -41,7 +41,9 @@ class DeepCheckSession(
     private val smsSender: String,
     private val listener: com.smssentry.domain.service.DeepCheckListener,
     private val applicationScope: CoroutineScope,
-    private val dispatchers: DispatcherProvider
+    private val dispatchers: DispatcherProvider,
+    private val personalLearningRepo: com.smssentry.learning.PersonalLearningRepository? = null,
+    private val personalLearningDao: com.smssentry.learning.data.PersonalLearningDao? = null
 ) : DeepCheckSessionInterface {
 
     private val evidenceList = mutableListOf<String>()
@@ -64,7 +66,7 @@ class DeepCheckSession(
         currentProgress = 0
 
         try {
-            val pre = FastPathFilter.filter(context, smsText, smsSender, allowlistDao, historyDao)
+            val pre = FastPathFilter.filter(context, smsText, smsSender, allowlistDao, historyDao, personalLearningDao)
             if (pre.verdict != null) {
                 Diagnostics.i(Diagnostics.SESSION, "Fast-path: verdict=${pre.verdict}, reason=${pre.reason}")
                 emitVerdict(
@@ -167,6 +169,17 @@ class DeepCheckSession(
                     if (evidenceLines.isNotEmpty()) {
                         append("\n\nInvestigation evidence:\n")
                         evidenceLines.forEach { append("- $it\n") }
+                    }
+                    // Inject personal learning context
+                    if (personalLearningRepo != null) {
+                        try {
+                            val personalContext = personalLearningRepo.buildPersonalContext(smsSender, smsText)
+                            if (personalContext.isNotBlank()) {
+                                append("\n\n$personalContext")
+                            }
+                        } catch (e: Exception) {
+                            Diagnostics.w(Diagnostics.SESSION, "Personal context failed (non-fatal): ${e.message}")
+                        }
                     }
                     append("\nGive your verdict now.")
                 }
