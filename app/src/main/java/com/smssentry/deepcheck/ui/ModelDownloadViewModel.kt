@@ -2,7 +2,7 @@ package com.smssentry.deepcheck.ui
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.smssentry.deepcheck.ModelDownloadManager
+import com.smssentry.deepcheck.data.ModelRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -14,15 +14,12 @@ import javax.inject.Inject
 
 @HiltViewModel
 class ModelDownloadViewModel @Inject constructor(
-    private val downloadManager: ModelDownloadManager
+    private val modelRepository: ModelRepository
 ) : ViewModel() {
 
-    val state: StateFlow<ModelDownloadManager.State> = downloadManager.state
-    val progress: StateFlow<Float> = downloadManager.progress
-    val downloadedBytes: StateFlow<Long> = downloadManager.downloadedBytes
-    val totalBytes: StateFlow<Long> = downloadManager.totalBytes
-    val speedBytesPerSec: StateFlow<Long> = downloadManager.speedBytesPerSec
-    val error: StateFlow<String?> = downloadManager.error
+    val state: StateFlow<ModelRepository.State> = modelRepository.state
+    val progress: StateFlow<Float> = modelRepository.progress
+    val error: StateFlow<String?> = modelRepository.error
 
     private val _wifiOnly = MutableStateFlow(true)
     val wifiOnly: StateFlow<Boolean> = _wifiOnly.asStateFlow()
@@ -31,12 +28,12 @@ class ModelDownloadViewModel @Inject constructor(
     val navigateBack: SharedFlow<Unit> = _navigateBack
 
     fun startDownload() {
-        if (wifiOnly.value && !downloadManager.isOnWiFi()) {
+        if (wifiOnly.value && !modelRepository.isOnWiFi()) {
             return
         }
         viewModelScope.launch {
-            downloadManager.startDownload()
-            if (downloadManager.state.value == ModelDownloadManager.State.COMPLETE) {
+            modelRepository.downloadModel()
+            if (modelRepository.state.value == ModelRepository.State.READY) {
                 kotlinx.coroutines.delay(2000)
                 _navigateBack.emit(Unit)
             }
@@ -44,19 +41,15 @@ class ModelDownloadViewModel @Inject constructor(
     }
 
     fun cancelDownload() {
-        downloadManager.cancelDownload()
+        modelRepository.unload()
     }
 
     fun retryDownload() {
-        downloadManager.reset()
+        modelRepository.unload()
         startDownload()
     }
 
     fun toggleWifiOnly() {
         _wifiOnly.value = !_wifiOnly.value
-    }
-
-    fun onNavigatedBack() {
-        // No-op for SharedFlow
     }
 }

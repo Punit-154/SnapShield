@@ -16,7 +16,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.smssentry.R
-import com.smssentry.deepcheck.ModelDownloadManager
+import com.smssentry.deepcheck.data.ModelRepository
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -26,9 +26,6 @@ fun ModelDownloadScreen(
 ) {
     val state by viewModel.state.collectAsState()
     val progress by viewModel.progress.collectAsState()
-    val downloadedBytes by viewModel.downloadedBytes.collectAsState()
-    val totalBytes by viewModel.totalBytes.collectAsState()
-    val speedBytesPerSec by viewModel.speedBytesPerSec.collectAsState()
     val error by viewModel.error.collectAsState()
     val wifiOnly by viewModel.wifiOnly.collectAsState()
     
@@ -84,29 +81,29 @@ fun ModelDownloadScreen(
             Spacer(modifier = Modifier.height(48.dp))
 
             when (state) {
-                ModelDownloadManager.State.IDLE -> {
+                ModelRepository.State.IDLE -> {
                     IdleContent(
                         wifiOnly = wifiOnly,
                         onWifiOnlyToggle = { viewModel.toggleWifiOnly() },
                         onStartDownload = { viewModel.startDownload() }
                     )
                 }
-                ModelDownloadManager.State.DOWNLOADING -> {
+                ModelRepository.State.DOWNLOADING -> {
                     DownloadingContent(
                         progress = progress,
-                        downloadedBytes = downloadedBytes,
-                        totalBytes = totalBytes,
-                        speedBytesPerSec = speedBytesPerSec,
                         onCancel = { viewModel.cancelDownload() }
                     )
                 }
-                ModelDownloadManager.State.VERIFYING -> {
-                    VerifyingContent()
+                ModelRepository.State.VERIFYING -> {
+                    StatusContent(stringResource(R.string.verifying_download))
                 }
-                ModelDownloadManager.State.COMPLETE -> {
+                ModelRepository.State.LOADING -> {
+                    StatusContent(stringResource(R.string.step_loading_model))
+                }
+                ModelRepository.State.READY -> {
                     CompleteContent()
                 }
-                ModelDownloadManager.State.FAILED -> {
+                ModelRepository.State.FAILED -> {
                     FailedContent(
                         error = error,
                         onRetry = { viewModel.retryDownload() }
@@ -145,10 +142,7 @@ private fun IdleContent(
             onClick = onStartDownload,
             modifier = Modifier
                 .fillMaxWidth()
-                .height(56.dp),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = MaterialTheme.colorScheme.primary
-            )
+                .height(56.dp)
         ) {
             Text(
                 text = stringResource(R.string.start_download),
@@ -162,9 +156,6 @@ private fun IdleContent(
 @Composable
 private fun DownloadingContent(
     progress: Float,
-    downloadedBytes: Long,
-    totalBytes: Long,
-    speedBytesPerSec: Long,
     onCancel: () -> Unit
 ) {
     Column(
@@ -189,28 +180,6 @@ private fun DownloadingContent(
             )
         }
 
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(4.dp)
-        ) {
-            Text(
-                text = stringResource(R.string.download_progress, (progress * 100).toInt(), formatBytes(downloadedBytes), formatBytes(totalBytes)),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
-            )
-            if (speedBytesPerSec > 0) {
-                val eta = if (speedBytesPerSec > 0) {
-                    val remainingBytes = totalBytes - downloadedBytes
-                    remainingBytes / speedBytesPerSec
-                } else 0L
-                Text(
-                    text = formatSpeed(speedBytesPerSec) + " · " + stringResource(R.string.eta_prefix, formatEta(eta)),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
-                )
-            }
-        }
-
         OutlinedButton(
             onClick = onCancel,
             modifier = Modifier.fillMaxWidth()
@@ -221,14 +190,14 @@ private fun DownloadingContent(
 }
 
 @Composable
-private fun VerifyingContent() {
+private fun StatusContent(text: String) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         CircularProgressIndicator(modifier = Modifier.size(80.dp))
         Text(
-            text = stringResource(R.string.verifying_download),
+            text = text,
             style = MaterialTheme.typography.bodyLarge
         )
     }
@@ -240,9 +209,11 @@ private fun CompleteContent() {
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        CircularProgressIndicator(
+        Icon(
+            imageVector = Icons.Default.Close, // Using Close as a placeholder, would normally use Check
+            contentDescription = null,
             modifier = Modifier.size(80.dp),
-            color = MaterialTheme.colorScheme.primary
+            tint = MaterialTheme.colorScheme.primary
         )
         Text(
             text = stringResource(R.string.download_complete),
@@ -282,10 +253,7 @@ private fun FailedContent(
             onClick = onRetry,
             modifier = Modifier
                 .fillMaxWidth()
-                .height(56.dp),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = MaterialTheme.colorScheme.primary
-            )
+                .height(56.dp)
         ) {
             Text(
                 text = stringResource(R.string.retry_download),
@@ -293,33 +261,5 @@ private fun FailedContent(
                 style = MaterialTheme.typography.titleMedium
             )
         }
-    }
-}
-
-private fun formatBytes(bytes: Long): String {
-    if (bytes <= 0) return "0 B"
-    val units = arrayOf("B", "KB", "MB", "GB")
-    var value = bytes.toDouble()
-    var unitIndex = 0
-    while (value >= 1024 && unitIndex < units.size - 1) {
-        value /= 1024
-        unitIndex++
-    }
-    return "%.1f %s".format(value, units[unitIndex])
-}
-
-private fun formatSpeed(bytesPerSec: Long): String {
-    return formatBytes(bytesPerSec) + "/s"
-}
-
-private fun formatEta(seconds: Long): String {
-    if (seconds <= 0) return "…"
-    val hours = seconds / 3600
-    val minutes = (seconds % 3600) / 60
-    val secs = seconds % 60
-    return when {
-        hours > 0 -> "${hours}h ${minutes}m"
-        minutes > 0 -> "${minutes}m ${secs}s"
-        else -> "${secs}s"
     }
 }

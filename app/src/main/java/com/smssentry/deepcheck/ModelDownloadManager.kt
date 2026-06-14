@@ -3,6 +3,7 @@ package com.smssentry.deepcheck
 import android.content.Context
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
+import android.util.Log
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -11,6 +12,7 @@ import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.io.File
+import java.io.FileOutputStream
 import java.io.IOException
 import java.util.concurrent.TimeUnit
 
@@ -19,6 +21,7 @@ class ModelDownloadManager(private val context: Context) {
     enum class State { IDLE, DOWNLOADING, VERIFYING, COMPLETE, FAILED }
 
     companion object {
+        private const val TAG = "ModelDownloadManager"
         const val MODEL_URL =
             "https://huggingface.co/litert-community/gemma-4-E4B-it-litert-lm/resolve/main/gemma-4-E4B-it.litertlm"
         const val MODEL_FILE_NAME = "gemma-4-E4B-it.litertlm"
@@ -97,7 +100,6 @@ class ModelDownloadManager(private val context: Context) {
                 val response = call.execute()
                 if (!response.isSuccessful && response.code != 206) {
                     if (response.code == 416) {
-                        // Range Not Satisfiable - partial file is corrupt, delete and retry
                         response.close()
                         modelFile.delete()
                         _error.value = "Partial download corrupted. Tap retry to start fresh."
@@ -126,11 +128,12 @@ class ModelDownloadManager(private val context: Context) {
                 }
                 _totalBytes.value = totalSize
 
+                // FIX: Use FileOutputStream(file, true) to append during resume
                 val outputStream = if (isRangeResponse && modelFile.exists()) {
-                    modelFile.outputStream().apply { channel.position(existingBytes) }
+                    FileOutputStream(modelFile, true)
                 } else {
                     if (modelFile.exists()) modelFile.delete()
-                    modelFile.outputStream()
+                    FileOutputStream(modelFile)
                 }
 
                 var bytesWritten = if (isRangeResponse) existingBytes else 0L
@@ -232,9 +235,15 @@ class ModelDownloadManager(private val context: Context) {
                     digest.update(buffer, 0, read)
                 }
             }
-            val actual = digest.digest().joinToString("") { "%02x".format(it) }
-            actual.equals(MODEL_SHA256, ignoreCase = true)
+            // FIX: Use 'toInt() and 0xFF' to handle signed bytes correctly during hex conversion
+            val actual = digest.digest().joinToString("") { "%02x".format(it.toInt() and 0xFF) }
+            val matches = actual.equals(MODEL_SHA256, ignoreCase = true)
+            if (!matches) {
+                Log.e(TAG, "Checksum mismatch! Expected: $MODEL_SHA256, Actual: $actual")
+            }
+            matches
         } catch (e: Exception) {
+            Log.e(TAG, "Checksum calculation failed", e)
             false
         }
     }

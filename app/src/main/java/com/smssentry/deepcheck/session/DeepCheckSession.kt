@@ -5,6 +5,7 @@ import com.smssentry.R
 import com.smssentry.data.model.DeepCheckUpdate
 import com.smssentry.data.model.DeepCheckVerdict
 import com.smssentry.data.model.EvidenceItem
+import com.smssentry.deepcheck.DeepCheckConfig
 import com.smssentry.deepcheck.data.AllowlistDao
 import com.smssentry.deepcheck.data.HistoryDao
 import com.smssentry.deepcheck.data.OfficialSitesRepository
@@ -82,7 +83,7 @@ class DeepCheckSession(
 
             emitStep(context.getString(R.string.step_loading_model))
             try {
-                withTimeoutOrNull(30_000L) {
+                withTimeoutOrNull(DeepCheckConfig.MODEL_LOAD_TIMEOUT_MS) {
                     engine.load()
                 } ?: run {
                     emitStep(context.getString(R.string.step_timeout))
@@ -100,12 +101,12 @@ class DeepCheckSession(
                 val toolExecutor = ToolExecutor(allowlistDao, historyDao, reputationDb, officialSites, proxyClient)
                 val seenToolCalls = mutableSetOf<String>()
                 var turn = 0
-                val maxTurns = 5
-                var response = withTimeoutOrNull(8_000L) {
+                
+                var response = withTimeoutOrNull(DeepCheckConfig.LLM_TURN_TIMEOUT_MS) {
                     session.sendTurn("Analyze this SMS from $smsSender:\n\"$smsText\"")
                 }
 
-                while (turn < maxTurns && !isCancelled) {
+                while (turn < DeepCheckConfig.MAX_AGENT_TURNS && !isCancelled) {
                     if (response == null) {
                         emitStep(context.getString(R.string.step_timeout))
                         runRuleBasedAnalysis()
@@ -132,7 +133,7 @@ class DeepCheckSession(
                     if (toolCall != null) {
                         val callKey = "${toolCall.first}:${toolCall.second}"
                         if (!seenToolCalls.add(callKey)) {
-                            response = withTimeoutOrNull(8_000L) {
+                            response = withTimeoutOrNull(DeepCheckConfig.LLM_TURN_TIMEOUT_MS) {
                                 session.sendTurn("OBSERVATION: Already called. Use prior result or different tool.")
                             }
                             turn++
@@ -141,7 +142,7 @@ class DeepCheckSession(
 
                         emitStep(describeToolCall(toolCall.first, context))
 
-                        val toolResult = withTimeoutOrNull(5_000L) {
+                        val toolResult = withTimeoutOrNull(DeepCheckConfig.TOOL_EXECUTION_TIMEOUT_MS) {
                             toolExecutor.executeByName(toolCall.first, toolCall.second)
                         } ?: "OBSERVATION: Tool timed out."
 
@@ -151,12 +152,12 @@ class DeepCheckSession(
                             emitEvidence(ev)
                         }
 
-                        response = withTimeoutOrNull(8_000L) {
+                        response = withTimeoutOrNull(DeepCheckConfig.LLM_TURN_TIMEOUT_MS) {
                             session.sendTurn("OBSERVATION: ${toolResult.take(200)}")
                         }
                         turn++
                     } else {
-                        response = withTimeoutOrNull(8_000L) {
+                        response = withTimeoutOrNull(DeepCheckConfig.LLM_TURN_TIMEOUT_MS) {
                             session.sendTurn(RETRY_VERDICT_PROMPT)
                         }
                         turn++
@@ -275,7 +276,7 @@ class DeepCheckSession(
         val urlsJson = urls.joinToString(",") { "\"$it\"" }
 
         emitStep(context.getString(R.string.step_checking_reputation))
-        val repResult = withTimeoutOrNull(5_000L) {
+        val repResult = withTimeoutOrNull(DeepCheckConfig.TOOL_EXECUTION_TIMEOUT_MS) {
             toolExecutor.executeByName("offline_reputation_check", """{"urls":[$urlsJson]}""")
         }
         if (repResult != null && repResult.startsWith("evidence:")) {
@@ -288,7 +289,7 @@ class DeepCheckSession(
             emitStep(context.getString(R.string.step_whois))
             for (domain in domains.take(2)) {
                 if (isCancelled) return
-                val whoisResult = withTimeoutOrNull(5_000L) {
+                val whoisResult = withTimeoutOrNull(DeepCheckConfig.TOOL_EXECUTION_TIMEOUT_MS) {
                     toolExecutor.executeByName("whois_lookup", """{"domain":"$domain"}""")
                 }
                 if (whoisResult != null && whoisResult.startsWith("evidence:")) {
@@ -300,7 +301,7 @@ class DeepCheckSession(
         }
 
         emitStep(context.getString(R.string.step_brand))
-        val mismatchResult = withTimeoutOrNull(5_000L) {
+        val mismatchResult = withTimeoutOrNull(DeepCheckConfig.TOOL_EXECUTION_TIMEOUT_MS) {
             toolExecutor.executeByName("brand_mismatch_check", """{"sms_text":"$smsText","urls":[$urlsJson]}""")
         }
         if (mismatchResult != null && mismatchResult.startsWith("evidence:")) {
@@ -314,7 +315,7 @@ class DeepCheckSession(
             val claimedEntity = officialSites.findMatchingBrand(smsText)
             if (claimedEntity != null) {
                 emitStep(context.getString(R.string.step_official_compare, domain))
-                val compareResult = withTimeoutOrNull(5_000L) {
+                val compareResult = withTimeoutOrNull(DeepCheckConfig.TOOL_EXECUTION_TIMEOUT_MS) {
                     toolExecutor.executeByName("compare_official_site", """{"claimed_entity":"$claimedEntity","linked_domain":"$domain"}""")
                 }
                 if (compareResult != null && compareResult.startsWith("evidence:")) {
@@ -371,6 +372,7 @@ class DeepCheckSession(
             "fetch_page"                                 -> "Fetching page content..."
             "official_site", "compare_official_site"     -> context.getString(R.string.step_official_site)
             "brand_mismatch", "brand_mismatch_check"     -> context.getString(R.string.step_brand)
+            "whois_lookup"                               -> context.getString(R.string.step_whois)
             "lookup_allowlist"                           -> context.getString(R.string.step_allowlist)
             "search_personal_db"                         -> context.getString(R.string.step_history)
             else -> context.getString(R.string.step_running_tool, toolName)

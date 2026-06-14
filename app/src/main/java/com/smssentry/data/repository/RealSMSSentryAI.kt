@@ -4,10 +4,7 @@ import android.content.Context
 import com.smssentry.R
 import com.smssentry.data.model.ClassificationResult
 import com.smssentry.data.model.DeepCheckUpdate
-import com.smssentry.deepcheck.data.AllowlistDao
-import com.smssentry.deepcheck.data.HistoryDao
-import com.smssentry.deepcheck.data.OfficialSitesRepository
-import com.smssentry.deepcheck.data.ReputationDb
+import com.smssentry.deepcheck.data.*
 import com.smssentry.deepcheck.model.LlmInferenceEngine
 import com.smssentry.deepcheck.proxy.PrivacyProxyClient
 import com.smssentry.deepcheck.session.DeepCheckSession
@@ -23,20 +20,21 @@ import javax.inject.Singleton
 
 @Singleton
 class RealSMSSentryAI @Inject constructor(
-    @param:ApplicationContext private val context: Context,
+    @ApplicationContext private val context: Context,
     private val allowlistDao: AllowlistDao,
     private val historyDao: HistoryDao,
     private val reputationDb: ReputationDb,
     private val officialSites: OfficialSitesRepository,
     private val proxyClient: PrivacyProxyClient,
-    private val engine: LlmInferenceEngine?,
-    @param:ApplicationScope private val applicationScope: CoroutineScope
+    private val modelRepository: ModelRepository,
+    @ApplicationScope private val applicationScope: CoroutineScope
 ) : SMSSentryAI {
 
     private var isInitialized = false
 
     override fun initialize(context: Context, callback: (Boolean) -> Unit) {
         applicationScope.launch {
+            modelRepository.ensureReady()
             isInitialized = true
             callback(true)
         }
@@ -52,7 +50,7 @@ class RealSMSSentryAI @Inject constructor(
     override fun startDeepCheck(smsText: String, listener: DeepCheckListener): DeepCheckSessionInterface {
         val session = RealDeepCheckSession(
             context, smsText, "", listener,
-            engine, allowlistDao, historyDao, reputationDb, officialSites, proxyClient,
+            modelRepository.getEngine(), allowlistDao, historyDao, reputationDb, officialSites, proxyClient,
             applicationScope
         )
         session.start()

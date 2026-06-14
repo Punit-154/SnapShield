@@ -5,13 +5,7 @@ import android.content.Context
 import com.smssentry.BuildConfig
 import com.smssentry.data.repository.RealSMSSentryAI
 import com.smssentry.data.repository.SmsRepository
-import com.smssentry.deepcheck.ModelDownloadManager
-import com.smssentry.deepcheck.ModelManager
-import com.smssentry.deepcheck.data.AllowlistDao
-import com.smssentry.deepcheck.data.DeepCheckDatabase
-import com.smssentry.deepcheck.data.HistoryDao
-import com.smssentry.deepcheck.data.OfficialSitesRepository
-import com.smssentry.deepcheck.data.ReputationDb
+import com.smssentry.deepcheck.data.*
 import com.smssentry.deepcheck.model.LlmInferenceEngine
 import com.smssentry.deepcheck.proxy.PrivacyProxyClient
 import com.smssentry.domain.service.SMSSentryAI
@@ -24,6 +18,8 @@ import dagger.hilt.components.SingletonComponent
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import okhttp3.OkHttpClient
+import java.util.concurrent.TimeUnit
 import javax.inject.Qualifier
 import javax.inject.Singleton
 
@@ -82,25 +78,27 @@ abstract class AppModule {
 
         @Provides
         @Singleton
+        fun provideOkHttpClient(): OkHttpClient {
+            return OkHttpClient.Builder()
+                .connectTimeout(30, TimeUnit.SECONDS)
+                .readTimeout(60, TimeUnit.SECONDS)
+                .followRedirects(true)
+                .build()
+        }
+
+        @Provides
+        @Singleton
         fun providePrivacyProxyClient(): PrivacyProxyClient {
             return PrivacyProxyClient(BuildConfig.PROXY_URL)
         }
 
         @Provides
-        @Singleton
-        fun provideModelManager(@ApplicationContext context: Context): ModelManager {
-            return ModelManager(context)
-        }
-
-        @Provides
-        fun provideLlmInferenceEngine(modelManager: ModelManager): LlmInferenceEngine? {
-            return modelManager.getLlmEngine()
-        }
-
-        @Provides
-        @Singleton
-        fun provideModelDownloadManager(@ApplicationContext context: Context): ModelDownloadManager {
-            return ModelDownloadManager(context)
+        fun provideLlmInferenceEngine(modelRepository: ModelRepository): LlmInferenceEngine? {
+            return if (modelRepository.isModelDownloaded()) {
+                modelRepository.getEngine()
+            } else {
+                null
+            }
         }
 
         @Provides
