@@ -331,7 +331,7 @@ class ConversationListViewModel @Inject constructor(
     }
 
     private fun registerSmsObserver() {
-        smsObserver = object : ContentObserver(Handler(Looper.getMainLooper())) {
+        val observer = object : ContentObserver(Handler(Looper.getMainLooper())) {
             override fun onChange(selfChange: Boolean) {
                 debounceJob?.cancel()
                 debounceJob = viewModelScope.launch {
@@ -340,10 +340,11 @@ class ConversationListViewModel @Inject constructor(
                 }
             }
         }
+        smsObserver = observer
         context.contentResolver.registerContentObserver(
             Telephony.Sms.CONTENT_URI,
             true,
-            smsObserver!!
+            observer
         )
     }
 

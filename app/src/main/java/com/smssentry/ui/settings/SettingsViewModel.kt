@@ -3,6 +3,7 @@ package com.smssentry.ui.settings
 import android.app.Application
 import android.app.role.RoleManager
 import android.os.Build
+import android.provider.Telephony
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -83,11 +84,13 @@ class SettingsViewModel @Inject constructor(
     }
 
     private fun checkDefaultSmsApp(): Boolean {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             val roleManager = application.getSystemService(RoleManager::class.java)
-            return roleManager?.isRoleHeld(RoleManager.ROLE_SMS) ?: false
+            roleManager?.isRoleHeld(RoleManager.ROLE_SMS) ?: false
+        } else {
+            // Pre-Q fallback
+            Telephony.Sms.getDefaultSmsPackage(application) == application.packageName
         }
-        return false
     }
 
     private fun getAppVersion(): String {

@@ -4,6 +4,9 @@ import android.app.role.RoleManager
 import android.content.Context
 import android.content.Intent
 import android.os.Build
+import android.provider.Telephony
+import androidx.compose.ui.res.stringResource
+import com.smssentry.R
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 
@@ -125,11 +128,18 @@ fun SettingsScreen(
                     MaterialTheme.colorScheme.error
                 },
                 onClick = {
-                    if (!state.isDefaultSmsApp && Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                        val roleManager = context.getSystemService(RoleManager::class.java)
-                        if (roleManager != null && !roleManager.isRoleHeld(RoleManager.ROLE_SMS)) {
-                            val intent = roleManager.createRequestRoleIntent(RoleManager.ROLE_SMS)
-                            roleRequestLauncher.launch(intent)
+                    if (!state.isDefaultSmsApp) {
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                            val roleManager = context.getSystemService(RoleManager::class.java)
+                            if (roleManager != null && !roleManager.isRoleHeld(RoleManager.ROLE_SMS)) {
+                                val intent = roleManager.createRequestRoleIntent(RoleManager.ROLE_SMS)
+                                roleRequestLauncher.launch(intent)
+                            }
+                        } else {
+                            // Pre-Q fallback
+                            val intent = Intent(Telephony.Sms.Intents.ACTION_CHANGE_DEFAULT)
+                            intent.putExtra(Telephony.Sms.Intents.EXTRA_PACKAGE_NAME, context.packageName)
+                            context.startActivity(intent)
                         }
                     }
                 },
@@ -234,7 +244,7 @@ fun SettingsScreen(
     if (showThemeDialog) {
         AlertDialog(
             onDismissRequest = { showThemeDialog = false },
-            title = { Text("Choose theme") },
+            title = { Text(stringResource(R.string.theme)) },
             text = {
                 Column {
                     ThemeMode.entries.forEach { mode ->
@@ -263,7 +273,7 @@ fun SettingsScreen(
             },
             confirmButton = {
                 TextButton(onClick = { showThemeDialog = false }) {
-                    Text("Cancel")
+                    Text(stringResource(R.string.cancel))
                 }
             },
         )
@@ -273,9 +283,9 @@ fun SettingsScreen(
     if (showClearDialog) {
         AlertDialog(
             onDismissRequest = { showClearDialog = false },
-            title = { Text("Clear learning data?") },
+            title = { Text(stringResource(R.string.learning_clear_confirm_title)) },
             text = {
-                Text("This will remove all personal learning history, including feedback and sender trust data. This action cannot be undone.")
+                Text(stringResource(R.string.learning_clear_confirm_body))
             },
             confirmButton = {
                 TextButton(onClick = {
@@ -287,7 +297,7 @@ fun SettingsScreen(
             },
             dismissButton = {
                 TextButton(onClick = { showClearDialog = false }) {
-                    Text("Cancel")
+                    Text(stringResource(R.string.cancel))
                 }
             },
         )
