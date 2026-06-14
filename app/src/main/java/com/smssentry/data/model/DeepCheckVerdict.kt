@@ -6,5 +6,6 @@ data class DeepCheckVerdict(
     val threatType: String?,
     val evidence: List<EvidenceItem>,
     val recommendedActions: List<String>,
-    val educationalExplanation: String = ""
+    val educationalExplanation: String = "",
+    val verdictLabel: String = if (isScam) "SCAM" else "SAFE"
 )

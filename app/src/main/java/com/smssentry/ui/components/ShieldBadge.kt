@@ -36,28 +36,28 @@ fun ShieldBadge(
         "SAFE" -> SafeGreenBackground
         "SUSPICIOUS" -> SuspiciousOrangeBackground
         "SCAM" -> ScamRedBackground
-        else -> Color.LightGray
+        else -> Color.LightGray.copy(alpha = 0.3f)
     }
 
-    val scale = if (animated && label.uppercase() == "SCAM") {
+    val scaleValue = if (animated && label.uppercase() == "SCAM") {
         val infiniteTransition = rememberInfiniteTransition(label = "pulse")
-        val scale by infiniteTransition.animateFloat(
+        val s by infiniteTransition.animateFloat(
             initialValue = 1f,
-            targetValue = 1.1f,
+            targetValue = 1.08f,
             animationSpec = infiniteRepeatable(
-                animation = tween(500, easing = FastOutSlowInEasing),
+                animation = tween(600, easing = FastOutSlowInEasing),
                 repeatMode = RepeatMode.Reverse
             ),
             label = "scale"
         )
-        scale
+        s
     } else {
         1f
     }
 
     Row(
         modifier = modifier
-            .scale(scale)
+            .scale(scaleValue)
             .clip(RoundedCornerShape(20.dp))
             .background(backgroundColor)
             .padding(horizontal = 12.dp, vertical = 6.dp),
@@ -74,15 +74,24 @@ fun ShieldBadge(
             fontSize = 14.sp
         )
         Text(
-            text = label,
+            text = label.uppercase(),
             color = color,
             fontWeight = FontWeight.Bold,
-            fontSize = 12.sp
+            fontSize = 12.sp,
+            letterSpacing = 0.5.sp
         )
-        Text(
-            text = "$riskScore/100",
-            color = color.copy(alpha = 0.8f),
-            fontSize = 11.sp
-        )
+        Box(
+            modifier = Modifier
+                .clip(RoundedCornerShape(4.dp))
+                .background(color.copy(alpha = 0.15f))
+                .padding(horizontal = 6.dp, vertical = 2.dp)
+        ) {
+            Text(
+                text = "$riskScore",
+                color = color,
+                fontSize = 11.sp,
+                fontWeight = FontWeight.SemiBold
+            )
+        }
     }
 }

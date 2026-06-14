@@ -2,6 +2,7 @@ package com.smssentry.ui.components
 
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -10,7 +11,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.smssentry.ui.theme.*
 
@@ -26,6 +27,15 @@ fun ProgressIndicator(
         else -> ScamRed
     }
 
+    val animatedProgress by animateFloatAsState(
+        targetValue = progress / 100f,
+        animationSpec = tween(
+            durationMillis = 600,
+            easing = FastOutSlowInEasing
+        ),
+        label = "progressAnim"
+    )
+
     Column(
         modifier = modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -37,18 +47,19 @@ fun ProgressIndicator(
         ) {
             Text(
                 text = "Investigation Progress",
-                style = MaterialTheme.typography.bodyMedium,
+                style = MaterialTheme.typography.titleSmall,
                 color = MaterialTheme.colorScheme.onSurface
             )
             Text(
                 text = "$progress%",
-                style = MaterialTheme.typography.bodyMedium,
-                color = progressColor
+                style = MaterialTheme.typography.titleSmall,
+                color = progressColor,
+                fontWeight = FontWeight.Bold
             )
         }
 
         LinearProgressIndicator(
-            progress = { progress / 100f },
+            progress = { animatedProgress },
             modifier = Modifier
                 .fillMaxWidth()
                 .height(8.dp)

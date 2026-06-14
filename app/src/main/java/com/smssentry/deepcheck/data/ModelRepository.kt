@@ -3,6 +3,7 @@ package com.smssentry.deepcheck.data
 import android.content.Context
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
+import android.os.StatFs
 import android.util.Log
 import com.smssentry.deepcheck.util.Diagnostics
 import com.smssentry.deepcheck.DeepCheckConfig
@@ -73,6 +74,29 @@ class ModelRepository @Inject constructor(
         return result
     }
 
+    /**
+     * Returns the available disk space in bytes on the internal storage partition.
+     */
+    private fun availableDiskSpaceBytes(): Long {
+        return try {
+            val stat = StatFs(context.filesDir.absolutePath)
+            stat.availableBlocksLong * stat.blockSizeLong
+        } catch (e: Exception) {
+            Diagnostics.w(Diagnostics.MODEL, "availableDiskSpaceBytes: failed to read: ${e.message}")
+            Long.MAX_VALUE // Optimistically allow download if we can't check
+        }
+    }
+
+    /**
+     * Clear the current error state so the user can retry.
+     */
+    fun resetError() {
+        _error.value = null
+        if (_state.value == State.FAILED) {
+            _state.value = State.IDLE
+        }
+    }
+
     fun isOnWiFi(): Boolean {
         val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
         val network = cm.activeNetwork ?: return false
@@ -137,6 +161,23 @@ class ModelRepository @Inject constructor(
             return
         }
         _error.value = null
+
+        // ── Disk space pre-check ─────────────────────────────────────
+        // The model is ~3.7 GB; require 5 GB free to leave headroom for
+        // the OS, temp files and the extracted model cache.
+        val requiredBytes = 5_000_000_000L
+        val availableBytes = availableDiskSpaceBytes()
+        if (availableBytes < requiredBytes) {
+            val availMb = availableBytes / (1024 * 1024)
+            val reqMb = requiredBytes / (1024 * 1024)
+            val msg = "Not enough disk space: ${availMb}MB available, ${reqMb}MB required"
+            Diagnostics.e(Diagnostics.DOWNLOAD, "downloadModel: $msg")
+            _error.value = msg
+            _state.value = State.FAILED
+            return
+        }
+        Diagnostics.d(Diagnostics.DOWNLOAD, "downloadModel: disk space OK (${availableBytes / (1024*1024)}MB available)")
+
         _state.value = State.DOWNLOADING
         _progress.value = 0f
         Diagnostics.i(Diagnostics.DOWNLOAD, "downloadModel: started, url=${DeepCheckConfig.MODEL_URL}")

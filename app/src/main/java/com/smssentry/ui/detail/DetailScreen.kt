@@ -1,30 +1,40 @@
 package com.smssentry.ui.detail
 
+import android.content.Context
+import android.content.Intent
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Lock
-
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.smssentry.R
+import com.smssentry.data.model.DeepCheckVerdict
 import com.smssentry.deepcheck.data.ModelRepository
 import com.smssentry.deepcheck.ui.DeepCheckTimeline
 import com.smssentry.ui.components.*
+import com.smssentry.ui.theme.*
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -39,16 +49,17 @@ fun DetailScreen(
     val investigationState by viewModel.investigationState.collectAsState()
     val showDownloadPrompt by viewModel.showDownloadPrompt.collectAsState()
     val modelState by viewModel.modelState.collectAsState()
+    val context = LocalContext.current
 
     var badgeVisible by remember { mutableStateOf(false) }
 
     val isInvestigating = investigationState.progress > 0 && investigationState.verdict == null
-    val canStartDeepCheck = !isInvestigating && investigationState.verdict == null
     val isModelReady = modelState == ModelRepository.State.READY
 
+    // Pulsing animation for Deep Check running
     val pulseAnimation by rememberInfiniteTransition(label = "pulse").animateFloat(
         initialValue = 1f,
-        targetValue = 1.05f,
+        targetValue = 1.03f,
         animationSpec = infiniteRepeatable(
             animation = tween(1000, easing = FastOutSlowInEasing),
             repeatMode = RepeatMode.Reverse
@@ -94,9 +105,19 @@ fun DetailScreen(
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.cancel))
                     }
                 },
+                actions = {
+                    // Share button in top bar
+                    message?.let { sms ->
+                        IconButton(onClick = {
+                            shareMessage(context, sms.sender, sms.text, investigationState.verdict)
+                        }) {
+                            Icon(Icons.Default.Share, contentDescription = "Share")
+                        }
+                    }
+                },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer,
-                    titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    titleContentColor = MaterialTheme.colorScheme.onSurface
                 )
             )
         }
@@ -110,40 +131,78 @@ fun DetailScreen(
                     .padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
+                // ── Message Card ──
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(16.dp),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
+                    )
                 ) {
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text(
-                                text = sms.sender,
-                                fontWeight = FontWeight.Bold,
-                                style = MaterialTheme.typography.titleMedium
-                            )
-                            Text(
-                                text = SimpleDateFormat("MMM dd, hh:mm a", Locale.getDefault())
-                                    .format(Date(sms.timestamp)),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
-                            )
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                            ) {
+                                // Sender avatar
+                                val avatarColor = when (sms.classification?.label?.uppercase()) {
+                                    "SCAM" -> ScamRed
+                                    "SUSPICIOUS" -> SuspiciousOrange
+                                    "SAFE" -> SafeGreen
+                                    else -> LowGray
+                                }
+                                Box(
+                                    modifier = Modifier
+                                        .size(40.dp)
+                                        .clip(CircleShape)
+                                        .background(avatarColor.copy(alpha = 0.12f)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = sms.sender.firstOrNull()?.uppercase() ?: "?",
+                                        color = avatarColor,
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 16.sp
+                                    )
+                                }
+                                Column {
+                                    Text(
+                                        text = sms.sender,
+                                        fontWeight = FontWeight.Bold,
+                                        style = MaterialTheme.typography.titleMedium
+                                    )
+                                    Text(
+                                        text = SimpleDateFormat("MMM dd, yyyy • hh:mm a", Locale.getDefault())
+                                            .format(Date(sms.timestamp)),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                                    )
+                                }
+                            }
                         }
+
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+
                         Text(
                             text = sms.text,
-                            style = MaterialTheme.typography.bodyLarge
+                            style = MaterialTheme.typography.bodyLarge,
+                            lineHeight = 24.sp
                         )
                     }
                 }
 
+                // ── Classification Card ──
                 sms.classification?.let { classification ->
                     Card(
                         modifier = Modifier.fillMaxWidth(),
@@ -154,13 +213,19 @@ fun DetailScreen(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(16.dp),
-                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                            verticalArrangement = Arrangement.spacedBy(14.dp)
                         ) {
-                            Text(
-                                text = stringResource(R.string.classification),
-                                fontWeight = FontWeight.Bold,
-                                style = MaterialTheme.typography.titleMedium
-                            )
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Text(text = "\uD83D\uDCCA", fontSize = 18.sp)
+                                Text(
+                                    text = stringResource(R.string.classification),
+                                    fontWeight = FontWeight.Bold,
+                                    style = MaterialTheme.typography.titleMedium
+                                )
+                            }
 
                             AnimatedVisibility(
                                 visible = badgeVisible,
@@ -190,120 +255,331 @@ fun DetailScreen(
                     }
                 }
 
+                // ── Privacy Indicator ──
                 PrivacyIndicator()
 
-                // Dynamic Deep Check button based on model state
-                when (modelState) {
-                    ModelRepository.State.IDLE, ModelRepository.State.FAILED -> {
-                        // No model downloaded
-                        Button(
-                            onClick = onNavigateToDownload,
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(12.dp),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = MaterialTheme.colorScheme.tertiary
-                            )
+                // ── Deep Check Section ──
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceContainer
+                    )
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            Icon(Icons.Default.Lock, contentDescription = null, Modifier.size(18.dp))
-                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(text = "\uD83E\uDD16", fontSize = 18.sp)
                             Text(
-                                text = "Download AI for Deep Analysis (~2.7 GB)",
-                                fontWeight = FontWeight.Bold
+                                text = "AI Deep Analysis",
+                                fontWeight = FontWeight.Bold,
+                                style = MaterialTheme.typography.titleMedium
                             )
                         }
-                        Text(
-                            text = "Get complete protection against sophisticated scams.",
-                            style = MaterialTheme.typography.bodySmall,
-                            textAlign = TextAlign.Center,
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                    }
-                    
-                    ModelRepository.State.DOWNLOADING -> {
-                        // Download in progress
-                        Button(
-                            onClick = onNavigateToDownload,
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(12.dp),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = MaterialTheme.colorScheme.primary
-                            )
-                        ) {
-                            Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.CenterStart) {
-                                Text("Downloading...")
-                                LinearProgressIndicator(
+
+                        // Dynamic button based on model state
+                        when (modelState) {
+                            ModelRepository.State.IDLE, ModelRepository.State.FAILED -> {
+                                Button(
+                                    onClick = onNavigateToDownload,
+                                    modifier = Modifier.fillMaxWidth(),
+                                    shape = RoundedCornerShape(12.dp),
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = MaterialTheme.colorScheme.tertiary
+                                    )
+                                ) {
+                                    Icon(Icons.Default.Lock, contentDescription = null, Modifier.size(18.dp))
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        text = "Download AI Model (~2.7 GB)",
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                                Text(
+                                    text = "Get complete protection against sophisticated scams.",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    textAlign = TextAlign.Center,
+                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                            }
+
+                            ModelRepository.State.DOWNLOADING -> {
+                                Button(
+                                    onClick = onNavigateToDownload,
+                                    modifier = Modifier.fillMaxWidth(),
+                                    shape = RoundedCornerShape(12.dp),
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = MaterialTheme.colorScheme.primary
+                                    )
+                                ) {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.size(16.dp),
+                                        strokeWidth = 2.dp,
+                                        color = MaterialTheme.colorScheme.onPrimary
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text("Downloading...")
+                                }
+                            }
+
+                            ModelRepository.State.VERIFYING, ModelRepository.State.LOADING -> {
+                                Button(
+                                    onClick = { /* Disabled */ },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    shape = RoundedCornerShape(12.dp),
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = MaterialTheme.colorScheme.surfaceVariant
+                                    ),
+                                    enabled = false
+                                ) {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.size(16.dp),
+                                        strokeWidth = 2.dp
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text("Initializing AI Engine...")
+                                }
+                            }
+
+                            ModelRepository.State.READY -> {
+                                Button(
+                                    onClick = { viewModel.startDeepCheck() },
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .height(4.dp)
-                                        .align(Alignment.BottomCenter)
-                                )
+                                        .then(
+                                            if (isInvestigating) Modifier.scale(pulseAnimation)
+                                            else Modifier
+                                        ),
+                                    shape = RoundedCornerShape(12.dp),
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = if (isInvestigating) {
+                                            MaterialTheme.colorScheme.secondaryContainer
+                                        } else {
+                                            MaterialTheme.colorScheme.primary
+                                        }
+                                    ),
+                                    enabled = !isInvestigating
+                                ) {
+                                    if (isInvestigating) {
+                                        CircularProgressIndicator(
+                                            modifier = Modifier.size(16.dp),
+                                            strokeWidth = 2.dp,
+                                            color = MaterialTheme.colorScheme.onSecondaryContainer
+                                        )
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Text(
+                                            text = "Analyzing...",
+                                            color = MaterialTheme.colorScheme.onSecondaryContainer
+                                        )
+                                    } else {
+                                        Icon(Icons.Default.Search, contentDescription = null, Modifier.size(18.dp))
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Text(
+                                            text = if (investigationState.verdict != null) {
+                                                "Run Again"
+                                            } else {
+                                                "⚡ Run Deep Analysis"
+                                            },
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                    }
+                                }
                             }
                         }
                     }
-                    
-                    ModelRepository.State.VERIFYING, ModelRepository.State.LOADING -> {
-                        // Model loading (engine.init)
-                        Button(
-                            onClick = { /* Disabled */ },
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(12.dp),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = MaterialTheme.colorScheme.surfaceVariant
-                            ),
-                            enabled = false
-                        ) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(16.dp),
-                                strokeWidth = 2.dp
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text("Initializing AI Engine...")
-                        }
-                    }
-                    
-                    ModelRepository.State.READY -> {
-                        // Model ready - show Immediate Deep Check
-                        Button(
-                            onClick = { viewModel.startDeepCheck() },
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(12.dp),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = MaterialTheme.colorScheme.primary
-                            )
-                        ) {
-                            Icon(Icons.Default.Search, contentDescription = null, Modifier.size(18.dp))
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(
-                                text = if (investigationState.verdict != null) {
-                                    "Check Another Message"
-                                } else {
-                                    "⚡ Run Deep Analysis"
-                                },
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-                    }
                 }
-                
-                Spacer(modifier = Modifier.height(8.dp))
 
+                // ── Analysis Progress / Timeline ──
+                AnimatedVisibility(
+                    visible = isInvestigating,
+                    enter = expandVertically() + fadeIn(),
+                    exit = shrinkVertically() + fadeOut()
+                ) {
+                    AnalysisProgressCard(
+                        progress = investigationState.progress,
+                        currentStep = investigationState.currentStep
+                    )
+                }
+
+                // ── Deep Check Timeline (when results exist) ──
                 if (investigationState.progress > 0 || investigationState.verdict != null || investigationState.error != null) {
                     DeepCheckTimeline(
                         state = investigationState,
                         onCancel = { viewModel.cancelDeepCheck() }
                     )
                 }
+
+                // ── Verdict (with share) ──
+                investigationState.verdict?.let { verdict ->
+                    VerdictCard(
+                        verdict = verdict,
+                        onShareClick = {
+                            shareVerdict(context, sms.sender, verdict)
+                        }
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
             }
         } ?: run {
+            // Loading state
             Box(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(padding),
                 contentAlignment = Alignment.Center
             ) {
-                CircularProgressIndicator()
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    CircularProgressIndicator()
+                    Text(
+                        text = "Loading message...",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                    )
+                }
             }
         }
     }
+}
+
+@Composable
+private fun AnalysisProgressCard(
+    progress: Int,
+    currentStep: String?
+) {
+    val animatedProgress by animateFloatAsState(
+        targetValue = progress / 100f,
+        animationSpec = tween(500, easing = FastOutSlowInEasing),
+        label = "analysisProgress"
+    )
+
+    // Scanning dot animation
+    val dotAlpha by rememberInfiniteTransition(label = "dot").animateFloat(
+        initialValue = 0.3f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(600),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "dotAlpha"
+    )
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
+        )
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "🔍 Analyzing...",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Text(
+                    text = "$progress%",
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.primary,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+
+            LinearProgressIndicator(
+                progress = { animatedProgress },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(6.dp)
+                    .clip(RoundedCornerShape(3.dp)),
+                color = MaterialTheme.colorScheme.primary,
+                trackColor = MaterialTheme.colorScheme.surfaceVariant
+            )
+
+            currentStep?.let { step ->
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(6.dp)
+                            .clip(CircleShape)
+                            .background(
+                                MaterialTheme.colorScheme.primary.copy(alpha = dotAlpha)
+                            )
+                    )
+                    Text(
+                        text = step,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                    )
+                }
+            }
+        }
+    }
+}
+
+private fun shareMessage(context: Context, sender: String, text: String, verdict: DeepCheckVerdict?) {
+    val shareText = buildString {
+        appendLine("SMS from: $sender")
+        appendLine(text)
+        if (verdict != null) {
+            appendLine()
+            appendLine("SMSentry Analysis: ${if (verdict.isScam) "⚠️ SCAM DETECTED" else "✅ SAFE"}")
+            appendLine(verdict.summary)
+        }
+        appendLine()
+        appendLine("— Analyzed by SMSentry")
+    }
+    val intent = Intent(Intent.ACTION_SEND).apply {
+        type = "text/plain"
+        putExtra(Intent.EXTRA_TEXT, shareText)
+    }
+    context.startActivity(Intent.createChooser(intent, "Share via"))
+}
+
+private fun shareVerdict(context: Context, sender: String, verdict: DeepCheckVerdict) {
+    val shareText = buildString {
+        appendLine("SMSentry Deep Check Result")
+        appendLine("━━━━━━━━━━━━━━━━━━")
+        appendLine("Sender: $sender")
+        appendLine("Verdict: ${if (verdict.isScam) "🛑 SCAM DETECTED" else "🛡️ MESSAGE SAFE"}")
+        verdict.threatType?.let { appendLine("Threat: ${it.replace("_", " ")}") }
+        appendLine()
+        appendLine(verdict.summary)
+        if (verdict.recommendedActions.isNotEmpty()) {
+            appendLine()
+            appendLine("Actions:")
+            verdict.recommendedActions.forEach { appendLine("• $it") }
+        }
+        appendLine()
+        appendLine("— Analyzed by SMSentry")
+    }
+    val intent = Intent(Intent.ACTION_SEND).apply {
+        type = "text/plain"
+        putExtra(Intent.EXTRA_TEXT, shareText)
+    }
+    context.startActivity(Intent.createChooser(intent, "Share verdict"))
 }

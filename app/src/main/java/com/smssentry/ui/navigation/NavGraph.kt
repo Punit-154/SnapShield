@@ -1,6 +1,9 @@
 package com.smssentry.ui.navigation
 
 import android.util.Log
+import androidx.compose.animation.*
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
 import androidx.compose.runtime.Composable
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
@@ -21,6 +24,7 @@ sealed class Screen(val route: String) {
 }
 
 private const val TAG = "NavGraph"
+private const val NAV_ANIM_DURATION = 350
 
 @Composable
 fun SMSSentryNavGraph(
@@ -29,7 +33,31 @@ fun SMSSentryNavGraph(
 ) {
     NavHost(
         navController = navController,
-        startDestination = Screen.Inbox.route
+        startDestination = Screen.Inbox.route,
+        enterTransition = {
+            slideInHorizontally(
+                initialOffsetX = { it },
+                animationSpec = tween(NAV_ANIM_DURATION, easing = FastOutSlowInEasing)
+            ) + fadeIn(animationSpec = tween(NAV_ANIM_DURATION))
+        },
+        exitTransition = {
+            slideOutHorizontally(
+                targetOffsetX = { -it / 4 },
+                animationSpec = tween(NAV_ANIM_DURATION, easing = FastOutSlowInEasing)
+            ) + fadeOut(animationSpec = tween(NAV_ANIM_DURATION / 2))
+        },
+        popEnterTransition = {
+            slideInHorizontally(
+                initialOffsetX = { -it / 4 },
+                animationSpec = tween(NAV_ANIM_DURATION, easing = FastOutSlowInEasing)
+            ) + fadeIn(animationSpec = tween(NAV_ANIM_DURATION))
+        },
+        popExitTransition = {
+            slideOutHorizontally(
+                targetOffsetX = { it },
+                animationSpec = tween(NAV_ANIM_DURATION, easing = FastOutSlowInEasing)
+            ) + fadeOut(animationSpec = tween(NAV_ANIM_DURATION / 2))
+        }
     ) {
         composable(Screen.Inbox.route) {
             InboxScreen(
@@ -54,7 +82,21 @@ fun SMSSentryNavGraph(
             )
         }
 
-        composable(Screen.ModelDownload.route) {
+        composable(
+            route = Screen.ModelDownload.route,
+            enterTransition = {
+                slideInVertically(
+                    initialOffsetY = { it },
+                    animationSpec = tween(NAV_ANIM_DURATION, easing = FastOutSlowInEasing)
+                ) + fadeIn(animationSpec = tween(NAV_ANIM_DURATION))
+            },
+            popExitTransition = {
+                slideOutVertically(
+                    targetOffsetY = { it },
+                    animationSpec = tween(NAV_ANIM_DURATION, easing = FastOutSlowInEasing)
+                ) + fadeOut(animationSpec = tween(NAV_ANIM_DURATION / 2))
+            }
+        ) {
             ModelDownloadScreen(
                 onBackClick = {
                     val backQueue = navController.currentBackStack.value.map { it.destination.route }

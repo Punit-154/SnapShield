@@ -434,9 +434,10 @@ class DeepCheckSession(
 
     private fun mapLegacyVerdict(v: com.smssentry.deepcheck.model.VerdictJson): DeepCheckVerdict {
         val isScam = v.verdict == "SCAM"
+        val isSuspicious = v.verdict == "SUSPICIOUS"
         val cleanedReasoning = TextSanitizer.toParagraph(v.reasoning)
         return DeepCheckVerdict(
-            isScam = isScam,
+            isScam = isScam || isSuspicious,
             summary = TextSanitizer.summarize(v.reasoning),
             threatType = if (isScam) "unknown" else null,
             evidence = v.evidence.map { detail ->
@@ -454,20 +455,34 @@ class DeepCheckSession(
                 )
                 else -> emptyList()
             },
-            educationalExplanation = cleanedReasoning
+            educationalExplanation = cleanedReasoning,
+            verdictLabel = v.verdict
         )
     }
 
     private fun mapEducationalVerdict(parsed: ParsedEducationalVerdict): DeepCheckVerdict {
         val isScam = parsed.verdictLabel == "SCAM"
+        val isSuspicious = parsed.verdictLabel == "SUSPICIOUS"
         val cleanExplanation = TextSanitizer.toParagraph(parsed.explanation)
         return DeepCheckVerdict(
-            isScam = isScam,
+            isScam = isScam || isSuspicious,
             summary = TextSanitizer.summarize(parsed.explanation),
             threatType = parsed.scamType.takeIf { it != "safe" },
             evidence = evidenceList.map { EvidenceItem("AI Analysis", it, if (isScam) "HIGH" else "MEDIUM") },
-            recommendedActions = emptyList(),
-            educationalExplanation = cleanExplanation
+            recommendedActions = when (parsed.verdictLabel) {
+                "SCAM" -> listOf(
+                    context.getString(R.string.action_no_click),
+                    context.getString(R.string.action_block),
+                    context.getString(R.string.action_report)
+                )
+                "SUSPICIOUS" -> listOf(
+                    context.getString(R.string.action_caution),
+                    context.getString(R.string.action_verify_org)
+                )
+                else -> emptyList()
+            },
+            educationalExplanation = cleanExplanation,
+            verdictLabel = parsed.verdictLabel
         )
     }
 

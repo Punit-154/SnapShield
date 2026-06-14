@@ -14,10 +14,8 @@ android {
         applicationId = "com.smssentry"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = "1.0"
-
-        buildConfigField("String", "PROXY_URL", "\"https://smsentry-proxy.joel010-alfred.workers.dev\"")
+        versionCode = 2
+        versionName = "1.1.0"
     }
 
     buildFeatures {
@@ -25,7 +23,30 @@ android {
         buildConfig = true
     }
 
+    // To sign release builds, create a keystore.properties file in the project root with:
+    //   storeFile=path/to/keystore.jks
+    //   storePassword=...
+    //   keyAlias=...
+    //   keyPassword=...
+    // Then uncomment the signingConfigs block below.
+    // signingConfigs {
+    //     create("release") {
+    //         val keystorePropertiesFile = rootProject.file("keystore.properties")
+    //         val keystoreProperties = java.util.Properties()
+    //         if (keystorePropertiesFile.exists()) {
+    //             keystoreProperties.load(keystorePropertiesFile.inputStream())
+    //         }
+    //         storeFile = file(keystoreProperties["storeFile"] as? String ?: "release.jks")
+    //         storePassword = keystoreProperties["storePassword"] as? String ?: ""
+    //         keyAlias = keystoreProperties["keyAlias"] as? String ?: ""
+    //         keyPassword = keystoreProperties["keyPassword"] as? String ?: ""
+    //     }
+    // }
+
     buildTypes {
+        debug {
+            buildConfigField("String", "PROXY_URL", "\"https://smsentry-proxy.joel010-alfred.workers.dev\"")
+        }
         release {
             isMinifyEnabled = true
             isShrinkResources = true
@@ -33,6 +54,8 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            buildConfigField("String", "PROXY_URL", "\"https://smsentry-proxy.joel010-alfred.workers.dev\"")
+            // signingConfig = signingConfigs.getByName("release")
         }
     }
 
@@ -63,6 +86,7 @@ dependencies {
     implementation("androidx.compose.ui:ui-graphics")
     implementation("androidx.compose.ui:ui-tooling-preview")
     implementation("androidx.compose.material3:material3")
+    implementation("androidx.compose.material:material-icons-extended")
 
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.7")
     implementation("androidx.navigation:navigation-compose:2.8.8")

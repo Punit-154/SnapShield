@@ -1,7 +1,27 @@
-# Project exclude paths
-/.gradle/
-/app/build/
-/app/build/intermediates/javac/debug/classes/
+# Gradle
+.gradle/
+build/
+!gradle-wrapper.jar
+
+# Local config
 local.properties
-build/reports/
+keystore.properties
+*.jks
+
+# IDE
 .idea/
+*.iml
+.DS_Store
+
+# Build artifacts & logs
+build_output.txt
+logcat_capture.txt
+*.log
+*.hprof
+
+# Kotlin
+.kotlin/
+
+# OS
+Thumbs.db
+Desktop.ini

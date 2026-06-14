@@ -214,5 +214,4 @@ class LiteRtLmEngine(
         Diagnostics.d(Diagnostics.ENGINE, "Engine disposed")
     }
 
-    // companion object moved to top of class (see above)
 }

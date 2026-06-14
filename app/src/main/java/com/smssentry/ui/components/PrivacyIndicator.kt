@@ -3,8 +3,11 @@ package com.smssentry.ui.components
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -23,20 +26,25 @@ fun PrivacyIndicator(
             .fillMaxWidth()
             .clip(RoundedCornerShape(12.dp))
             .background(SafeGreenBackground)
-            .padding(12.dp),
+            .padding(14.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        Text(text = "\uD83D\uDEE1\uFE0F", fontSize = 20.sp)
+        Icon(
+            imageVector = Icons.Default.Lock,
+            contentDescription = null,
+            tint = SafeGreen,
+            modifier = Modifier.size(22.dp)
+        )
         Column {
             Text(
-                text = "Running On Device",
+                text = "On-Device Analysis",
                 fontWeight = FontWeight.SemiBold,
                 fontSize = 14.sp,
-                color = SafeGreen
+                color = SafeGreenDark
             )
             Text(
-                text = "No SMS content leaves your phone",
+                text = "Your messages never leave your phone",
                 fontSize = 12.sp,
                 color = SafeGreen.copy(alpha = 0.8f)
             )

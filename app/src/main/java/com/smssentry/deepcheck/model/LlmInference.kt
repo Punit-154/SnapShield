@@ -1,5 +1,6 @@
 package com.smssentry.deepcheck.model
 
+import android.util.Log
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import kotlinx.coroutines.CompletableDeferred
@@ -30,6 +31,7 @@ data class Tool(
 open class LlmConversationSession(
     private val conversation: com.google.ai.edge.litertlm.Conversation? = null
 ) {
+    private val TAG = "LlmConversationSession"
     /**
      * Send a user turn and collect the full model response.
      *
@@ -43,36 +45,59 @@ open class LlmConversationSession(
         val conv = conversation ?: throw IllegalStateException("No active conversation")
         Diagnostics.i(Diagnostics.ENGINE, "sendTurn: prompt=${userText.length} chars")
         val startMs = System.currentTimeMillis()
-        val result = CompletableDeferred<String>()
-        val responseBuilder = StringBuilder()
-        var tokenCount = 0
 
-        conv.sendMessageAsync(
-            com.google.ai.edge.litertlm.Contents.of(userText),
-            object : com.google.ai.edge.litertlm.MessageCallback {
-                override fun onMessage(message: Message) {
-                    tokenCount++
-                    // Each callback delivers the NEXT chunk of text (not accumulated).
-                    // Append to build the full response.
-                    responseBuilder.append(LiteRtLmEngine.extractTextFromMessage(message))
+        try {
+            val result = CompletableDeferred<String>()
+            val responseBuilder = StringBuilder()
+            var tokenCount = 0
+
+            conv.sendMessageAsync(
+                com.google.ai.edge.litertlm.Contents.of(userText),
+                object : com.google.ai.edge.litertlm.MessageCallback {
+                    override fun onMessage(message: Message) {
+                        try {
+                            tokenCount++
+                            // Each callback delivers the NEXT chunk of text (not accumulated).
+                            // Append to build the full response.
+                            responseBuilder.append(LiteRtLmEngine.extractTextFromMessage(message))
+                        } catch (oom: OutOfMemoryError) {
+                            val elapsed = System.currentTimeMillis() - startMs
+                            Log.e(TAG, "OOM in onMessage callback after ${elapsed}ms, $tokenCount tokens", oom)
+                            Diagnostics.e(Diagnostics.ENGINE, "sendTurn OOM in callback after ${elapsed}ms, $tokenCount tokens")
+                            result.completeExceptionally(
+                                RuntimeException("Out of memory during inference (received $tokenCount tokens)", oom)
+                            )
+                        }
+                    }
+
+                    override fun onDone() {
+                        val elapsed = System.currentTimeMillis() - startMs
+                        val response = responseBuilder.toString()
+                        Diagnostics.i(Diagnostics.ENGINE, "sendTurn complete: ${response.length} chars, $tokenCount callbacks, ${elapsed}ms")
+                        result.complete(response)
+                    }
+
+                    override fun onError(throwable: Throwable) {
+                        val elapsed = System.currentTimeMillis() - startMs
+                        Log.e(TAG, "sendTurn engine error after ${elapsed}ms", throwable)
+                        Diagnostics.e(Diagnostics.ENGINE, "sendTurn error after ${elapsed}ms: ${throwable.message}", throwable)
+                        result.completeExceptionally(throwable)
+                    }
                 }
+            )
 
-                override fun onDone() {
-                    val elapsed = System.currentTimeMillis() - startMs
-                    val response = responseBuilder.toString()
-                    Diagnostics.i(Diagnostics.ENGINE, "sendTurn complete: ${response.length} chars, $tokenCount callbacks, ${elapsed}ms")
-                    result.complete(response)
-                }
-
-                override fun onError(throwable: Throwable) {
-                    val elapsed = System.currentTimeMillis() - startMs
-                    Diagnostics.e(Diagnostics.ENGINE, "sendTurn error after ${elapsed}ms: ${throwable.message}", throwable)
-                    result.completeExceptionally(throwable)
-                }
-            }
-        )
-
-        result.await()
+            result.await()
+        } catch (oom: OutOfMemoryError) {
+            val elapsed = System.currentTimeMillis() - startMs
+            Log.e(TAG, "OOM in sendTurn after ${elapsed}ms", oom)
+            Diagnostics.e(Diagnostics.ENGINE, "sendTurn OOM at top level after ${elapsed}ms")
+            throw RuntimeException("Device ran out of memory during inference. Try closing other apps.", oom)
+        } catch (e: Exception) {
+            val elapsed = System.currentTimeMillis() - startMs
+            Log.e(TAG, "sendTurn failed after ${elapsed}ms", e)
+            Diagnostics.e(Diagnostics.ENGINE, "sendTurn exception after ${elapsed}ms: ${e::class.simpleName} — ${e.message}", e)
+            throw e
+        }
     }
 
     open fun close() {
