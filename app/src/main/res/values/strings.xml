@@ -137,11 +137,35 @@
     <string name="delete_message_title">Delete message?</string>
     <string name="delete_message_body">This message will be permanently deleted.</string>
     <string name="delete_conversation_menu">Delete conversation</string>
+    <string name="block_sender">Block sender</string>
+    <string name="block_sender_title">Block %1$s?</string>
+    <string name="block_sender_body">You will no longer receive messages from this number.</string>
+    <string name="sender_blocked">%1$s blocked</string>
+    <string name="block_failed">Failed to block number</string>
 
     <!-- Settings -->
     <string name="settings_title">Settings</string>
-    <string name="default_sms_app">Default SMS App</string>
-    <string name="blocked_numbers">Blocked Numbers</string>
+    <string name="back">Back</string>
+    <string name="default_sms_app">Default SMS app</string>
+    <string name="default_sms_app_active">SMSentry is your default SMS app</string>
+    <string name="default_sms_app_inactive">Tap to set as default</string>
+    <string name="blocked_numbers">Blocked numbers</string>
+    <string name="blocked_numbers_subtitle">Manage your blocked numbers list</string>
+    <string name="section_appearance">Appearance</string>
+    <string name="section_sms">SMS</string>
+    <string name="section_ai_model">AI Model</string>
+    <string name="section_about">About</string>
+    <string name="ai_powered_description">AI-powered SMS protection</string>
+    <string name="app_version">Version %1$s\n%2$s</string>
+    <string name="model_downloaded_idle">Downloaded (not loaded)</string>
+    <string name="model_not_downloaded_idle">Not downloaded</string>
+    <string name="model_state_downloading">Downloading…</string>
+    <string name="model_state_verifying">Verifying…</string>
+    <string name="model_state_loading">Loading…</string>
+    <string name="model_state_ready">Ready</string>
+    <string name="model_state_failed">Failed to load</string>
+    <string name="on_device_ai_model">On-device AI model</string>
+    <string name="clear">Clear</string>
 
     <!-- Blocked Numbers -->
     <string name="no_blocked_numbers">No blocked numbers</string>
@@ -151,6 +175,30 @@
     <string name="unblock">Unblock</string>
     <string name="unblock_title">Unblock number?</string>
     <string name="unblock_body">Unblock %1$s? You will receive messages from this number again.</string>
+    <string name="blocked_icon_desc">Blocked</string>
+    <string name="error_icon_desc">Error</string>
+    <string name="error_default_sms_required">SMSentry must be the default SMS app to manage blocked numbers.</string>
+    <string name="error_load_blocked">Could not load blocked numbers: %1$s</string>
+    <string name="error_unblock_failed">Failed to unblock: %1$s</string>
+    <string name="error_block_failed">Failed to block: %1$s</string>
+    <string name="error_unknown">Unknown error</string>
+    <string name="number_blocked">%1$s blocked</string>
+    <string name="unknown">Unknown</string>
+
+    <!-- Detail Screen - Deep Analysis -->
+    <string name="ai_deep_analysis">AI Deep Analysis</string>
+    <string name="download_ai_model">Download AI Model (~2.7 GB)</string>
+    <string name="download_ai_model_desc">Get complete protection against sophisticated scams.</string>
+    <string name="detail_downloading">Downloading…</string>
+    <string name="initializing_ai_engine">Initializing AI Engine…</string>
+    <string name="analyzing">Analyzing…</string>
+    <string name="analyze">Analyze</string>
+    <string name="run_again">Run Again</string>
+    <string name="run_deep_analysis">Run Deep Analysis</string>
+    <string name="loading_message">Loading message…</string>
+    <string name="share">Share</string>
+    <string name="share_via">Share via</string>
+    <string name="share_verdict">Share verdict</string>
 
     <!-- Common actions -->
     <string name="delete">Delete</string>

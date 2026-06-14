@@ -2,8 +2,10 @@ package com.smssentry.ui.chat
 
 import android.content.ClipData
 import android.content.ClipboardManager
+import android.content.ContentValues
 import android.content.Context
 import android.graphics.BitmapFactory
+import android.provider.BlockedNumberContract
 import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
@@ -34,6 +36,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.MoreVert
@@ -66,6 +69,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -80,6 +84,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.smssentry.data.model.SmsMessage
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
@@ -131,6 +138,10 @@ fun ChatScreen(
     var selectedMessage by remember { mutableStateOf<SmsMessage?>(null) }
     var messageToDelete by remember { mutableStateOf<SmsMessage?>(null) }
     var showDeleteConversation by remember { mutableStateOf(false) }
+    var showBlockConfirmation by remember { mutableStateOf(false) }
+
+    val scope = rememberCoroutineScope()
+    val senderAddress = viewModel.address
 
     val listState = rememberLazyListState()
 
@@ -210,6 +221,55 @@ fun ChatScreen(
             },
             dismissButton = {
                 TextButton(onClick = { showDeleteConversation = false }) {
+                    Text(stringResource(R.string.cancel))
+                }
+            }
+        )
+    }
+
+    // ── Block sender confirmation dialog ──
+    if (showBlockConfirmation) {
+        AlertDialog(
+            onDismissRequest = { showBlockConfirmation = false },
+            title = { Text(stringResource(R.string.block_sender_title, contactName)) },
+            text = { Text(stringResource(R.string.block_sender_body)) },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showBlockConfirmation = false
+                        scope.launch {
+                            val success = withContext(Dispatchers.IO) {
+                                try {
+                                    val values = ContentValues().apply {
+                                        put(
+                                            BlockedNumberContract.BlockedNumbers.COLUMN_ORIGINAL_NUMBER,
+                                            senderAddress
+                                        )
+                                    }
+                                    context.contentResolver.insert(
+                                        BlockedNumberContract.BlockedNumbers.CONTENT_URI,
+                                        values
+                                    ) != null
+                                } catch (_: Exception) {
+                                    false
+                                }
+                            }
+                            snackbarHostState.showSnackbar(
+                                message = if (success)
+                                    context.getString(R.string.sender_blocked, contactName)
+                                else
+                                    context.getString(R.string.block_failed),
+                                duration = SnackbarDuration.Short
+                            )
+                        }
+                    },
+                    colors = ButtonDefaults.textButtonColors(
+                        contentColor = MaterialTheme.colorScheme.error
+                    )
+                ) { Text(stringResource(R.string.block_action)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showBlockConfirmation = false }) {
                     Text(stringResource(R.string.cancel))
                 }
             }
@@ -300,6 +360,29 @@ fun ChatScreen(
                         )
                     }
                 )
+                // Block sender (only for received messages)
+                if (!msg.isSent) {
+                    DropdownMenuItem(
+                        text = {
+                            Text(
+                                stringResource(R.string.block_sender),
+                                color = MaterialTheme.colorScheme.error
+                            )
+                        },
+                        onClick = {
+                            selectedMessage = null
+                            showBlockConfirmation = true
+                        },
+                        leadingIcon = {
+                            Icon(
+                                Icons.Default.Block,
+                                contentDescription = "Block sender",
+                                tint = MaterialTheme.colorScheme.error,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                    )
+                }
             }
         }
     }
