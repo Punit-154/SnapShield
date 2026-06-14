@@ -1,6 +1,7 @@
 package com.smssentry.ui.compose
 
-import android.app.Activity
+import androidx.compose.ui.res.stringResource
+import com.smssentry.R
 import android.provider.ContactsContract
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -98,11 +99,11 @@ fun ComposeSmsScreen(
                 onBackClick()
             }
             SendResult.FAILURE -> {
-                snackbarHostState.showSnackbar("Failed to send message. Check permissions.")
+                snackbarHostState.showSnackbar(context.getString(R.string.compose_failed))
                 viewModel.clearSendResult()
             }
             SendResult.EMPTY_FIELDS -> {
-                snackbarHostState.showSnackbar("Please enter recipient and message.")
+                snackbarHostState.showSnackbar(context.getString(R.string.compose_empty_fields))
                 viewModel.clearSendResult()
             }
             null -> { /* no-op */ }
@@ -114,7 +115,7 @@ fun ComposeSmsScreen(
             TopAppBar(
                 title = {
                     Text(
-                        text = "New Message",
+                        text = stringResource(R.string.compose_sms),
                         fontWeight = FontWeight.Bold,
                         fontSize = 20.sp
                     )
@@ -146,8 +147,8 @@ fun ComposeSmsScreen(
             OutlinedTextField(
                 value = state.recipient,
                 onValueChange = { viewModel.onRecipientChanged(it) },
-                label = { Text("To") },
-                placeholder = { Text("Phone number") },
+                label = { Text(stringResource(R.string.compose_to)) },
+                placeholder = { Text(stringResource(R.string.compose_phone_number)) },
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(
                     keyboardType = KeyboardType.Phone,
@@ -177,8 +178,8 @@ fun ComposeSmsScreen(
             OutlinedTextField(
                 value = state.message,
                 onValueChange = { viewModel.onMessageChanged(it) },
-                label = { Text("Message") },
-                placeholder = { Text("Type your message...") },
+                label = { Text(stringResource(R.string.compose_message)) },
+                placeholder = { Text(stringResource(R.string.compose_type_message)) },
                 minLines = 4,
                 maxLines = 8,
                 keyboardOptions = KeyboardOptions(
@@ -273,7 +274,7 @@ fun ComposeSmsScreen(
                         strokeWidth = 2.dp
                     )
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("Sending...")
+                    Text(stringResource(R.string.compose_sending))
                 } else {
                     Icon(
                         Icons.AutoMirrored.Filled.Send,
@@ -282,7 +283,7 @@ fun ComposeSmsScreen(
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        "Send Message",
+                        stringResource(R.string.compose_send),
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold
                     )
