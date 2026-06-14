@@ -42,6 +42,27 @@ class LiteRtLmEngine(
     private var engine: Engine? = null
     private val initMutex = Mutex()
 
+    companion object {
+        /** Cache GPU support result across instances to avoid retrying on devices where it always fails. */
+        @Volatile private var gpuKnownToFail = false
+
+        /**
+         * Safely extract text content from a LiteRT-LM Message response.
+         */
+        fun extractTextFromMessage(message: Message): String {
+            return try {
+                val contents = message.contents.contents
+                val text = contents.filterIsInstance<Content.Text>()
+                    .joinToString("") { it.text }
+                Diagnostics.d(Diagnostics.ENGINE, "extractTextFromMessage: content length=${text.length}")
+                text
+            } catch (e: Exception) {
+                Diagnostics.w(Diagnostics.ENGINE, "extractTextFromMessage: fallback to toString(), error=${e.message}")
+                message.toString()
+            }
+        }
+    }
+
     override suspend fun load() {
         Diagnostics.i(Diagnostics.ENGINE, "load() called, modelPath=$modelPath")
         // Mutex ensures only one initialization runs at a time.
@@ -62,29 +83,22 @@ class LiteRtLmEngine(
             Diagnostics.d(Diagnostics.ENGINE, "Model file validated: size=${modelFile.length()} bytes")
 
             // Try GPU first (matches Gallery behavior), fall back to CPU.
-            // GPU initialization is dramatically faster on supported devices.
-            engine = Diagnostics.timedSuspend(Diagnostics.ENGINE, "load(GPU+fallback)") {
-                try {
-                    Log.i(TAG, "Attempting GPU backend initialization...")
-                    Diagnostics.i(Diagnostics.ENGINE, "Attempting GPU backend initialization")
-                    initializeWithBackend(Backend.GPU())
-                } catch (e: Exception) {
-                    Log.w(TAG, "GPU backend failed (${e.message}), falling back to CPU")
-                    Diagnostics.w(Diagnostics.ENGINE, "GPU backend failed: ${e.message}, falling back to CPU")
+            // Skip GPU if it previously failed on this device (cached across instances).
+            engine = Diagnostics.timedSuspend(Diagnostics.ENGINE, "load(backend init)") {
+                if (!gpuKnownToFail) {
                     try {
-                        Diagnostics.i(Diagnostics.ENGINE, "Attempting CPU backend initialization")
-                        initializeWithBackend(Backend.CPU())
-                    } catch (cpuError: Exception) {
-                        Log.e(TAG, "CPU backend also failed", cpuError)
-                        Diagnostics.e(Diagnostics.ENGINE, "CPU backend also failed: ${cpuError.message}", cpuError)
-                        throw IllegalStateException(
-                            "Failed to initialize model on both GPU and CPU: ${cpuError.message}",
-                            cpuError
-                        )
+                        Diagnostics.i(Diagnostics.ENGINE, "Attempting GPU backend initialization")
+                        initializeWithBackend(Backend.GPU())
+                    } catch (e: Exception) {
+                        gpuKnownToFail = true
+                        Diagnostics.w(Diagnostics.ENGINE, "GPU failed (cached for future): ${e.message}, falling back to CPU")
+                        initCpu()
                     }
+                } else {
+                    Diagnostics.i(Diagnostics.ENGINE, "Skipping GPU (known to fail on this device) → CPU directly")
+                    initCpu()
                 }
             }
-            Log.i(TAG, "Engine initialized successfully")
             Diagnostics.i(Diagnostics.ENGINE, "Engine initialized successfully")
         }
     }
@@ -97,13 +111,27 @@ class LiteRtLmEngine(
      * and awaiting a CompletableDeferred, withTimeout() can cancel at the
      * await() suspension point even if the JNI call hasn't returned yet.
      */
+    private suspend fun initCpu(): Engine {
+        try {
+            Diagnostics.i(Diagnostics.ENGINE, "Attempting CPU backend (4 threads)")
+            return initializeWithBackend(Backend.CPU(numOfThreads = 4))
+        } catch (cpuError: Exception) {
+            Diagnostics.e(Diagnostics.ENGINE, "CPU backend also failed: ${cpuError.message}", cpuError)
+            throw IllegalStateException(
+                "Failed to initialize model on CPU: ${cpuError.message}",
+                cpuError
+            )
+        }
+    }
+
     private suspend fun initializeWithBackend(backend: Backend): Engine {
         val backendName = if (backend is Backend.GPU) "GPU" else "CPU"
         Diagnostics.d(Diagnostics.ENGINE, "initializeWithBackend: backend=$backendName, cacheDir=${cacheDir ?: "(none)"}")
         val config = EngineConfig(
             modelPath = modelPath,
             backend = backend,
-            cacheDir = cacheDir ?: ""
+            cacheDir = cacheDir ?: "",
+            maxNumTokens = 1024   // Limit KV cache: SMS analysis needs at most ~512 input + ~512 output
         )
         val eng = Engine(config)
 
@@ -186,21 +214,5 @@ class LiteRtLmEngine(
         Diagnostics.d(Diagnostics.ENGINE, "Engine disposed")
     }
 
-    companion object {
-        /**
-         * Safely extract text content from a LiteRT-LM Message response.
-         */
-        fun extractTextFromMessage(message: Message): String {
-            return try {
-                val contents = message.contents.contents
-                val text = contents.filterIsInstance<Content.Text>()
-                    .joinToString("") { it.text }
-                Diagnostics.d(Diagnostics.ENGINE, "extractTextFromMessage: content length=${text.length}")
-                text
-            } catch (e: Exception) {
-                Diagnostics.w(Diagnostics.ENGINE, "extractTextFromMessage: fallback to toString(), error=${e.message}")
-                message.toString()
-            }
-        }
-    }
+    // companion object moved to top of class (see above)
 }

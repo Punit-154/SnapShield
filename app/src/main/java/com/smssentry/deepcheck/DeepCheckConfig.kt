@@ -11,5 +11,5 @@ object DeepCheckConfig {
     const val LLM_TURN_TIMEOUT_MS = 180_000L    // 180s: A14 takes ~140s/turn at 3.3 tok/s
     const val TOOL_EXECUTION_TIMEOUT_MS = 10_000L
     
-    const val MAX_AGENT_TURNS = 6
+    const val MAX_AGENT_TURNS = 2     // With pre-executed tools, verdict usually comes on turn 0
 }

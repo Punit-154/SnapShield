@@ -82,6 +82,7 @@ class DeepCheckSession(
                 return
             }
 
+            Diagnostics.i(Diagnostics.SESSION, "Fast-path: no match — proceeding to LLM")
             emitStep(context.getString(R.string.step_analyzing))
 
             if (engine == null) {
@@ -114,16 +115,66 @@ class DeepCheckSession(
                 Diagnostics.i(Diagnostics.SESSION, "Creating conversation session...")
                 engine.createSession(SYSTEM_PROMPT)
             }
-            Diagnostics.i(Diagnostics.SESSION, "Session created — starting LLM loop")
+            Diagnostics.i(Diagnostics.SESSION, "Session created — pre-executing tools...")
             try {
                 val toolExecutor = ToolExecutor(allowlistDao, historyDao, reputationDb, officialSites, proxyClient)
                 val seenToolCalls = mutableSetOf<String>()
                 var turn = 0
                 var consecutiveUnparseable = 0
-                
-                Diagnostics.i(Diagnostics.SESSION, "Sending initial prompt (${smsText.length} chars)")
+
+                // === Pre-execute tools to build enriched single-turn prompt ===
+                val evidenceLines = mutableListOf<String>()
+                try {
+                    emitStep("Running pre-analysis checks...")
+                    // Brand mismatch check
+                    val brandResult: ToolResult? = withTimeoutOrNull(DeepCheckConfig.TOOL_EXECUTION_TIMEOUT_MS) {
+                        withContext(dispatchers.io) {
+                            toolExecutor.executeByName("brand_mismatch_check", smsText)
+                        }
+                    }
+                    if (brandResult != null) {
+                        evidenceLines.add("Brand check: ${brandResult.message.take(200)}")
+                        Diagnostics.d(Diagnostics.TOOL, "Pre-exec brand_mismatch: ${brandResult.message.take(100)}")
+                    }
+
+                    // Scam DB check
+                    val scamDbResult: ToolResult? = withTimeoutOrNull(DeepCheckConfig.TOOL_EXECUTION_TIMEOUT_MS) {
+                        withContext(dispatchers.io) {
+                            toolExecutor.executeByName("offline_reputation_check", smsText)
+                        }
+                    }
+                    if (scamDbResult != null) {
+                        evidenceLines.add("Scam DB: ${scamDbResult.message.take(200)}")
+                        Diagnostics.d(Diagnostics.TOOL, "Pre-exec scam_db: ${scamDbResult.message.take(100)}")
+                    }
+
+                    // Official site check for sender
+                    val officialResult: ToolResult? = withTimeoutOrNull(DeepCheckConfig.TOOL_EXECUTION_TIMEOUT_MS) {
+                        withContext(dispatchers.io) {
+                            toolExecutor.executeByName("compare_official_site", smsSender)
+                        }
+                    }
+                    if (officialResult != null) {
+                        evidenceLines.add("Official site lookup: ${officialResult.message.take(200)}")
+                        Diagnostics.d(Diagnostics.TOOL, "Pre-exec official_site: ${officialResult.message.take(100)}")
+                    }
+                } catch (e: Exception) {
+                    Diagnostics.w(Diagnostics.SESSION, "Pre-exec tools failed (non-fatal): ${e.message}")
+                }
+
+                // Build enriched prompt with all evidence
+                val enrichedPrompt = buildString {
+                    append("Analyze this SMS from $smsSender:\n\"$smsText\"")
+                    if (evidenceLines.isNotEmpty()) {
+                        append("\n\nInvestigation evidence:\n")
+                        evidenceLines.forEach { append("- $it\n") }
+                    }
+                    append("\nGive your verdict now.")
+                }
+
+                Diagnostics.i(Diagnostics.SESSION, "Sending enriched prompt (${enrichedPrompt.length} chars, ${evidenceLines.size} evidence items)")
                 var response = withTimeoutOrNull(DeepCheckConfig.LLM_TURN_TIMEOUT_MS) {
-                    session.sendTurn("Analyze this SMS from $smsSender:\n\"$smsText\"")
+                    session.sendTurn(enrichedPrompt)
                 }
 
                 while (turn < DeepCheckConfig.MAX_AGENT_TURNS && !isCancelled) {
