@@ -127,4 +127,33 @@
     <string name="learning_clear_subtitle">Remove all personal learning history</string>
     <string name="learning_clear_confirm_title">Clear Personal Data?</string>
     <string name="learning_clear_confirm_body">This will permanently remove all learned patterns, sender trust scores, and feedback history. The AI will start fresh.</string>
+
+    <!-- Conversation List -->
+    <string name="messages_title">Messages</string>
+    <string name="search_conversations">Search conversations…</string>
+    <string name="search_messages_header">Messages</string>
+    <string name="unread_count">%d unread</string>
+    <string name="delete_conversation_title">Delete conversation?</string>
+    <string name="delete_conversation_body">This will permanently delete all messages with %s.</string>
+    <string name="delete">Delete</string>
+    <string name="conversation_deleted">Conversation deleted</string>
+    <string name="mark_all_read">Mark all as read</string>
+
+    <!-- Chat Actions -->
+    <string name="copy">Copy</string>
+    <string name="forward">Forward</string>
+    <string name="forward_message">Forward message</string>
+    <string name="delete_message_title">Delete message?</string>
+    <string name="delete_message_body">This message will be permanently deleted.</string>
+    <string name="delete_conversation_menu">Delete conversation</string>
+
+    <!-- Settings -->
+    <string name="settings_title">Settings</string>
+    <string name="default_sms_app">Default SMS App</string>
+    <string name="blocked_numbers">Blocked Numbers</string>
+
+    <!-- Blocked Numbers -->
+    <string name="no_blocked_numbers">No blocked numbers</string>
+    <string name="block_number">Block a number</string>
+    <string name="unblock">Unblock</string>
 </resources>

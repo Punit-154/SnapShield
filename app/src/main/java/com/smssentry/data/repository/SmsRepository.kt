@@ -4,6 +4,9 @@ import android.Manifest
 import android.content.ContentResolver
 import android.content.ContentValues
 import android.content.Context
+import android.app.Activity
+import android.app.PendingIntent
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
@@ -331,10 +334,29 @@ class SmsRepository @Inject constructor(
             }
 
             val parts = smsManager.divideMessage(message)
+
+            // Build sent + delivery PendingIntents for each part
+            val sentIntents = ArrayList<PendingIntent>(parts.size)
+            val deliveryIntents = ArrayList<PendingIntent>(parts.size)
+            for (i in parts.indices) {
+                val sentIntent = PendingIntent.getBroadcast(
+                    context, 0,
+                    Intent("com.smssentry.SMS_SENT"),
+                    PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+                )
+                val deliveryIntent = PendingIntent.getBroadcast(
+                    context, 0,
+                    Intent("com.smssentry.SMS_DELIVERED"),
+                    PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+                )
+                sentIntents.add(sentIntent)
+                deliveryIntents.add(deliveryIntent)
+            }
+
             if (parts.size > 1) {
-                smsManager.sendMultipartTextMessage(recipient, null, parts, null, null)
+                smsManager.sendMultipartTextMessage(recipient, null, parts, sentIntents, deliveryIntents)
             } else {
-                smsManager.sendTextMessage(recipient, null, message, null, null)
+                smsManager.sendTextMessage(recipient, null, message, sentIntents[0], deliveryIntents[0])
             }
 
             // Write sent message to the content provider
