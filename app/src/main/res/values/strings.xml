@@ -1,4 +1,101 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">SMS Sentry</string>
+    <string name="app_name">SMSentry</string>
+
+    <!-- Main Activity -->
+    <string name="perm_sms_title">SMS Permission Required</string>
+    <string name="perm_sms_desc">SMSentry needs SMS permissions to read and protect your messages. On Android 15+, you may need to enable \'Allow restricted settings\' in the app info screen.\n\nGo to Settings → Apps → SMSentry → ⋮ → Allow restricted settings</string>
+    <string name="open_settings">Open Settings</string>
+    <string name="cancel">Cancel</string>
+
+    <!-- Inbox Screen -->
+    <string name="theme">Theme</string>
+    <string name="refresh">Refresh</string>
+    <string name="default_sms_required">App must be default SMS app to read messages.</string>
+    <string name="set_default">Set Default</string>
+    <string name="search_placeholder">Search by sender, text, or classification</string>
+    <string name="msg_deleted">Message deleted</string>
+    <string name="undo">Undo</string>
+    <string name="no_messages">No messages match your filter</string>
+    <string name="set_default_to_view">Set SMSentry as default SMS app to view messages</string>
+
+    <!-- Model Status -->
+    <string name="model_not_downloaded">Model not downloaded</string>
+    <string name="model_downloading">Downloading model…</string>
+    <string name="model_loading">Loading model…</string>
+    <string name="model_ready">Deep Check ready</string>
+    <string name="model_unavailable">Model unavailable</string>
+
+    <!-- Filters -->
+    <string name="filter_all">All</string>
+    <string name="filter_scam">Scam</string>
+    <string name="filter_suspicious">Suspicious</string>
+    <string name="filter_safe">Safe</string>
+
+    <!-- Detail Screen -->
+    <string name="sms_detail">SMS Detail</string>
+    <string name="download_prompt_title">Deep Check Model Required</string>
+    <string name="download_prompt_desc">The AI model needs to be downloaded (~2.7 GB) before Deep Check can run. Would you like to download it now?</string>
+    <string name="download">Download</string>
+    <string name="use_rule_based">Use Rule-Based Only</string>
+    <string name="classification">Classification</string>
+    <string name="deep_check">Deep Check</string>
+
+    <!-- Indicators -->
+
+    <!-- Deep Check Timeline -->
+    <string name="evidence_timeline">Evidence Timeline</string>
+    <string name="cancel_investigation">Cancel Investigation</string>
+    <string name="all_evidence">All Evidence</string>
+    <string name="error_prefix">Error: %s</string>
+    <string name="investigating">Investigating</string>
+
+    <!-- Model Download Screen -->
+    <string name="model_download_title">Model Download</string>
+    <string name="setup_deep_check">Setting up Deep Check</string>
+    <string name="downloading_model_info">Downloading AI model (~2.7 GB)</string>
+    <string name="download_complete">Model ready! Opening Deep Check…</string>
+    <string name="start_download">Download Model</string>
+    <string name="wifi_only">Wi-Fi only</string>
+    <string name="verifying_download">Verifying download…</string>
+    <string name="retry_download">Retry Download</string>
+    <string name="continue_text">Continue</string>
+
+    <!-- Investigation Steps -->
+    <string name="step_analyzing">Analyzing SMS content…</string>
+    <string name="step_loading_model">Loading AI model…</string>
+    <string name="step_rule_based">Model unavailable — running rule-based analysis.</string>
+    <string name="step_timeout">Model loading timed out — running rule-based analysis.</string>
+    <string name="step_checking_reputation">Checking URLs against scam reputation database…</string>
+    <string name="step_whois">Performing WHOIS domain lookup…</string>
+    <string name="step_brand">Checking for brand impersonation…</string>
+    <string name="step_official_compare">Comparing %s with official sites…</string>
+    <string name="step_allowlist">Checking if sender or domain is on the allowlist…</string>
+    <string name="step_history">Searching personal scam history database…</string>
+    <string name="step_official_site">Comparing with official website…</string>
+    <string name="step_running_tool">Running %s…</string>
+
+    <!-- Recommended Actions -->
+    <string name="action_no_interact">Do not interact with this message.</string>
+    <string name="action_no_click">Do not click any links.</string>
+    <string name="action_block">Block the sender.</string>
+    <string name="action_report">Report as spam.</string>
+    <string name="action_caution">Exercise caution.</string>
+    <string name="action_verify_org">Verify with the claimed organization directly.</string>
+
+    <!-- Rule Based Reasons -->
+    <string name="reason_multiple_indicators">Multiple scam indicators detected</string>
+    <string name="reason_some_indicators">Some suspicious patterns detected</string>
+    <string name="reason_no_indicators">No indicators detected</string>
+    <string name="reason_allowlist_sender">Sender is on the allowlist.</string>
+    <string name="reason_allowlist_domain">Domain \'%s\' is on the allowlist.</string>
+    <string name="reason_suspicious_tld">URL uses suspicious TLD: %s</string>
+    <string name="reason_ip_address">URL contains raw IP address.</string>
+    <string name="reason_otp_safe">OTP message with no links — likely a genuine verification code.</string>
+    <string name="reason_previous_scam">This exact SMS was previously flagged as a scam.</string>
+    <string name="reason_fast_path">Determined by fast-path analysis.</string>
+
+    <!-- Verdict Summaries -->
+    <string name="summary_scam">Based on available evidence, this message appears to be a SCAM.</string>
+    <string name="summary_suspicious">Based on available evidence, this message appears SUSPICIOUS.</string>
 </resources>

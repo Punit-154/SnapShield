@@ -23,14 +23,19 @@ fun EvidenceCard(
     modifier: Modifier = Modifier
 ) {
     val (severityColor, severityBackground) = getSeverityColors(evidence.severity)
+    val containerColor = when (evidence.severity.uppercase()) {
+        "HIGH", "CRITICAL" -> ScamRed.copy(alpha = 0.08f)
+        "MEDIUM" -> SuspiciousOrange.copy(alpha = 0.08f)
+        else -> MaterialTheme.colorScheme.surfaceVariant
+    }
 
     Card(
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
+            containerColor = containerColor
         ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
     ) {
         Row(
             modifier = Modifier
@@ -39,7 +44,6 @@ fun EvidenceCard(
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalAlignment = Alignment.Top
         ) {
-            // Extracted Tag for better readability
             SeverityTag(
                 severity = evidence.severity,
                 contentColor = severityColor,
@@ -88,9 +92,9 @@ private fun SeverityTag(
 
 private fun getSeverityColors(severity: String): Pair<Color, Color> {
     return when (severity.uppercase()) {
-        "CRITICAL" -> CriticalRed to ScamRedBackground
-        "HIGH" -> HighOrange to SuspiciousOrangeBackground
-        "MEDIUM" -> MediumYellow to SafeGreenBackground // Note: SafeGreenBackground might be a typo for Medium
+        "CRITICAL" -> ScamRed to ScamRedBackground
+        "HIGH" -> SuspiciousOrange to SuspiciousOrangeBackground
+        "MEDIUM" -> SafeGreen to SafeGreenBackground
         "LOW" -> LowGray to Color.LightGray.copy(alpha = 0.3f)
         else -> LowGray to Color.LightGray.copy(alpha = 0.3f)
     }

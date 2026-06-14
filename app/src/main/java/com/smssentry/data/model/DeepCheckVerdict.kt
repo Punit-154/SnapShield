@@ -5,5 +5,6 @@ data class DeepCheckVerdict(
     val summary: String,
     val threatType: String?,
     val evidence: List<EvidenceItem>,
-    val recommendedActions: List<String>
+    val recommendedActions: List<String>,
+    val educationalExplanation: String = ""
 )

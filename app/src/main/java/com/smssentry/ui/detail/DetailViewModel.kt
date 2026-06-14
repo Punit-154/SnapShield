@@ -1,14 +1,20 @@
 package com.smssentry.ui.detail
 
+import android.content.Context
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.smssentry.data.mock.MockSMSSentryAI
 import com.smssentry.data.model.*
+import com.smssentry.data.repository.SmsRepository
+import com.smssentry.deepcheck.data.*
+import com.smssentry.deepcheck.proxy.PrivacyProxyClient
+import com.smssentry.deepcheck.session.DeepCheckSession
+import com.smssentry.di.ApplicationScope
 import com.smssentry.domain.service.DeepCheckListener
-import com.smssentry.domain.service.DeepCheckSession
-import com.smssentry.domain.service.SMSSentryAI
+import com.smssentry.domain.service.DeepCheckSession as DeepCheckSessionInterface
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -17,10 +23,17 @@ import javax.inject.Inject
 
 @HiltViewModel
 class DetailViewModel @Inject constructor(
-    savedStateHandle: SavedStateHandle
+    savedStateHandle: SavedStateHandle,
+    private val allowlistDao: AllowlistDao,
+    private val historyDao: HistoryDao,
+    private val reputationDb: ReputationDb,
+    private val officialSites: OfficialSitesRepository,
+    private val proxyClient: PrivacyProxyClient,
+    private val modelRepository: ModelRepository,
+    private val smsRepository: SmsRepository,
+    @ApplicationContext private val context: Context,
+    @ApplicationScope private val applicationScope: CoroutineScope
 ) : ViewModel() {
-
-    private val aiService: SMSSentryAI = MockSMSSentryAI()
 
     private val smsId: String = savedStateHandle.get<String>("smsId") ?: ""
 
@@ -30,7 +43,12 @@ class DetailViewModel @Inject constructor(
     private val _investigationState = MutableStateFlow(InvestigationUiState())
     val investigationState: StateFlow<InvestigationUiState> = _investigationState.asStateFlow()
 
-    private var deepCheckSession: DeepCheckSession? = null
+    private val _showDownloadPrompt = MutableStateFlow(false)
+    val showDownloadPrompt: StateFlow<Boolean> = _showDownloadPrompt.asStateFlow()
+
+    val modelState: StateFlow<ModelRepository.State> = modelRepository.state
+
+    private var deepCheckSession: DeepCheckSessionInterface? = null
 
     init {
         loadMessage()
@@ -38,23 +56,9 @@ class DetailViewModel @Inject constructor(
 
     private fun loadMessage() {
         viewModelScope.launch {
-            val sampleMessages = com.smssentry.data.mock.MockData.sampleSmsMessages
-            val found = sampleMessages.find { it.id == smsId }
+            val found = smsRepository.getMessageById(smsId)
             found?.let { msg ->
-                if (msg.classification == null) {
-                    val result = classifyMessage(msg.text)
-                    _message.value = msg.copy(classification = result)
-                } else {
-                    _message.value = msg
-                }
-            }
-        }
-    }
-
-    private suspend fun classifyMessage(text: String): ClassificationResult {
-        return kotlinx.coroutines.suspendCancellableCoroutine { continuation ->
-            aiService.classifySMS(text) { result ->
-                continuation.resume(result) {}
+                _message.value = msg
             }
         }
     }
@@ -64,45 +68,81 @@ class DetailViewModel @Inject constructor(
 
         _investigationState.value = InvestigationUiState()
 
-        deepCheckSession = aiService.startDeepCheck(
-            smsText = currentMessage.text,
-            listener = object : DeepCheckListener {
-                override fun onUpdate(update: DeepCheckUpdate) {
-                    viewModelScope.launch {
-                        when (update) {
-                            is DeepCheckUpdate.Step -> {
-                                _investigationState.value = _investigationState.value.copy(
-                                    progress = update.progress,
-                                    currentStep = update.message
-                                )
-                            }
-                            is DeepCheckUpdate.FoundEvidence -> {
-                                _investigationState.value = _investigationState.value.copy(
-                                    evidence = _investigationState.value.evidence + update.item
-                                )
-                            }
-                            is DeepCheckUpdate.FinalVerdict -> {
-                                _investigationState.value = _investigationState.value.copy(
-                                    verdict = update.verdict,
-                                    progress = 100,
-                                    currentStep = null
-                                )
-                            }
-                            is DeepCheckUpdate.Error -> {
-                                _investigationState.value = _investigationState.value.copy(
-                                    error = update.reason
-                                )
+        viewModelScope.launch {
+            val engine = if (modelRepository.state.value == ModelRepository.State.READY) {
+                modelRepository.getEngine()
+            } else {
+                null
+            }
+
+            val session = DeepCheckSession(
+                context = context,
+                engine = engine,
+                allowlistDao = allowlistDao,
+                historyDao = historyDao,
+                reputationDb = reputationDb,
+                officialSites = officialSites,
+                proxyClient = proxyClient,
+                smsText = currentMessage.text,
+                smsSender = currentMessage.sender,
+                listener = object : DeepCheckListener {
+                    override fun onUpdate(update: DeepCheckUpdate) {
+                        viewModelScope.launch {
+                            when (update) {
+                                is DeepCheckUpdate.Step -> {
+                                    _investigationState.value = _investigationState.value.copy(
+                                        progress = update.progress,
+                                        currentStep = update.message
+                                    )
+                                }
+                                is DeepCheckUpdate.FoundEvidence -> {
+                                    _investigationState.value = _investigationState.value.copy(
+                                        evidence = _investigationState.value.evidence + update.item
+                                    )
+                                }
+                                is DeepCheckUpdate.FinalVerdict -> {
+                                    _investigationState.value = _investigationState.value.copy(
+                                        verdict = update.verdict,
+                                        progress = 100,
+                                        currentStep = null
+                                    )
+                                }
+                                is DeepCheckUpdate.Error -> {
+                                    _investigationState.value = _investigationState.value.copy(
+                                        error = update.reason
+                                    )
+                                }
                             }
                         }
                     }
-                }
-            }
-        )
+                },
+                applicationScope = applicationScope
+            )
+
+            deepCheckSession = session
+            session.run()
+        }
     }
 
     fun cancelDeepCheck() {
         deepCheckSession?.cancel()
         deepCheckSession = null
         _investigationState.value = InvestigationUiState()
+    }
+
+    fun onDownloadPromptDismissed() {
+        _showDownloadPrompt.value = false
+    }
+
+    fun checkModelAndPromptDownload() {
+        if (modelRepository.state.value != ModelRepository.State.READY &&
+            modelRepository.state.value != ModelRepository.State.LOADING
+        ) {
+            _showDownloadPrompt.value = true
+        }
+    }
+
+    fun refreshModelState() {
+        // Model state is managed by ModelRepository
     }
 }
