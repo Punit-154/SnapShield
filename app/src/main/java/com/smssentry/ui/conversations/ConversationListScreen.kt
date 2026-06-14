@@ -110,11 +110,22 @@ fun ConversationListScreen(
                                 textStyle = MaterialTheme.typography.bodyLarge
                             )
                         } else {
-                            Text(
-                                text = "Messages",
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 22.sp
-                            )
+                            val totalUnread = conversations.sumOf { it.unreadCount }
+                            Column {
+                                Text(
+                                    text = "Messages",
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 22.sp
+                                )
+                                if (totalUnread > 0) {
+                                    Text(
+                                        text = "$totalUnread unread",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.primary,
+                                        fontWeight = FontWeight.Medium
+                                    )
+                                }
+                            }
                         }
                     }
                 },
