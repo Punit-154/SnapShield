@@ -1,14 +1,17 @@
 package com.smssentry.deepcheck.data
 
 import android.content.Context
+import android.util.Log
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
+import com.smssentry.data.security.DatabaseKeyManager
 import com.smssentry.learning.data.PersonalLearningDao
 import com.smssentry.learning.data.SenderTrustEntity
 import com.smssentry.learning.data.UserFeedbackEntity
+import net.zetetic.database.sqlcipher.SupportOpenHelperFactory
 
 @Database(
     entities = [
@@ -116,17 +119,69 @@ abstract class DeepCheckDatabase : RoomDatabase() {
             }
         }
 
+        private const val TAG = "DeepCheckDatabase"
+
         fun getInstance(context: Context): DeepCheckDatabase {
             return INSTANCE ?: synchronized(this) {
+                // Load native SQLCipher library
+                System.loadLibrary("sqlcipher")
+
+                // Get passphrase from Android Keystore
+                val passphrase = DatabaseKeyManager.getOrCreatePassphrase(context)
+                val factory = SupportOpenHelperFactory(passphrase)
+
+                // Migrate unencrypted DB to encrypted if needed
+                migrateToEncrypted(context, passphrase)
+
                 val instance = Room.databaseBuilder(
                     context.applicationContext,
                     DeepCheckDatabase::class.java,
                     "deepcheck.db"
                 )
+                    .openHelperFactory(factory)
                     .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
                     .build()
                 INSTANCE = instance
                 instance
+            }
+        }
+
+        /**
+         * If an unencrypted database exists, encrypt it in-place using SQLCipher.
+         * This is a one-time migration on upgrade.
+         */
+        private fun migrateToEncrypted(context: Context, passphrase: ByteArray) {
+            val dbFile = context.getDatabasePath("deepcheck.db")
+            if (!dbFile.exists()) return
+
+            // Check if DB is already encrypted by trying to open it without a key
+            try {
+                val db = android.database.sqlite.SQLiteDatabase.openDatabase(
+                    dbFile.absolutePath, null, android.database.sqlite.SQLiteDatabase.OPEN_READONLY
+                )
+                // If we get here, the DB is NOT encrypted — migrate it
+                db.close()
+
+                Log.i(TAG, "Migrating unencrypted database to SQLCipher...")
+                val tempFile = context.getDatabasePath("deepcheck_encrypted.db")
+                if (tempFile.exists()) tempFile.delete()
+
+                val encDb = net.zetetic.database.sqlcipher.SQLiteDatabase.openOrCreateDatabase(
+                    tempFile.absolutePath, passphrase, null, null, null
+                )
+                encDb.rawExecSQL(
+                    "ATTACH DATABASE '${dbFile.absolutePath}' AS plaintext KEY ''"
+                )
+                encDb.rawExecSQL("SELECT sqlcipher_export('main', 'plaintext')")
+                encDb.rawExecSQL("DETACH DATABASE plaintext")
+                encDb.close()
+
+                // Swap files
+                dbFile.delete()
+                tempFile.renameTo(dbFile)
+                Log.i(TAG, "Database encryption migration complete")
+            } catch (_: Exception) {
+                // DB is already encrypted or doesn't exist — nothing to do
             }
         }
     }
