@@ -9,6 +9,7 @@ import com.smssentry.deepcheck.model.LlmInferenceEngine
 import com.smssentry.deepcheck.proxy.PrivacyProxyClient
 import com.smssentry.deepcheck.session.DeepCheckSession
 import com.smssentry.di.ApplicationScope
+import com.smssentry.di.DispatcherProvider
 import com.smssentry.domain.service.DeepCheckListener
 import com.smssentry.domain.service.DeepCheckSession as DeepCheckSessionInterface
 import com.smssentry.domain.service.SMSSentryAI
@@ -27,7 +28,8 @@ class RealSMSSentryAI @Inject constructor(
     private val officialSites: OfficialSitesRepository,
     private val proxyClient: PrivacyProxyClient,
     private val modelRepository: ModelRepository,
-    @ApplicationScope private val applicationScope: CoroutineScope
+    @ApplicationScope private val applicationScope: CoroutineScope,
+    private val dispatchers: DispatcherProvider
 ) : SMSSentryAI {
 
     private var isInitialized = false
@@ -51,7 +53,7 @@ class RealSMSSentryAI @Inject constructor(
         val session = RealDeepCheckSession(
             context, smsText, "", listener,
             modelRepository.getEngine(), allowlistDao, historyDao, reputationDb, officialSites, proxyClient,
-            applicationScope
+            applicationScope, dispatchers
         )
         session.start()
         return session
@@ -99,7 +101,8 @@ class RealDeepCheckSession(
     private val reputationDb: ReputationDb,
     private val officialSites: OfficialSitesRepository,
     private val proxyClient: PrivacyProxyClient,
-    private val applicationScope: CoroutineScope
+    private val applicationScope: CoroutineScope,
+    private val dispatchers: DispatcherProvider
 ) : DeepCheckSessionInterface {
 
     private val _isActive = AtomicBoolean(false)
@@ -122,7 +125,8 @@ class RealDeepCheckSession(
                     smsText = smsText,
                     smsSender = smsSender,
                     listener = listener,
-                    applicationScope = applicationScope
+                    applicationScope = applicationScope,
+                    dispatchers = dispatchers
                 )
                 session.run()
             } catch (e: Exception) {

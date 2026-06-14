@@ -5,7 +5,6 @@ import kotlinx.serialization.json.Json
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import com.google.ai.edge.litertlm.Message
-import com.google.ai.edge.litertlm.Content
 
 sealed class LlmResponse {
     data class Text(val text: String) : LlmResponse()
@@ -32,8 +31,7 @@ open class LlmConversationSession(
         val conv = conversation ?: throw IllegalStateException("No active conversation")
         val msg = Message.user(userText)
         val response = conv.sendMessage(msg)
-        val parts: List<Any> = response.contents.contents as List<Any>
-        parts.asSequence().filterIsInstance<Content.Text>().joinToString("") { it.text }
+        LiteRtLmEngine.extractTextFromMessage(response)
     }
     open fun close() {
         conversation?.close()
@@ -109,21 +107,51 @@ data class ParsedEducationalVerdict(
 )
 
 object EducationalVerdictParser {
-    private val TAG_PATTERN = Regex("""<<<VERDICT\s*:\s*(\w+)\s*,\s*([\d.]+)\s*,\s*([^>]+?)\s*>>>""", RegexOption.IGNORE_CASE)
+    private val TAG_PATTERN = Regex(
+        """<<<\s*VERDICT\s*:\s*(\w+)\s*,\s*([\d.]+)\s*,\s*([^>]+?)\s*>>>""",
+        setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL)
+    )
+
+    private val PARTIAL_TAG = Regex(
+        """<<<\s*VERDICT\s*:\s*(\w+)\s*,\s*([\d.]+)""",
+        setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL)
+    )
 
     fun parse(rawOutput: String): ParsedEducationalVerdict? {
-        val match = TAG_PATTERN.find(rawOutput) ?: return null
-        val (verdictStr, confidenceStr, scamType) = match.destructured
-        var explanation = rawOutput.substringAfter(match.value).trim()
-        if (explanation.isBlank()) {
-            explanation = rawOutput.substringBefore(match.value).trim()
+        val match = TAG_PATTERN.find(rawOutput)
+        if (match != null) {
+            val (verdictStr, confidenceStr, scamType) = match.destructured
+            var explanation = rawOutput.substringAfter(match.value).trim()
+            if (explanation.isBlank()) {
+                explanation = rawOutput.substringBefore(match.value).trim()
+            }
+            if (explanation.isBlank()) return null
+            return ParsedEducationalVerdict(
+                verdictLabel = normalizeVerdict(verdictStr),
+                confidence = confidenceStr.toFloatOrNull()?.coerceIn(0f, 1f) ?: 0.5f,
+                scamType = scamType.trim().ifBlank { "unknown" },
+                explanation = explanation
+            )
         }
-        if (explanation.isBlank()) return null
+
+        val partial = PARTIAL_TAG.find(rawOutput) ?: return null
+        val verdictStr = partial.groupValues[1]
+        val confidenceStr = partial.groupValues[2]
+        val afterTag = rawOutput.substringAfter(partial.value).trim()
+        val beforeTag = rawOutput.substringBefore(partial.value).trim()
+        val explanation = afterTag.ifBlank { beforeTag }.ifBlank { return null }
+
         return ParsedEducationalVerdict(
-            verdictLabel = when (verdictStr.uppercase()) { "SCAM" -> "SCAM"; "SAFE" -> "SAFE"; else -> "SUSPICIOUS" },
+            verdictLabel = normalizeVerdict(verdictStr),
             confidence = confidenceStr.toFloatOrNull()?.coerceIn(0f, 1f) ?: 0.5f,
-            scamType = scamType.trim(),
+            scamType = "unknown",
             explanation = explanation
         )
+    }
+
+    private fun normalizeVerdict(raw: String): String = when (raw.uppercase()) {
+        "SCAM" -> "SCAM"
+        "SAFE" -> "SAFE"
+        else -> "SUSPICIOUS"
     }
 }

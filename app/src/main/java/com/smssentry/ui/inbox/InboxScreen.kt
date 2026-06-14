@@ -173,22 +173,28 @@ fun InboxScreen(
             ModelStatusBadge(modelState)
 
             SearchBar(
-                query = searchQuery,
-                onQueryChange = { viewModel.onSearchQueryChanged(it) },
-                onSearch = { /* no-op, filtering is live */ },
-                active = false,
-                onActiveChange = { /* no-op */ },
-                placeholder = { Text(stringResource(R.string.search_placeholder)) },
-                leadingIcon = {
-                    Icon(Icons.Default.Search, contentDescription = null)
+                inputField = {
+                    SearchBarDefaults.InputField(
+                        query = searchQuery,
+                        onQueryChange = { viewModel.onSearchQueryChanged(it) },
+                        onSearch = { /* no-op, filtering is live */ },
+                        expanded = false,
+                        onExpandedChange = { /* no-op */ },
+                        placeholder = { Text(stringResource(R.string.search_placeholder)) },
+                        leadingIcon = {
+                            Icon(Icons.Default.Search, contentDescription = null)
+                        },
+                        trailingIcon = {
+                            if (searchQuery.isNotEmpty()) {
+                                IconButton(onClick = { viewModel.onSearchQueryChanged("") }) {
+                                    Icon(Icons.Default.Close, contentDescription = null)
+                                }
+                            }
+                        },
+                    )
                 },
-                trailingIcon = {
-                    if (searchQuery.isNotEmpty()) {
-                        IconButton(onClick = { viewModel.onSearchQueryChanged("") }) {
-                            Icon(Icons.Default.Close, contentDescription = null)
-                        }
-                    }
-                },
+                expanded = false,
+                onExpandedChange = { /* no-op */ },
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp, vertical = 8.dp)

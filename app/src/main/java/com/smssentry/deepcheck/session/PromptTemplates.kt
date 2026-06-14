@@ -24,7 +24,8 @@ Rules:
 - VERDICT_LABEL: exactly SCAM, SAFE, or SUSPICIOUS
 - CONFIDENCE: decimal 0.0-1.0
 - SCAM_TYPE: credential_theft | parcel_scam | fake_job | lottery | investment_fraud | safe | unknown
-- Write the explanation for a non-technical person.
+- Write the explanation as one or more flowing paragraphs for a non-technical person.
+- Do NOT use bullet points, numbered lists, or markdown formatting in your explanation.
 - Explain what the message tries to do, name specific red flags and WHY they are dangerous,
   teach the user to spot similar scams, and end with clear recommended actions.
 - Do NOT output JSON.
@@ -32,5 +33,4 @@ Rules:
 """
 
 const val RETRY_VERDICT_PROMPT =
-    "You have not yet produced a final verdict. Output the <<<VERDICT:...>>> tag followed by your educational explanation paragraph. Do not output JSON."
-
+    "You have not yet produced a final verdict. Output the <<<VERDICT:...>>> tag followed by your educational explanation paragraph. Write in flowing paragraphs, not bullet points. Do not output JSON."

@@ -1,7 +1,9 @@
 package com.smssentry.deepcheck.ui
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -17,6 +19,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.smssentry.R
 import com.smssentry.deepcheck.data.ModelRepository
+import kotlinx.coroutines.delay
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -29,8 +32,9 @@ fun ModelDownloadScreen(
     val error by viewModel.error.collectAsState()
     val wifiOnly by viewModel.wifiOnly.collectAsState()
     
-    LaunchedEffect(Unit) {
-        viewModel.navigateBack.collect {
+    LaunchedEffect(state) {
+        if (state == ModelRepository.State.READY) {
+            delay(1500)
             onBackClick()
         }
     }
@@ -94,14 +98,26 @@ fun ModelDownloadScreen(
                         onCancel = { viewModel.cancelDownload() }
                     )
                 }
-                ModelRepository.State.VERIFYING -> {
-                    StatusContent(stringResource(R.string.verifying_download))
-                }
-                ModelRepository.State.LOADING -> {
-                    StatusContent(stringResource(R.string.step_loading_model))
-                }
+ModelRepository.State.VERIFYING -> {
+    CancelableStatusContent(
+        text = stringResource(R.string.verifying_download),
+        onCancel = {
+            viewModel.cancelDownload()
+            onBackClick()
+        }
+    )
+}
+ModelRepository.State.LOADING -> {
+    CancelableStatusContent(
+        text = stringResource(R.string.step_loading_model),
+        onCancel = {
+            viewModel.cancelDownload()
+            onBackClick()
+        }
+    )
+}
                 ModelRepository.State.READY -> {
-                    CompleteContent()
+                    CompleteContent(onContinue = onBackClick)
                 }
                 ModelRepository.State.FAILED -> {
                     FailedContent(
@@ -204,13 +220,34 @@ private fun StatusContent(text: String) {
 }
 
 @Composable
-private fun CompleteContent() {
+private fun CancelableStatusContent(text: String, onCancel: () -> Unit) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        CircularProgressIndicator(modifier = Modifier.size(80.dp))
+        Text(
+            text = text,
+            style = MaterialTheme.typography.bodyLarge
+        )
+        Spacer(modifier = Modifier.height(16.dp))
+        OutlinedButton(
+            onClick = onCancel,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text(stringResource(R.string.cancel))
+        }
+    }
+}
+
+@Composable
+private fun CompleteContent(onContinue: () -> Unit) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         Icon(
-            imageVector = Icons.Default.Close, // Using Close as a placeholder, would normally use Check
+            imageVector = Icons.Default.Check,
             contentDescription = null,
             modifier = Modifier.size(80.dp),
             tint = MaterialTheme.colorScheme.primary
@@ -221,6 +258,20 @@ private fun CompleteContent() {
             fontWeight = FontWeight.Medium,
             color = MaterialTheme.colorScheme.primary
         )
+        Spacer(modifier = Modifier.height(8.dp))
+        Button(
+            onClick = onContinue,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(56.dp),
+            shape = RoundedCornerShape(12.dp)
+        ) {
+            Text(
+                text = stringResource(R.string.continue_text),
+                fontWeight = FontWeight.Bold,
+                style = MaterialTheme.typography.titleMedium
+            )
+        }
     }
 }
 

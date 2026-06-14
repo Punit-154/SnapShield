@@ -134,8 +134,11 @@ class ToolExecutor(
         if (urls.isEmpty()) return ToolResult.Error("No URLs provided.")
 
         val domains = FastPathFilter.extractDomains(urls)
-        val badDomains = domains.filter { domain ->
-            reputationDb?.isScam(domain) == true
+        val badDomains = mutableListOf<String>()
+        for (domain in domains) {
+            if (reputationDb?.isScam(domain) == true) {
+                badDomains.add(domain)
+            }
         }
 
         return if (badDomains.isNotEmpty()) {

@@ -10,6 +10,7 @@ import com.smssentry.deepcheck.data.*
 import com.smssentry.deepcheck.proxy.PrivacyProxyClient
 import com.smssentry.deepcheck.session.DeepCheckSession
 import com.smssentry.di.ApplicationScope
+import com.smssentry.di.DispatcherProvider
 import com.smssentry.domain.service.DeepCheckListener
 import com.smssentry.domain.service.DeepCheckSession as DeepCheckSessionInterface
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -32,7 +33,8 @@ class DetailViewModel @Inject constructor(
     private val modelRepository: ModelRepository,
     private val smsRepository: SmsRepository,
     @ApplicationContext private val context: Context,
-    @ApplicationScope private val applicationScope: CoroutineScope
+    @ApplicationScope private val applicationScope: CoroutineScope,
+    private val dispatchers: DispatcherProvider
 ) : ViewModel() {
 
     private val smsId: String = savedStateHandle.get<String>("smsId") ?: ""
@@ -116,7 +118,8 @@ class DetailViewModel @Inject constructor(
                         }
                     }
                 },
-                applicationScope = applicationScope
+                applicationScope = applicationScope,
+                dispatchers = dispatchers
             )
 
             deepCheckSession = session

@@ -59,6 +59,7 @@
     <string name="wifi_only">Wi-Fi only</string>
     <string name="verifying_download">Verifying download…</string>
     <string name="retry_download">Retry Download</string>
+    <string name="continue_text">Continue</string>
 
     <!-- Investigation Steps -->
     <string name="step_analyzing">Analyzing SMS content…</string>

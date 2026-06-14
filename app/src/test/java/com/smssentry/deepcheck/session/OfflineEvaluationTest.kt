@@ -6,6 +6,8 @@ import com.smssentry.data.model.DeepCheckUpdate
 import com.smssentry.deepcheck.data.AllowlistEntry
 import com.smssentry.deepcheck.data.OfficialSitesRepository
 import com.smssentry.deepcheck.data.TestDatabaseProvider
+import com.smssentry.di.DispatcherProvider
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -24,6 +26,12 @@ class OfflineEvaluationTest : TestDatabaseProvider() {
     )
 
     private val testScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+
+    private val testDispatchers = object : DispatcherProvider {
+        override val io: CoroutineDispatcher = Dispatchers.Unconfined
+        override val default: CoroutineDispatcher = Dispatchers.Unconfined
+        override val main: CoroutineDispatcher = Dispatchers.Unconfined
+    }
 
     @Before
     override fun setupDatabase() {
@@ -102,7 +110,8 @@ class OfflineEvaluationTest : TestDatabaseProvider() {
             listener = object : com.smssentry.domain.service.DeepCheckListener {
                 override fun onUpdate(update: DeepCheckUpdate) { updates.add(update) }
             },
-            applicationScope = testScope
+            applicationScope = testScope,
+            dispatchers = testDispatchers
         )
         session.run()
 
@@ -131,7 +140,8 @@ class OfflineEvaluationTest : TestDatabaseProvider() {
             listener = object : com.smssentry.domain.service.DeepCheckListener {
                 override fun onUpdate(update: DeepCheckUpdate) { updates.add(update) }
             },
-            applicationScope = testScope
+            applicationScope = testScope,
+            dispatchers = testDispatchers
         )
         session.run()
 
@@ -158,7 +168,8 @@ class OfflineEvaluationTest : TestDatabaseProvider() {
             listener = object : com.smssentry.domain.service.DeepCheckListener {
                 override fun onUpdate(update: DeepCheckUpdate) { updates.add(update) }
             },
-            applicationScope = testScope
+            applicationScope = testScope,
+            dispatchers = testDispatchers
         )
         session.run()
 
@@ -186,7 +197,8 @@ class OfflineEvaluationTest : TestDatabaseProvider() {
             listener = object : com.smssentry.domain.service.DeepCheckListener {
                 override fun onUpdate(update: DeepCheckUpdate) { updates.add(update) }
             },
-            applicationScope = testScope
+            applicationScope = testScope,
+            dispatchers = testDispatchers
         )
         session.run()
 
@@ -218,7 +230,8 @@ class OfflineEvaluationTest : TestDatabaseProvider() {
             listener = object : com.smssentry.domain.service.DeepCheckListener {
                 override fun onUpdate(update: DeepCheckUpdate) { updates.add(update) }
             },
-            applicationScope = testScope
+            applicationScope = testScope,
+            dispatchers = testDispatchers
         )
         session.run()
 
@@ -247,7 +260,8 @@ class OfflineEvaluationTest : TestDatabaseProvider() {
                 listener = object : com.smssentry.domain.service.DeepCheckListener {
                     override fun onUpdate(update: DeepCheckUpdate) { updates.add(update) }
                 },
-                applicationScope = testScope
+                applicationScope = testScope,
+                dispatchers = testDispatchers
             )
             session.run()
 
@@ -274,7 +288,8 @@ class OfflineEvaluationTest : TestDatabaseProvider() {
                 listener = object : com.smssentry.domain.service.DeepCheckListener {
                     override fun onUpdate(update: DeepCheckUpdate) { updates.add(update) }
                 },
-                applicationScope = testScope
+                applicationScope = testScope,
+                dispatchers = testDispatchers
             )
             session.run()
 

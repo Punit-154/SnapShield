@@ -5,9 +5,8 @@ import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.util.Log
 import com.smssentry.deepcheck.DeepCheckConfig
-import com.smssentry.deepcheck.LiteRtLmEngine
+import com.smssentry.deepcheck.model.LiteRtLmEngine
 import com.smssentry.deepcheck.model.LlmInferenceEngine
-import com.smssentry.deepcheck.util.HashUtil
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -22,7 +21,6 @@ import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException
 import java.security.MessageDigest
-import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -53,6 +51,9 @@ class ModelRepository @Inject constructor(
     }
 
     init {
+        // On startup, check if the model file already exists on disk.
+        // If it does, automatically load the engine in the background so
+        // the user does not have to re-download after every app restart.
         if (isModelDownloaded()) {
             applicationScope.launch {
                 ensureReady()
@@ -73,7 +74,7 @@ class ModelRepository @Inject constructor(
 
     suspend fun ensureReady(): Boolean {
         if (_state.value == State.READY) return true
-        
+
         if (!isModelDownloaded()) {
             _state.value = State.IDLE
             return false
@@ -84,7 +85,13 @@ class ModelRepository @Inject constructor(
             withContext(Dispatchers.IO) {
                 val engine = getEngine()
                 engine.load()
+                // Engine.initialize() succeeded — the model is valid.
+                // No additional validation probe is needed; running a
+                // throwaway generate("Say OK") was causing false FAILED
+                // states when the model produced blank output for that
+                // artificial prompt.
                 _state.value = State.READY
+                Log.i(TAG, "Model loaded successfully")
                 true
             }
         } catch (e: Exception) {
@@ -129,13 +136,13 @@ class ModelRepository @Inject constructor(
 
                     val body = response.body ?: throw IOException("Empty body")
                     val totalSize = if (response.code == 206) existingBytes + body.contentLength() else body.contentLength()
-                    
+
                     val outputStream = FileOutputStream(modelFile, response.code == 206)
                     outputStream.use { out ->
                         val buffer = ByteArray(8192)
                         var bytesRead: Int
                         var bytesWritten = if (response.code == 206) existingBytes else 0L
-                        
+
                         body.byteStream().use { input ->
                             while (input.read(buffer).also { bytesRead = it } != -1) {
                                 out.write(buffer, 0, bytesRead)

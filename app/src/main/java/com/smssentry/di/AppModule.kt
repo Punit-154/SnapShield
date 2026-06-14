@@ -35,6 +35,10 @@ abstract class AppModule {
     @Singleton
     abstract fun bindSMSSentryAI(realAI: RealSMSSentryAI): SMSSentryAI
 
+    @Binds
+    @Singleton
+    abstract fun bindDispatcherProvider(impl: DefaultDispatcherProvider): DispatcherProvider
+
     companion object {
         @Provides
         @Singleton

@@ -8,6 +8,8 @@ import android.os.Build
 import android.provider.Telephony
 import androidx.core.content.ContextCompat
 import com.smssentry.data.model.SmsMessage
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -17,17 +19,17 @@ class SmsRepository @Inject constructor(
     private val context: Context,
 ) {
 
-    fun getInboxMessages(limit: Int = 50): List<SmsMessage> {
+    suspend fun getInboxMessages(limit: Int = 50): List<SmsMessage> = withContext(Dispatchers.IO) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             val roleManager = context.getSystemService(android.app.role.RoleManager::class.java)
             if (roleManager != null && !roleManager.isRoleHeld(android.app.role.RoleManager.ROLE_SMS)) {
-                return emptyList()
+                return@withContext emptyList()
             }
         }
 
         if (ContextCompat.checkSelfPermission(context, Manifest.permission.READ_SMS)
             != PackageManager.PERMISSION_GRANTED) {
-            return emptyList()
+            return@withContext emptyList()
         }
 
         val messages = mutableListOf<SmsMessage>()
@@ -64,10 +66,10 @@ class SmsRepository @Inject constructor(
             }
         }
 
-        return messages
+        messages
     }
 
-    fun getMessageById(id: String): SmsMessage? {
+    suspend fun getMessageById(id: String): SmsMessage? = withContext(Dispatchers.IO) {
         val cursor = contentResolver.query(
             Telephony.Sms.CONTENT_URI,
             arrayOf(Telephony.Sms._ID, Telephony.Sms.ADDRESS, Telephony.Sms.BODY, Telephony.Sms.DATE),
@@ -76,7 +78,7 @@ class SmsRepository @Inject constructor(
             null
         )
 
-        return cursor?.use {
+        cursor?.use {
             if (it.moveToFirst()) {
                 SmsMessage(
                     id = id,

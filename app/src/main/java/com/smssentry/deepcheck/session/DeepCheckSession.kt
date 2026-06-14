@@ -20,9 +20,11 @@ import com.smssentry.deepcheck.proxy.PrivacyProxyClient
 import com.smssentry.deepcheck.tools.ToolExecutor
 import com.smssentry.deepcheck.tools.ToolResult
 import com.smssentry.deepcheck.util.HashUtil
+import com.smssentry.di.DispatcherProvider
 import com.smssentry.domain.service.DeepCheckSession as DeepCheckSessionInterface
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 
 class DeepCheckSession(
@@ -36,7 +38,8 @@ class DeepCheckSession(
     private val smsText: String,
     private val smsSender: String,
     private val listener: com.smssentry.domain.service.DeepCheckListener,
-    private val applicationScope: CoroutineScope
+    private val applicationScope: CoroutineScope,
+    private val dispatchers: DispatcherProvider
 ) : DeepCheckSessionInterface {
 
     private val evidenceList = mutableListOf<String>()
@@ -102,6 +105,7 @@ class DeepCheckSession(
                 val toolExecutor = ToolExecutor(allowlistDao, historyDao, reputationDb, officialSites, proxyClient)
                 val seenToolCalls = mutableSetOf<String>()
                 var turn = 0
+                var consecutiveUnparseable = 0
                 
                 var response = withTimeoutOrNull(DeepCheckConfig.LLM_TURN_TIMEOUT_MS) {
                     session.sendTurn("Analyze this SMS from $smsSender:\n\"$smsText\"")
@@ -132,6 +136,7 @@ class DeepCheckSession(
                     // 3. Tool call check
                     val toolCall = parseToolCall(response)
                     if (toolCall != null) {
+                        consecutiveUnparseable = 0
                         val callKey = "${toolCall.first}:${toolCall.second}"
                         if (!seenToolCalls.add(callKey)) {
                             response = withTimeoutOrNull(DeepCheckConfig.LLM_TURN_TIMEOUT_MS) {
@@ -144,7 +149,9 @@ class DeepCheckSession(
                         emitStep(describeToolCall(toolCall.first, context))
 
                         val toolResult = withTimeoutOrNull(DeepCheckConfig.TOOL_EXECUTION_TIMEOUT_MS) {
-                            toolExecutor.executeByName(toolCall.first, toolCall.second)
+                            withContext(dispatchers.io) {
+                                toolExecutor.executeByName(toolCall.first, toolCall.second)
+                            }
                         } ?: ToolResult.Error("Tool timed out.")
 
                         if (toolResult is ToolResult.Evidence) {
@@ -157,6 +164,23 @@ class DeepCheckSession(
                         }
                         turn++
                     } else {
+                        // No verdict, no JSON, no tool call
+                        if (response.length > 50) {
+                            val label = if (evidenceList.size >= 2) "SCAM"
+                                        else if (evidenceList.isNotEmpty()) "SUSPICIOUS"
+                                        else "SAFE"
+                            emitVerdict(DeepCheckVerdict(
+                                isScam = label == "SCAM",
+                                summary = response.take(300),
+                                threatType = null,
+                                evidence = evidenceList.map { EvidenceItem("AI Analysis", it, "MEDIUM") },
+                                recommendedActions = emptyList(),
+                                educationalExplanation = response
+                            ))
+                            return
+                        }
+                        consecutiveUnparseable++
+                        if (consecutiveUnparseable >= 2) break
                         response = withTimeoutOrNull(DeepCheckConfig.LLM_TURN_TIMEOUT_MS) {
                             session.sendTurn(RETRY_VERDICT_PROMPT)
                         }
@@ -175,7 +199,7 @@ class DeepCheckSession(
     private fun parseToolCall(response: String): Pair<String, String>? {
         val actionLine = response.lines().firstOrNull { it.trimStart().startsWith("ACTION:") }
         if (actionLine != null) {
-            val content = actionLine.removePrefix("ACTION:").trim()
+            val content = actionLine.trimStart().removePrefix("ACTION:").trim()
             val pipeIdx = content.indexOf('|')
             return if (pipeIdx >= 0) {
                 Pair(content.substring(0, pipeIdx).trim(), content.substring(pipeIdx + 1).trim())
@@ -236,17 +260,20 @@ class DeepCheckSession(
                 evidenceCount = verdict.evidence.size
             )
             applicationScope.launch {
-                try { historyDao.insert(entry) } catch (_: Exception) {}
+                try {
+                    withContext(dispatchers.io) { historyDao.insert(entry) }
+                } catch (_: Exception) {}
             }
         } catch (_: Exception) {}
     }
 
-    private fun emitFallbackVerdict() {
+    private fun emitFallbackVerdict(llmContext: String? = null) {
         val verdict = if (evidenceList.size >= 2) "SCAM" else "SUSPICIOUS"
+        val llmSummary = llmContext?.take(300)?.let { if (llmContext.length > 300) "$it..." else it }
         emitVerdict(
             DeepCheckVerdict(
                 isScam = verdict == "SCAM",
-                summary = if (verdict == "SCAM") context.getString(R.string.summary_scam) else context.getString(R.string.summary_suspicious),
+                summary = llmSummary ?: if (verdict == "SCAM") context.getString(R.string.summary_scam) else context.getString(R.string.summary_suspicious),
                 threatType = null,
                 evidence = evidenceList.map {
                     EvidenceItem(source = "Rule-Based", detail = it, severity = "MEDIUM")
@@ -262,7 +289,8 @@ class DeepCheckSession(
                         context.getString(R.string.action_caution),
                         context.getString(R.string.action_verify_org)
                     )
-                }
+                },
+                educationalExplanation = llmSummary ?: ""
             )
         )
     }
@@ -277,7 +305,9 @@ class DeepCheckSession(
 
         emitStep(context.getString(R.string.step_checking_reputation))
         val repResult = withTimeoutOrNull(DeepCheckConfig.TOOL_EXECUTION_TIMEOUT_MS) {
-            toolExecutor.executeByName("offline_reputation_check", """{"urls":[$urlsJson]}""")
+            withContext(dispatchers.io) {
+                toolExecutor.executeByName("offline_reputation_check", """{"urls":[$urlsJson]}""")
+            }
         }
         if (repResult is ToolResult.Evidence) {
             evidenceList.add(repResult.message)
@@ -289,7 +319,9 @@ class DeepCheckSession(
             for (domain in domains.take(2)) {
                 if (isCancelled) return
                 val whoisResult = withTimeoutOrNull(DeepCheckConfig.TOOL_EXECUTION_TIMEOUT_MS) {
-                    toolExecutor.executeByName("whois_lookup", """{"domain":"$domain"}""")
+                    withContext(dispatchers.io) {
+                        toolExecutor.executeByName("whois_lookup", """{"domain":"$domain"}""")
+                    }
                 }
                 if (whoisResult is ToolResult.Evidence) {
                     evidenceList.add(whoisResult.message)
@@ -300,7 +332,9 @@ class DeepCheckSession(
 
         emitStep(context.getString(R.string.step_brand))
         val mismatchResult = withTimeoutOrNull(DeepCheckConfig.TOOL_EXECUTION_TIMEOUT_MS) {
-            toolExecutor.executeByName("brand_mismatch_check", """{"sms_text":"$smsText","urls":[$urlsJson]}""")
+            withContext(dispatchers.io) {
+                toolExecutor.executeByName("brand_mismatch_check", """{"sms_text":"$smsText","urls":[$urlsJson]}""")
+            }
         }
         if (mismatchResult is ToolResult.Evidence) {
             evidenceList.add(mismatchResult.message)
@@ -313,7 +347,9 @@ class DeepCheckSession(
             if (claimedEntity != null) {
                 emitStep(context.getString(R.string.step_official_compare, domain))
                 val compareResult = withTimeoutOrNull(DeepCheckConfig.TOOL_EXECUTION_TIMEOUT_MS) {
-                    toolExecutor.executeByName("compare_official_site", """{"claimed_entity":"$claimedEntity","linked_domain":"$domain"}""")
+                    withContext(dispatchers.io) {
+                        toolExecutor.executeByName("compare_official_site", """{"claimed_entity":"$claimedEntity","linked_domain":"$domain"}""")
+                    }
                 }
                 if (compareResult is ToolResult.Evidence) {
                     evidenceList.add(compareResult.message)
@@ -322,7 +358,7 @@ class DeepCheckSession(
             }
         }
 
-        emitFallbackVerdict()
+        emitFallbackVerdict(llmContext)
     }
 
     private fun mapLegacyVerdict(v: com.smssentry.deepcheck.model.VerdictJson): DeepCheckVerdict {
@@ -352,7 +388,7 @@ class DeepCheckSession(
     private fun mapEducationalVerdict(parsed: ParsedEducationalVerdict): DeepCheckVerdict {
         val isScam = parsed.verdictLabel == "SCAM"
         return DeepCheckVerdict(
-            isScam = isScam || parsed.verdictLabel == "SUSPICIOUS",
+            isScam = isScam,
             summary = parsed.explanation.take(150).let { if (parsed.explanation.length > 150) "$it..." else it },
             threatType = parsed.scamType.takeIf { it != "safe" },
             evidence = evidenceList.map { EvidenceItem("AI Analysis", it, if (isScam) "HIGH" else "MEDIUM") },

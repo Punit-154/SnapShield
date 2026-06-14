@@ -7,8 +7,9 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Lock
 
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -16,6 +17,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -89,7 +91,7 @@ fun DetailScreen(
                 title = { Text(stringResource(R.string.sms_detail)) },
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = stringResource(R.string.cancel))
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.cancel))
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -190,49 +192,101 @@ fun DetailScreen(
 
                 PrivacyIndicator()
 
-                if (canStartDeepCheck) {
-                    Button(
-                        onClick = {
-                            viewModel.startDeepCheck()
-                        },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .then(
-                                if (isInvestigating) Modifier.scale(pulseAnimation) else Modifier
-                            ),
-                        shape = RoundedCornerShape(12.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.primary
-                        )
-                    ) {
-                        Icon(
-                            androidx.compose.material.icons.Icons.Default.Search,
-                            contentDescription = null,
-                            modifier = Modifier.size(18.dp)
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
+                // Dynamic Deep Check button based on model state
+                when (modelState) {
+                    ModelRepository.State.IDLE, ModelRepository.State.FAILED -> {
+                        // No model downloaded
+                        Button(
+                            onClick = onNavigateToDownload,
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(12.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.tertiary
+                            )
+                        ) {
+                            Icon(Icons.Default.Lock, contentDescription = null, Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "Download AI for Deep Analysis (~2.7 GB)",
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
                         Text(
-                            text = stringResource(R.string.deep_check),
-                            fontWeight = FontWeight.Bold
+                            text = "Get complete protection against sophisticated scams.",
+                            style = MaterialTheme.typography.bodySmall,
+                            textAlign = TextAlign.Center,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+                            modifier = Modifier.fillMaxWidth()
                         )
                     }
-
-                    if (!isModelReady) {
-                        Spacer(modifier = Modifier.height(4.dp))
-                        AssistChip(
+                    
+                    ModelRepository.State.DOWNLOADING -> {
+                        // Download in progress
+                        Button(
                             onClick = onNavigateToDownload,
-                            label = { Text("Download AI Model for deeper analysis") },
-                            leadingIcon = {
-                                Icon(
-                                    Icons.Default.Search,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(16.dp)
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(12.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.primary
+                            )
+                        ) {
+                            Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.CenterStart) {
+                                Text("Downloading...")
+                                LinearProgressIndicator(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(4.dp)
+                                        .align(Alignment.BottomCenter)
                                 )
-                            },
-                            modifier = Modifier.align(Alignment.CenterHorizontally)
-                        )
+                            }
+                        }
+                    }
+                    
+                    ModelRepository.State.VERIFYING, ModelRepository.State.LOADING -> {
+                        // Model loading (engine.init)
+                        Button(
+                            onClick = { /* Disabled */ },
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(12.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.surfaceVariant
+                            ),
+                            enabled = false
+                        ) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(16.dp),
+                                strokeWidth = 2.dp
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Initializing AI Engine...")
+                        }
+                    }
+                    
+                    ModelRepository.State.READY -> {
+                        // Model ready - show Immediate Deep Check
+                        Button(
+                            onClick = { viewModel.startDeepCheck() },
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(12.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.primary
+                            )
+                        ) {
+                            Icon(Icons.Default.Search, contentDescription = null, Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = if (investigationState.verdict != null) {
+                                    "Check Another Message"
+                                } else {
+                                    "⚡ Run Deep Analysis"
+                                },
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
                     }
                 }
+                
+                Spacer(modifier = Modifier.height(8.dp))
 
                 if (investigationState.progress > 0 || investigationState.verdict != null || investigationState.error != null) {
                     DeepCheckTimeline(

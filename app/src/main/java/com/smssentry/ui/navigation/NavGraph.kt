@@ -1,5 +1,6 @@
 package com.smssentry.ui.navigation
 
+import android.util.Log
 import androidx.compose.runtime.Composable
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
@@ -18,6 +19,8 @@ sealed class Screen(val route: String) {
     }
     data object ModelDownload : Screen("model_download")
 }
+
+private const val TAG = "NavGraph"
 
 @Composable
 fun SMSSentryNavGraph(
@@ -53,7 +56,16 @@ fun SMSSentryNavGraph(
 
         composable(Screen.ModelDownload.route) {
             ModelDownloadScreen(
-                onBackClick = { navController.navigateUp() }
+                onBackClick = {
+                    val backQueue = navController.currentBackStack.value.map { it.destination.route }
+                    Log.d(TAG, "backQueue before pop: $backQueue")
+                    if (!navController.popBackStack()) {
+                        Log.w(TAG, "popBackStack returned false, navigating to Inbox")
+                        navController.navigate(Screen.Inbox.route) {
+                            popUpTo(Screen.Inbox.route) { inclusive = true }
+                        }
+                    }
+                }
             )
         }
     }
