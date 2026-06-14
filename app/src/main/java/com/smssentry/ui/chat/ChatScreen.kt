@@ -41,6 +41,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -99,6 +102,7 @@ fun ChatScreen(
     val messages by viewModel.messages.collectAsState()
     val contactName by viewModel.contactName.collectAsState()
     val isSending by viewModel.isSending.collectAsState()
+    val sendError by viewModel.sendError.collectAsState()
     val context = LocalContext.current
 
     // Derive loading state: true until first real collection completes
@@ -111,6 +115,19 @@ fun ChatScreen(
 
     val listState = rememberLazyListState()
 
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    // Show send error snackbar
+    LaunchedEffect(sendError) {
+        sendError?.let { error ->
+            snackbarHostState.showSnackbar(
+                message = error,
+                duration = SnackbarDuration.Short
+            )
+            viewModel.clearSendError()
+        }
+    }
+
     // Auto-scroll to bottom when messages change
     LaunchedEffect(messages.size) {
         if (messages.isNotEmpty()) {
@@ -120,6 +137,7 @@ fun ChatScreen(
 
     Scaffold(
         modifier = Modifier.imePadding(),
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
                 title = {

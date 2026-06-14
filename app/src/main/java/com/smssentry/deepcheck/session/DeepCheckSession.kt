@@ -84,7 +84,7 @@ class DeepCheckSession(
             }
 
             Diagnostics.i(Diagnostics.SESSION, "Fast-path: no match — proceeding to LLM")
-            emitStep(context.getString(R.string.step_analyzing), 5)
+            emitStep("Preparing analysis pipeline...", 5)
 
             if (engine == null) {
                 Diagnostics.w(Diagnostics.SESSION, "Engine is null — falling back to rule-based")
@@ -94,7 +94,7 @@ class DeepCheckSession(
             }
 
             Diagnostics.i(Diagnostics.SESSION, "Engine available — loading model...")
-            emitStep(context.getString(R.string.step_loading_model), 10)
+            emitStep("Loading AI model...", 10)
             try {
                 withTimeoutOrNull(DeepCheckConfig.MODEL_LOAD_TIMEOUT_MS) {
                     engine.load()
@@ -126,7 +126,7 @@ class DeepCheckSession(
                 // === Pre-execute tools to build enriched single-turn prompt ===
                 val evidenceLines = mutableListOf<String>()
                 try {
-                    emitStep("Running pre-analysis checks...", 25)
+                    emitStep("Checking brand legitimacy...", 20)
                     // Brand mismatch check
                     val brandResult: ToolResult? = withTimeoutOrNull(DeepCheckConfig.TOOL_EXECUTION_TIMEOUT_MS) {
                         withContext(dispatchers.io) {
@@ -138,6 +138,7 @@ class DeepCheckSession(
                         Diagnostics.d(Diagnostics.TOOL, "Pre-exec brand_mismatch: ${brandResult.message.take(100)}")
                     }
 
+                    emitStep("Querying scam database...", 30)
                     // Scam DB check
                     val scamDbResult: ToolResult? = withTimeoutOrNull(DeepCheckConfig.TOOL_EXECUTION_TIMEOUT_MS) {
                         withContext(dispatchers.io) {
@@ -149,6 +150,7 @@ class DeepCheckSession(
                         Diagnostics.d(Diagnostics.TOOL, "Pre-exec scam_db: ${scamDbResult.message.take(100)}")
                     }
 
+                    emitStep("Verifying sender identity...", 40)
                     // Official site check for sender
                     val officialResult: ToolResult? = withTimeoutOrNull(DeepCheckConfig.TOOL_EXECUTION_TIMEOUT_MS) {
                         withContext(dispatchers.io) {
@@ -184,6 +186,7 @@ class DeepCheckSession(
                     append("\nGive your verdict now.")
                 }
 
+                emitStep("Running AI inference...", 50)
                 Diagnostics.i(Diagnostics.SESSION, "Sending enriched prompt (${enrichedPrompt.length} chars, ${evidenceLines.size} evidence items)")
                 var response = withTimeoutOrNull(DeepCheckConfig.LLM_TURN_TIMEOUT_MS) {
                     session.sendTurn(enrichedPrompt)
@@ -228,7 +231,7 @@ class DeepCheckSession(
                             continue
                         }
 
-                        val toolProgress = (55 + (turn * 8)).coerceAtMost(90)
+                        val toolProgress = (60 + (turn * 10)).coerceAtMost(90)
                         emitStep(describeToolCall(toolCall.first, context), toolProgress)
 
                         val toolResult = withTimeoutOrNull(DeepCheckConfig.TOOL_EXECUTION_TIMEOUT_MS) {
@@ -399,7 +402,7 @@ class DeepCheckSession(
         val domains = com.smssentry.deepcheck.prefilter.FastPathFilter.extractDomains(urls)
         val urlsJson = urls.joinToString(",") { "\"$it\"" }
 
-        emitStep(context.getString(R.string.step_checking_reputation), 55)
+        emitStep("Checking sender reputation...", 55)
         val repResult = withTimeoutOrNull(DeepCheckConfig.TOOL_EXECUTION_TIMEOUT_MS) {
             withContext(dispatchers.io) {
                 toolExecutor.executeByName("offline_reputation_check", """{"urls":[$urlsJson]}""")
@@ -411,7 +414,7 @@ class DeepCheckSession(
         }
 
         if (domains.isNotEmpty()) {
-            emitStep(context.getString(R.string.step_whois), 65)
+            emitStep("Looking up domain registration...", 65)
             for (domain in domains.take(2)) {
                 if (isCancelled) return
                 val whoisResult = withTimeoutOrNull(DeepCheckConfig.TOOL_EXECUTION_TIMEOUT_MS) {
@@ -426,7 +429,7 @@ class DeepCheckSession(
             }
         }
 
-        emitStep(context.getString(R.string.step_brand), 80)
+        emitStep("Analyzing brand impersonation...", 80)
         val mismatchResult = withTimeoutOrNull(DeepCheckConfig.TOOL_EXECUTION_TIMEOUT_MS) {
             withContext(dispatchers.io) {
                 toolExecutor.executeByName("brand_mismatch_check", """{"sms_text":"$smsText","urls":[$urlsJson]}""")
@@ -441,7 +444,7 @@ class DeepCheckSession(
             if (isCancelled) return
             val claimedEntity = officialSites.findMatchingBrand(smsText)
             if (claimedEntity != null) {
-                emitStep(context.getString(R.string.step_official_compare, domain), 90)
+                emitStep("Comparing with official $domain...", 90)
                 val compareResult = withTimeoutOrNull(DeepCheckConfig.TOOL_EXECUTION_TIMEOUT_MS) {
                     withContext(dispatchers.io) {
                         toolExecutor.executeByName("compare_official_site", """{"claimed_entity":"$claimedEntity","linked_domain":"$domain"}""")

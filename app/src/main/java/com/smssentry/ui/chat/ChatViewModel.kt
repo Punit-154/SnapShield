@@ -42,6 +42,11 @@ class ChatViewModel @Inject constructor(
     private val _isSending = MutableStateFlow(false)
     val isSending: StateFlow<Boolean> = _isSending.asStateFlow()
 
+    private val _sendError = MutableStateFlow<String?>(null)
+    val sendError: StateFlow<String?> = _sendError.asStateFlow()
+
+    fun clearSendError() { _sendError.value = null }
+
     private var smsObserver: ContentObserver? = null
 
     init {
@@ -56,8 +61,10 @@ class ChatViewModel @Inject constructor(
     }
 
     private fun resolveContact() {
-        if (address.isNotBlank()) {
-            val info = contactResolver.resolve(address)
+        viewModelScope.launch {
+            val info = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                contactResolver.resolve(address)
+            }
             _contactName.value = info.displayName
             _contactPhotoUri.value = info.photoUri
         }
@@ -83,12 +90,20 @@ class ChatViewModel @Inject constructor(
     fun sendMessage(text: String) {
         if (text.isBlank() || address.isBlank()) return
         _isSending.value = true
+        _sendError.value = null
         viewModelScope.launch {
-            val success = smsRepository.sendSms(address, text)
-            if (success) {
-                loadMessages()
+            try {
+                val success = smsRepository.sendSms(address, text)
+                if (success) {
+                    loadMessages()
+                } else {
+                    _sendError.value = "Failed to send message. Check SMS permissions."
+                }
+            } catch (e: Exception) {
+                _sendError.value = "Send failed: ${e.message?.take(80) ?: "Unknown error"}"
+            } finally {
+                _isSending.value = false
             }
-            _isSending.value = false
         }
     }
 

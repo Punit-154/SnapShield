@@ -388,17 +388,6 @@ fun DetailScreen(
                     }
                 }
 
-                // ── Analysis Progress / Timeline ──
-                AnimatedVisibility(
-                    visible = isInvestigating,
-                    enter = expandVertically() + fadeIn(),
-                    exit = shrinkVertically() + fadeOut()
-                ) {
-                    AnalysisProgressCard(
-                        progress = investigationState.progress,
-                        currentStep = investigationState.currentStep
-                    )
-                }
 
                 // ── Deep Check Timeline (when results exist) ──
                 if (investigationState.progress > 0 || investigationState.verdict != null || investigationState.error != null) {
@@ -447,93 +436,6 @@ fun DetailScreen(
                         text = "Loading message...",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun AnalysisProgressCard(
-    progress: Int,
-    currentStep: String?
-) {
-    val animatedProgress by animateFloatAsState(
-        targetValue = progress / 100f,
-        animationSpec = tween(500, easing = FastOutSlowInEasing),
-        label = "analysisProgress"
-    )
-
-    // Scanning dot animation
-    val dotAlpha by rememberInfiniteTransition(label = "dot").animateFloat(
-        initialValue = 0.3f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(600),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "dotAlpha"
-    )
-
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
-        )
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = "Analyzing…",
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.SemiBold
-                )
-                Text(
-                    text = "$progress%",
-                    style = MaterialTheme.typography.titleSmall,
-                    color = MaterialTheme.colorScheme.primary,
-                    fontWeight = FontWeight.Bold
-                )
-            }
-
-            LinearProgressIndicator(
-                progress = { animatedProgress },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(6.dp)
-                    .clip(RoundedCornerShape(3.dp)),
-                color = MaterialTheme.colorScheme.primary,
-                trackColor = MaterialTheme.colorScheme.surfaceVariant
-            )
-
-            currentStep?.let { step ->
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(6.dp)
-                            .clip(CircleShape)
-                            .background(
-                                MaterialTheme.colorScheme.primary.copy(alpha = dotAlpha)
-                            )
-                    )
-                    Text(
-                        text = step,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
                     )
                 }
             }

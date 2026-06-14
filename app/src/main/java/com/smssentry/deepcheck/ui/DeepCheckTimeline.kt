@@ -241,7 +241,7 @@ private fun AnimatedInvestigationProgress(
                         strokeWidth = 3.dp
                     )
                     Text(
-                        text = stringResource(R.string.investigating),
+                        text = "Deep Analysis",
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.Bold
                     )
