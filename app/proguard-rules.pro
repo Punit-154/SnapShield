@@ -57,3 +57,17 @@
 -keep class com.smssentry.deepcheck.model.LlmResponse$** { *; }
 -keep class com.smssentry.deepcheck.model.VerdictJson { *; }
 -keep class com.smssentry.deepcheck.proxy.WhoisResult { *; }
+
+# ── SQLCipher ──────────────────────────────────────────────────────
+-keep class net.zetetic.database.** { *; }
+-keepclassmembers class net.zetetic.database.** {
+    native <methods>;
+}
+-dontwarn net.zetetic.database.**
+
+# ── Database Key Manager (uses Android Keystore via reflection) ────
+-keep class com.smssentry.data.security.DatabaseKeyManager { *; }
+
+# ── Release hardening: strip source file info & line numbers ───────
+-renamesourcefileattribute ""
+-keepattributes !SourceFile,!LineNumberTable

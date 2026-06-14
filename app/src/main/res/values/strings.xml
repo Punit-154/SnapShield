@@ -179,8 +179,8 @@
     <string name="error_icon_desc">Error</string>
     <string name="error_default_sms_required">SMSentry must be the default SMS app to manage blocked numbers.</string>
     <string name="error_load_blocked">Could not load blocked numbers: %1$s</string>
-    <string name="error_unblock_failed">Failed to unblock: %1$s</string>
-    <string name="error_block_failed">Failed to block: %1$s</string>
+    <string name="error_unblock_failed">Failed to unblock number</string>
+    <string name="error_block_failed">Failed to block number</string>
     <string name="error_unknown">Unknown error</string>
     <string name="error_invalid_phone">Enter a valid phone number</string>
     <string name="number_blocked">%1$s blocked</string>

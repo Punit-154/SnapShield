@@ -28,13 +28,27 @@ function checkRateLimit(ip) {
 
 /**
  * Validate API key from request header against the stored secret.
+ * Uses constant-time comparison to prevent timing attacks (CWE-208).
  * The API_KEY should be set as a Cloudflare Worker secret via:
  *   wrangler secret put API_KEY
  */
 function validateApiKey(request, env) {
   const apiKey = request.headers.get('X-API-Key');
-  if (!env.API_KEY) return true; // Skip auth if secret not configured yet
-  return apiKey === env.API_KEY;
+  if (!env.API_KEY) return { valid: false, misconfigured: true };
+  if (!apiKey) return { valid: false, misconfigured: false };
+
+  // Constant-time comparison to prevent timing side-channel attacks
+  const encoder = new TextEncoder();
+  const a = encoder.encode(apiKey);
+  const b = encoder.encode(env.API_KEY);
+  if (a.byteLength !== b.byteLength) return { valid: false, misconfigured: false };
+
+  // crypto.subtle.timingSafeEqual is available in Cloudflare Workers
+  let result = 0;
+  for (let i = 0; i < a.byteLength; i++) {
+    result |= a[i] ^ b[i];
+  }
+  return { valid: result === 0, misconfigured: false };
 }
 
 /**
@@ -55,6 +69,19 @@ function isUrlSafe(targetUrl) {
     if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1' ||
         hostname === '0.0.0.0' || hostname === '[::1]') {
       return false;
+    }
+
+    // Block IPv6 embedded IPv4 (e.g. ::ffff:127.0.0.1, ::ffff:10.0.0.1)
+    if (hostname.startsWith('[') || hostname.includes(':')) {
+      return false;
+    }
+
+    // Block decimal IP (e.g. 2130706433 = 127.0.0.1) and octal IP (e.g. 0177.0.0.1)
+    if (/^\d+$/.test(hostname)) {
+      return false; // Single decimal integer = encoded IP
+    }
+    if (/^0\d/.test(hostname) || /\.0\d/.test(hostname)) {
+      return false; // Octal notation in IP octets
     }
 
     // Block RFC1918 private ranges
@@ -92,7 +119,14 @@ export default {
     }
 
     // API key authentication
-    if (!validateApiKey(request, env)) {
+    const authResult = validateApiKey(request, env);
+    if (authResult.misconfigured) {
+      return new Response(JSON.stringify({ error: 'Server misconfiguration' }), {
+        status: 500,
+        headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+      });
+    }
+    if (!authResult.valid) {
       return new Response(JSON.stringify({ error: 'Unauthorized' }), {
         status: 401,
         headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
