@@ -24,6 +24,11 @@ import com.smssentry.domain.service.DeepCheckSession as DeepCheckSessionInterfac
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
+import kotlinx.serialization.json.Json
+
+private fun String.toJsonString(): String {
+    return Json.encodeToString(kotlinx.serialization.serializer(), this)
+}
 
 class DeepCheckSession(
     private val context: Context,
@@ -294,7 +299,7 @@ class DeepCheckSession(
         )
         val urls = com.smssentry.deepcheck.prefilter.FastPathFilter.extractUrls(smsText)
         val domains = com.smssentry.deepcheck.prefilter.FastPathFilter.extractDomains(urls)
-        val urlsJson = urls.joinToString(",") { "\"$it\"" }
+        val urlsJson = urls.joinToString(",") { it.toJsonString() }
 
         emitStep(context.getString(R.string.step_checking_reputation))
         val repResult = withTimeoutOrNull(DeepCheckConfig.TOOL_EXECUTION_TIMEOUT_MS) {
@@ -310,7 +315,7 @@ class DeepCheckSession(
             for (domain in domains.take(2)) {
                 if (isCancelled) return
                 val whoisResult = withTimeoutOrNull(DeepCheckConfig.TOOL_EXECUTION_TIMEOUT_MS) {
-                    toolExecutor.executeByName("whois_lookup", """{"domain":"$domain"}""")
+                    toolExecutor.executeByName("whois_lookup", """{"domain":${domain.toJsonString()}}""")
                 }
                 if (whoisResult is ToolResult.Evidence) {
                     evidenceList.add(whoisResult.message)
@@ -321,7 +326,7 @@ class DeepCheckSession(
 
         emitStep(context.getString(R.string.step_brand))
         val mismatchResult = withTimeoutOrNull(DeepCheckConfig.TOOL_EXECUTION_TIMEOUT_MS) {
-            toolExecutor.executeByName("brand_mismatch_check", """{"sms_text":"$smsText","urls":[$urlsJson]}""")
+            toolExecutor.executeByName("brand_mismatch_check", """{"sms_text":${smsText.toJsonString()},"urls":[$urlsJson]}""")
         }
         if (mismatchResult is ToolResult.Evidence) {
             evidenceList.add(mismatchResult.message)
@@ -334,7 +339,7 @@ class DeepCheckSession(
             if (claimedEntity != null) {
                 emitStep(context.getString(R.string.step_official_compare, domain))
                 val compareResult = withTimeoutOrNull(DeepCheckConfig.TOOL_EXECUTION_TIMEOUT_MS) {
-                    toolExecutor.executeByName("compare_official_site", """{"claimed_entity":"$claimedEntity","linked_domain":"$domain"}""")
+                    toolExecutor.executeByName("compare_official_site", """{"claimed_entity":${claimedEntity.toJsonString()},"linked_domain":${domain.toJsonString()}}""")
                 }
                 if (compareResult is ToolResult.Evidence) {
                     evidenceList.add(compareResult.message)

@@ -194,7 +194,7 @@ fun DetailScreen(
 
                 // Dynamic Deep Check button based on model state
                 when (modelState) {
-                    ModelRepository.State.IDLE, ModelRepository.State.FAILED -> {
+                    ModelRepository.State.IDLE, ModelRepository.State.FAILED, ModelRepository.State.CORRUPTED -> {
                         // No model downloaded
                         Button(
                             onClick = onNavigateToDownload,

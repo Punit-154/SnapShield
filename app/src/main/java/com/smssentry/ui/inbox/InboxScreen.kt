@@ -327,6 +327,7 @@ private fun ModelStatusBadge(state: ModelRepository.State) {
         ModelRepository.State.READY -> R.string.model_ready
         ModelRepository.State.VERIFYING -> R.string.verifying_download
         ModelRepository.State.FAILED -> R.string.model_unavailable
+        ModelRepository.State.CORRUPTED -> R.string.model_unavailable
     }
     
     val color = when (state) {

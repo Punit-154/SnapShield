@@ -2,17 +2,20 @@ package com.smssentry.sms
 
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import android.app.PendingIntent
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.provider.Telephony
 import android.util.Log
 import androidx.core.app.NotificationCompat
+import com.smssentry.MainActivity
 import com.smssentry.deepcheck.data.DeepCheckDatabase
 import com.smssentry.deepcheck.prefilter.FastPathFilter
 import com.smssentry.ml.SmsClassifierModel
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
+import java.util.concurrent.atomic.AtomicInteger
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
@@ -32,6 +35,7 @@ class SmsReceiver : BroadcastReceiver() {
         const val EXTRA_BODY = "extra_body"
         const val EXTRA_TIMESTAMP = "extra_timestamp"
         private const val CHANNEL_ID = "scam_alerts"
+        private val notificationId = AtomicInteger(0)
     }
 
     override fun onReceive(context: Context, intent: Intent) {
@@ -100,14 +104,26 @@ class SmsReceiver : BroadcastReceiver() {
         }
         notificationManager.createNotificationChannel(channel)
 
+        val detailIntent = Intent(context, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            putExtra("navigate_to", "detail")
+            putExtra("sms_sender", sender)
+            putExtra("sms_body", message)
+        }
+        val pendingIntent = PendingIntent.getActivity(
+            context, notificationId.get(), detailIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
         val builder = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_dialog_alert)
             .setContentTitle("Scam Detected!")
             .setContentText("Message from $sender: $reason")
             .setStyle(NotificationCompat.BigTextStyle().bigText("From: $sender\nReason: $reason\n\nMessage: $message"))
+            .setContentIntent(pendingIntent)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setAutoCancel(true)
 
-        notificationManager.notify(System.currentTimeMillis().toInt(), builder.build())
+        notificationManager.notify(notificationId.getAndIncrement(), builder.build())
     }
 }

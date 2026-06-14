@@ -1,6 +1,7 @@
 package com.smssentry.deepcheck.data
 
 import android.content.Context
+import android.content.SharedPreferences
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.util.Log
@@ -34,7 +35,9 @@ class ModelRepository @Inject constructor(
 ) {
     private val TAG = "ModelRepository"
 
-    enum class State { IDLE, DOWNLOADING, VERIFYING, LOADING, READY, FAILED }
+    enum class State { IDLE, DOWNLOADING, VERIFYING, LOADING, READY, FAILED, CORRUPTED }
+
+    private val prefs: SharedPreferences = context.getSharedPreferences("model_prefs", Context.MODE_PRIVATE)
 
     private val _state = MutableStateFlow(State.IDLE)
     val state: StateFlow<State> = _state.asStateFlow()
@@ -46,10 +49,26 @@ class ModelRepository @Inject constructor(
     val error: StateFlow<String?> = _error.asStateFlow()
 
     private var cachedEngine: LlmInferenceEngine? = null
+    @Volatile private var engineLoaded = false
 
     private val modelFile: File by lazy {
         val dir = File(context.filesDir, "models").also { it.mkdirs() }
         File(dir, DeepCheckConfig.MODEL_FILE_NAME)
+    }
+
+    init {
+        restoreState()
+    }
+
+    private fun restoreState() {
+        if (prefs.getBoolean("model_ready", false) && isModelDownloaded()) {
+            _state.value = State.READY
+            Log.d(TAG, "Restored READY state from prefs (file on disk)")
+        } else if (prefs.getBoolean("model_ready", false) && !isModelDownloaded()) {
+            prefs.edit().putBoolean("model_ready", false).apply()
+            _state.value = State.IDLE
+            Log.d(TAG, "Model file missing despite saved state, resetting")
+        }
     }
 
     fun isModelDownloaded(): Boolean {
@@ -64,11 +83,30 @@ class ModelRepository @Inject constructor(
     }
 
     suspend fun ensureReady(): Boolean {
-        if (_state.value == State.READY) return true
-        
+        if (_state.value == State.READY && engineLoaded) return true
+
         if (!isModelDownloaded()) {
             _state.value = State.IDLE
+            prefs.edit().putBoolean("model_ready", false).apply()
             return false
+        }
+
+        if (_state.value == State.READY && !engineLoaded) {
+            try {
+                withContext(Dispatchers.IO) {
+                    val engine = getEngine()
+                    engine.load()
+                    engineLoaded = true
+                    Log.d(TAG, "Engine loaded on demand (was READY but not loaded)")
+                }
+                return true
+            } catch (e: Exception) {
+                Log.e(TAG, "Engine load failed on demand", e)
+                _state.value = State.FAILED
+                _error.value = "Failed to load model: ${e.message}"
+                prefs.edit().putBoolean("model_ready", false).apply()
+                return false
+            }
         }
 
         _state.value = State.LOADING
@@ -76,17 +114,22 @@ class ModelRepository @Inject constructor(
             withContext(Dispatchers.IO) {
                 val engine = getEngine()
                 engine.load()
+                engineLoaded = true
                 _state.value = State.READY
+                prefs.edit().putBoolean("model_ready", true).apply()
+                Log.d(TAG, "Model loaded and state saved")
                 true
             }
         } catch (e: Exception) {
             Log.e(TAG, "Failed to load model", e)
             _state.value = State.FAILED
             _error.value = "Failed to load model: ${e.message}"
+            prefs.edit().putBoolean("model_ready", false).apply()
             false
         }
     }
 
+    @Synchronized
     fun getEngine(): LlmInferenceEngine {
         cachedEngine?.let { return it }
         val engine = LiteRtLmEngine(modelFile.absolutePath)
@@ -175,6 +218,8 @@ class ModelRepository @Inject constructor(
     fun unload() {
         cachedEngine?.close()
         cachedEngine = null
+        engineLoaded = false
         _state.value = State.IDLE
+        prefs.edit().putBoolean("model_ready", false).apply()
     }
 }

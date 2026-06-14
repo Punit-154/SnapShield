@@ -9,6 +9,8 @@ import okhttp3.Request
 import java.time.LocalDate
 import java.util.concurrent.TimeUnit
 
+import java.net.URLEncoder
+
 data class WhoisResult(
     val creationDate: LocalDate?,
     val registrar: String?
@@ -43,11 +45,12 @@ class PrivacyProxyClient(private val baseUrl: String?) {
                     .url("$baseUrl/health")
                     .get()
                     .build()
-                val response = client.newCall(request).execute()
-                val success = response.isSuccessful
-                lastHealthCheckResult = success
-                lastHealthCheckTime = now
-                success
+                client.newCall(request).execute().use { response ->
+                    val success = response.isSuccessful
+                    lastHealthCheckResult = success
+                    lastHealthCheckTime = now
+                    success
+                }
             }
         } catch (e: Exception) {
             lastHealthCheckResult = false
@@ -60,17 +63,19 @@ class PrivacyProxyClient(private val baseUrl: String?) {
         if (baseUrl.isNullOrBlank()) throw IllegalStateException("Proxy not configured")
 
         return withContext(Dispatchers.IO) {
+            val encodedDomain = URLEncoder.encode(domain, "UTF-8")
             val request = Request.Builder()
-                .url("$baseUrl/whois?domain=$domain")
+                .url("$baseUrl/whois?domain=$encodedDomain")
                 .get()
                 .build()
-            val response = client.newCall(request).execute()
-            val body = response.body?.string() ?: throw Exception("Empty response")
-            val result = json.decodeFromString<WhoisResponse>(body)
-            WhoisResult(
-                creationDate = result.creationDate?.let { try { LocalDate.parse(it) } catch (e: Exception) { null } },
-                registrar = result.registrar
-            )
+            client.newCall(request).execute().use { response ->
+                val body = response.body?.string() ?: throw Exception("Empty response")
+                val result = json.decodeFromString<WhoisResponse>(body)
+                WhoisResult(
+                    creationDate = result.creationDate?.let { try { LocalDate.parse(it) } catch (e: Exception) { null } },
+                    registrar = result.registrar
+                )
+            }
         }
     }
 
@@ -78,12 +83,14 @@ class PrivacyProxyClient(private val baseUrl: String?) {
         if (baseUrl.isNullOrBlank()) throw IllegalStateException("Proxy not configured")
 
         return withContext(Dispatchers.IO) {
+            val encodedUrl = URLEncoder.encode(url, "UTF-8")
             val request = Request.Builder()
-                .url("$baseUrl/fetch-page?url=$url")
+                .url("$baseUrl/fetch-page?url=$encodedUrl")
                 .get()
                 .build()
-            val response = client.newCall(request).execute()
-            response.body?.string() ?: ""
+            client.newCall(request).execute().use { response ->
+                response.body?.string() ?: ""
+            }
         }
     }
 }

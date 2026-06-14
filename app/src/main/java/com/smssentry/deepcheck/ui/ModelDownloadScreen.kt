@@ -3,6 +3,7 @@ package com.smssentry.deepcheck.ui
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -121,6 +122,12 @@ ModelRepository.State.LOADING -> {
                 ModelRepository.State.FAILED -> {
                     FailedContent(
                         error = error,
+                        onRetry = { viewModel.retryDownload() }
+                    )
+                }
+                ModelRepository.State.CORRUPTED -> {
+                    FailedContent(
+                        error = "Model file corrupted. Please re-download.",
                         onRetry = { viewModel.retryDownload() }
                     )
                 }
@@ -246,7 +253,7 @@ private fun CompleteContent(onContinue: () -> Unit) {
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         Icon(
-            imageVector = Icons.Default.Close,
+            imageVector = Icons.Default.Check,
             contentDescription = null,
             modifier = Modifier.size(80.dp),
             tint = MaterialTheme.colorScheme.primary

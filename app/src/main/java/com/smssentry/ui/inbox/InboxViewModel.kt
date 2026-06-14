@@ -19,6 +19,8 @@ import com.smssentry.sms.SmsContentObserver
 import com.smssentry.sms.SmsReceiver
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -60,7 +62,7 @@ class InboxViewModel @Inject constructor(
             val matchesSearch = query.isBlank() ||
                 message.sender.contains(query, ignoreCase = true) ||
                 message.text.contains(query, ignoreCase = true) ||
-                message.classification?.label?.contains(query, ignoreCase = true) == true
+                (message.classification != null && message.classification.label.contains(query, ignoreCase = true))
             val matchesFilter = when (filter) {
                 SmsFilter.ALL -> true
                 SmsFilter.SCAM -> message.classification?.label?.uppercase() == "SCAM"
@@ -81,6 +83,7 @@ class InboxViewModel @Inject constructor(
 
     private var smsContentObserver: SmsContentObserver? = null
     private var smsBroadcastReceiver: BroadcastReceiver? = null
+    private var debounceJob: Job? = null
 
     init {
         loadMessages()
@@ -99,7 +102,11 @@ class InboxViewModel @Inject constructor(
 
     private fun registerSmsObserver() {
         smsContentObserver = SmsContentObserver {
-            refreshMessages()
+            debounceJob?.cancel()
+            debounceJob = viewModelScope.launch {
+                delay(300)
+                refreshMessages()
+            }
         }
         context.contentResolver.registerContentObserver(
             Telephony.Sms.CONTENT_URI,

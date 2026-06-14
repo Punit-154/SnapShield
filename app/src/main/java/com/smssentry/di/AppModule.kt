@@ -7,7 +7,6 @@ import com.smssentry.data.repository.RealSMSSentryAI
 import com.smssentry.data.repository.SmsRepository
 import com.smssentry.ml.SmsClassifierModel
 import com.smssentry.deepcheck.data.*
-import com.smssentry.deepcheck.model.LlmInferenceEngine
 import com.smssentry.deepcheck.proxy.PrivacyProxyClient
 import com.smssentry.domain.service.SMSSentryAI
 import dagger.Binds
@@ -99,15 +98,6 @@ abstract class AppModule {
         @Singleton
         fun providePrivacyProxyClient(): PrivacyProxyClient {
             return PrivacyProxyClient(BuildConfig.PROXY_URL)
-        }
-
-        @Provides
-        fun provideLlmInferenceEngine(modelRepository: ModelRepository): LlmInferenceEngine? {
-            return if (modelRepository.isModelDownloaded()) {
-                modelRepository.getEngine()
-            } else {
-                null
-            }
         }
 
         @Provides

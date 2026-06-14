@@ -57,8 +57,16 @@ class DetailViewModel @Inject constructor(
     private fun loadMessage() {
         viewModelScope.launch {
             val found = smsRepository.getMessageById(smsId)
-            found?.let { msg ->
-                _message.value = msg
+            if (found != null) {
+                _message.value = found
+            } else {
+                _message.value = SmsMessage(
+                    id = smsId,
+                    sender = "Unknown",
+                    text = "Message not found",
+                    timestamp = 0L,
+                    classification = null
+                )
             }
         }
     }
