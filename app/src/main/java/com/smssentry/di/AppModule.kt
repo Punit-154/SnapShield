@@ -12,6 +12,7 @@ import com.smssentry.deepcheck.data.DeepCheckDatabase
 import com.smssentry.deepcheck.data.HistoryDao
 import com.smssentry.deepcheck.data.OfficialSitesRepository
 import com.smssentry.deepcheck.data.ReputationDb
+import com.smssentry.deepcheck.model.LlmInferenceEngine
 import com.smssentry.deepcheck.proxy.PrivacyProxyClient
 import com.smssentry.domain.service.SMSSentryAI
 import dagger.Binds
@@ -89,6 +90,11 @@ abstract class AppModule {
         @Singleton
         fun provideModelManager(@ApplicationContext context: Context): ModelManager {
             return ModelManager(context)
+        }
+
+        @Provides
+        fun provideLlmInferenceEngine(modelManager: ModelManager): LlmInferenceEngine? {
+            return modelManager.getLlmEngine()
         }
 
         @Provides

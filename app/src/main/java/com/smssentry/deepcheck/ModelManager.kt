@@ -26,7 +26,7 @@ class ModelManager(private val context: Context) {
     private val _downloadProgress = MutableStateFlow(0f)
     val downloadProgress: StateFlow<Float> = _downloadProgress.asStateFlow()
 
-    private var engine: LlmInferenceEngine? = null
+    private var cachedEngine: LlmInferenceEngine? = null
 
     fun isModelDownloaded(): Boolean {
         val modelFile = File(context.filesDir, "models/${ModelDownloadManager.MODEL_FILE_NAME}")
@@ -47,8 +47,8 @@ class ModelManager(private val context: Context) {
         _state.value = State.LOADING
         return try {
             withContext(Dispatchers.IO) {
-                engine = LiteRtLmEngine(modelFile.absolutePath)
-                engine?.load()
+                val engineInstance = getLlmEngine() ?: throw IllegalStateException("Failed to create engine")
+                engineInstance.load()
                 _state.value = State.READY
                 true
             }
@@ -59,17 +59,20 @@ class ModelManager(private val context: Context) {
     }
 
     fun getLlmEngine(): LlmInferenceEngine? {
+        if (cachedEngine != null) return cachedEngine
+
         val modelFile = File(context.filesDir, "models/${ModelDownloadManager.MODEL_FILE_NAME}")
         return if (modelFile.exists() && modelFile.length() >= ModelDownloadManager.MIN_FILE_SIZE_BYTES) {
-            LiteRtLmEngine(modelFile.absolutePath)
+            cachedEngine = LiteRtLmEngine(modelFile.absolutePath)
+            cachedEngine
         } else {
             null
         }
     }
 
     fun unload() {
-        engine?.close()
-        engine = null
+        cachedEngine?.close()
+        cachedEngine = null
         _state.value = State.NOT_DOWNLOADED
     }
 }

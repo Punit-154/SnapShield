@@ -158,7 +158,7 @@ class DeepCheckSession(
             }
             runRuleBasedAnalysis()
         } finally {
-            engine?.close()
+            // Engine lifecycle is managed by ModelManager; do not close it here
             _isActive = false
         }
     }
@@ -338,6 +338,9 @@ class DeepCheckSession(
     }
 
     companion object {
+        private const val SYSTEM_PROMPT = "You are a security expert. Analyze the SMS for scams. Use tools if needed. Output JSON: {verdict: SAFE|SCAM|SUSPICIOUS, confidence: 0-1, reasoning: string, evidence: [string]}"
+        private const val RETRY_JSON_PROMPT = "Please provide your final verdict in the requested JSON format."
+
         fun describeToolCall(toolName: String, context: Context): String = when (toolName) {
             "lookup_allowlist" -> context.getString(R.string.step_allowlist)
             "search_personal_db" -> context.getString(R.string.step_history)
