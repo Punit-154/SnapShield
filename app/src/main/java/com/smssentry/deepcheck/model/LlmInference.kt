@@ -32,7 +32,8 @@ open class LlmConversationSession(
         val conv = conversation ?: throw IllegalStateException("No active conversation")
         val msg = Message.of(userText)
         val response = conv.sendMessage(msg)
-        response.contents.contents.filterIsInstance<Content.Text>().joinToString("") { it.text }
+        val parts: List<Any> = response.contents.contents as List<Any>
+        parts.filterIsInstance<Content.Text>().joinToString("") { it.text }
     }
     open fun close() {
         conversation?.close()
@@ -108,12 +109,15 @@ data class ParsedEducationalVerdict(
 )
 
 object EducationalVerdictParser {
-    private val TAG_PATTERN = Regex("""<<<VERDICT:(\w+),([\d.]+),([^>]+)>>>""")
+    private val TAG_PATTERN = Regex("""<<<VERDICT\s*:\s*(\w+)\s*,\s*([\d.]+)\s*,\s*([^>]+?)\s*>>>""", RegexOption.IGNORE_CASE)
 
     fun parse(rawOutput: String): ParsedEducationalVerdict? {
         val match = TAG_PATTERN.find(rawOutput) ?: return null
         val (verdictStr, confidenceStr, scamType) = match.destructured
-        val explanation = rawOutput.substringAfter(match.value).trim()
+        var explanation = rawOutput.substringAfter(match.value).trim()
+        if (explanation.isBlank()) {
+            explanation = rawOutput.substringBefore(match.value).trim()
+        }
         if (explanation.isBlank()) return null
         return ParsedEducationalVerdict(
             verdictLabel = when (verdictStr.uppercase()) { "SCAM" -> "SCAM"; "SAFE" -> "SAFE"; else -> "SUSPICIOUS" },

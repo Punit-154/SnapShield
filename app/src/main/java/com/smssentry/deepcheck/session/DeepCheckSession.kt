@@ -18,6 +18,7 @@ import com.smssentry.deepcheck.model.EducationalVerdictParser
 import com.smssentry.deepcheck.prefilter.FastPathFilter
 import com.smssentry.deepcheck.proxy.PrivacyProxyClient
 import com.smssentry.deepcheck.tools.ToolExecutor
+import com.smssentry.deepcheck.tools.ToolResult
 import com.smssentry.deepcheck.util.HashUtil
 import com.smssentry.domain.service.DeepCheckSession as DeepCheckSessionInterface
 import kotlinx.coroutines.CoroutineScope
@@ -144,16 +145,15 @@ class DeepCheckSession(
 
                         val toolResult = withTimeoutOrNull(DeepCheckConfig.TOOL_EXECUTION_TIMEOUT_MS) {
                             toolExecutor.executeByName(toolCall.first, toolCall.second)
-                        } ?: "OBSERVATION: Tool timed out."
+                        } ?: ToolResult.Error("Tool timed out.")
 
-                        if (toolResult.startsWith("evidence:")) {
-                            val ev = toolResult.removePrefix("evidence:").trim()
-                            evidenceList.add(ev)
-                            emitEvidence(ev)
+                        if (toolResult is ToolResult.Evidence) {
+                            evidenceList.add(toolResult.message)
+                            emitEvidence(toolResult.message)
                         }
 
                         response = withTimeoutOrNull(DeepCheckConfig.LLM_TURN_TIMEOUT_MS) {
-                            session.sendTurn("OBSERVATION: ${toolResult.take(200)}")
+                            session.sendTurn("OBSERVATION: ${toolResult.message.take(200)}")
                         }
                         turn++
                     } else {
@@ -267,7 +267,7 @@ class DeepCheckSession(
         )
     }
 
-    private suspend fun runRuleBasedAnalysis() {
+    private suspend fun runRuleBasedAnalysis(llmContext: String? = null) {
         val toolExecutor = ToolExecutor(
             allowlistDao, historyDao, reputationDb, officialSites, proxyClient
         )
@@ -279,10 +279,9 @@ class DeepCheckSession(
         val repResult = withTimeoutOrNull(DeepCheckConfig.TOOL_EXECUTION_TIMEOUT_MS) {
             toolExecutor.executeByName("offline_reputation_check", """{"urls":[$urlsJson]}""")
         }
-        if (repResult != null && repResult.startsWith("evidence:")) {
-            val evidence = repResult.removePrefix("evidence:").trim()
-            evidenceList.add(evidence)
-            emitEvidence(evidence)
+        if (repResult is ToolResult.Evidence) {
+            evidenceList.add(repResult.message)
+            emitEvidence(repResult.message)
         }
 
         if (domains.isNotEmpty()) {
@@ -292,10 +291,9 @@ class DeepCheckSession(
                 val whoisResult = withTimeoutOrNull(DeepCheckConfig.TOOL_EXECUTION_TIMEOUT_MS) {
                     toolExecutor.executeByName("whois_lookup", """{"domain":"$domain"}""")
                 }
-                if (whoisResult != null && whoisResult.startsWith("evidence:")) {
-                    val evidence = whoisResult.removePrefix("evidence:").trim()
-                    evidenceList.add(evidence)
-                    emitEvidence(evidence)
+                if (whoisResult is ToolResult.Evidence) {
+                    evidenceList.add(whoisResult.message)
+                    emitEvidence(whoisResult.message)
                 }
             }
         }
@@ -304,10 +302,9 @@ class DeepCheckSession(
         val mismatchResult = withTimeoutOrNull(DeepCheckConfig.TOOL_EXECUTION_TIMEOUT_MS) {
             toolExecutor.executeByName("brand_mismatch_check", """{"sms_text":"$smsText","urls":[$urlsJson]}""")
         }
-        if (mismatchResult != null && mismatchResult.startsWith("evidence:")) {
-            val evidence = mismatchResult.removePrefix("evidence:").trim()
-            evidenceList.add(evidence)
-            emitEvidence(evidence)
+        if (mismatchResult is ToolResult.Evidence) {
+            evidenceList.add(mismatchResult.message)
+            emitEvidence(mismatchResult.message)
         }
 
         for (domain in domains.take(2)) {
@@ -318,10 +315,9 @@ class DeepCheckSession(
                 val compareResult = withTimeoutOrNull(DeepCheckConfig.TOOL_EXECUTION_TIMEOUT_MS) {
                     toolExecutor.executeByName("compare_official_site", """{"claimed_entity":"$claimedEntity","linked_domain":"$domain"}""")
                 }
-                if (compareResult != null && compareResult.startsWith("evidence:")) {
-                    val evidence = compareResult.removePrefix("evidence:").trim()
-                    evidenceList.add(evidence)
-                    emitEvidence(evidence)
+                if (compareResult is ToolResult.Evidence) {
+                    evidenceList.add(compareResult.message)
+                    emitEvidence(compareResult.message)
                 }
             }
         }
@@ -372,7 +368,6 @@ class DeepCheckSession(
             "fetch_page"                                 -> "Fetching page content..."
             "official_site", "compare_official_site"     -> context.getString(R.string.step_official_site)
             "brand_mismatch", "brand_mismatch_check"     -> context.getString(R.string.step_brand)
-            "whois_lookup"                               -> context.getString(R.string.step_whois)
             "lookup_allowlist"                           -> context.getString(R.string.step_allowlist)
             "search_personal_db"                         -> context.getString(R.string.step_history)
             else -> context.getString(R.string.step_running_tool, toolName)

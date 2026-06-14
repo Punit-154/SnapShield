@@ -119,7 +119,8 @@ class LiteRtLmEngine(private val modelPath: String) : LlmInferenceEngine {
         try {
             val userMessage = Message.of(prompt)
             val responseMessage = conversation.sendMessage(userMessage)
-            responseMessage.contents.contents.filterIsInstance<Content.Text>().joinToString("") { it.text }
+            val parts: List<Any> = responseMessage.contents.contents as List<Any>
+            parts.filterIsInstance<Content.Text>().joinToString("") { it.text }
         } finally {
             conversation.close()
         }

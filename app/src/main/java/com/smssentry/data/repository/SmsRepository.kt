@@ -40,10 +40,10 @@ class SmsRepository @Inject constructor(
         )
 
         cursor?.use {
-            val idIndex = it.getColumnIndex(Telephony.Sms._ID)
-            val addressIndex = it.getColumnIndex(Telephony.Sms.ADDRESS)
-            val bodyIndex = it.getColumnIndex(Telephony.Sms.BODY)
-            val dateIndex = it.getColumnIndex(Telephony.Sms.DATE)
+            val idIndex = it.getColumnIndexOrThrow(Telephony.Sms._ID)
+            val addressIndex = it.getColumnIndexOrThrow(Telephony.Sms.ADDRESS)
+            val bodyIndex = it.getColumnIndexOrThrow(Telephony.Sms.BODY)
+            val dateIndex = it.getColumnIndexOrThrow(Telephony.Sms.DATE)
 
             var count = 0
             while (it.moveToNext() && count < limit) {
@@ -80,9 +80,9 @@ class SmsRepository @Inject constructor(
             if (it.moveToFirst()) {
                 SmsMessage(
                     id = id,
-                    sender = it.getString(it.getColumnIndex(Telephony.Sms.ADDRESS)) ?: "Unknown",
-                    text = it.getString(it.getColumnIndex(Telephony.Sms.BODY)) ?: "",
-                    timestamp = it.getLong(it.getColumnIndex(Telephony.Sms.DATE))
+                    sender = it.getString(it.getColumnIndexOrThrow(Telephony.Sms.ADDRESS)) ?: "Unknown",
+                    text = it.getString(it.getColumnIndexOrThrow(Telephony.Sms.BODY)) ?: "",
+                    timestamp = it.getLong(it.getColumnIndexOrThrow(Telephony.Sms.DATE))
                 )
             } else null
         }

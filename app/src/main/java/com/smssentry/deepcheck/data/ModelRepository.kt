@@ -9,10 +9,12 @@ import com.smssentry.deepcheck.LiteRtLmEngine
 import com.smssentry.deepcheck.model.LlmInferenceEngine
 import com.smssentry.deepcheck.util.HashUtil
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -27,7 +29,8 @@ import javax.inject.Singleton
 @Singleton
 class ModelRepository @Inject constructor(
     @ApplicationContext private val context: Context,
-    private val client: OkHttpClient
+    private val client: OkHttpClient,
+    @com.smssentry.di.ApplicationScope private val applicationScope: CoroutineScope
 ) {
     private val TAG = "ModelRepository"
 
@@ -43,6 +46,14 @@ class ModelRepository @Inject constructor(
     val error: StateFlow<String?> = _error.asStateFlow()
 
     private var cachedEngine: LlmInferenceEngine? = null
+
+    init {
+        if (isModelDownloaded()) {
+            applicationScope.launch {
+                ensureReady()
+            }
+        }
+    }
 
     private val modelFile: File by lazy {
         val dir = File(context.filesDir, "models").also { it.mkdirs() }

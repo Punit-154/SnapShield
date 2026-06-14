@@ -1,6 +1,11 @@
 package com.smssentry.deepcheck.model
 
-import com.google.ai.edge.litertlm.*
+import com.google.ai.edge.litertlm.Engine
+import com.google.ai.edge.litertlm.EngineConfig
+import com.google.ai.edge.litertlm.ConversationConfig
+import com.google.ai.edge.litertlm.SamplerConfig
+import com.google.ai.edge.litertlm.Message
+import com.google.ai.edge.litertlm.Content
 import com.smssentry.deepcheck.DeepCheckConfig
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -45,7 +50,8 @@ class LiteRtLmEngine(private val modelPath: String) : LlmInferenceEngine {
         try {
             val userMessage = Message.of(prompt)
             val responseMessage = conversation.sendMessage(userMessage)
-            responseMessage.contents.contents.filterIsInstance<Content.Text>().joinToString("") { it.text }
+            val parts: List<Any> = responseMessage.contents.contents as List<Any>
+            parts.filterIsInstance<Content.Text>().joinToString("") { it.text }
         } finally {
             conversation.close()
         }

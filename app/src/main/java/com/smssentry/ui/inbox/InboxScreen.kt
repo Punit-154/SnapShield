@@ -37,7 +37,7 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.smssentry.R
 import com.smssentry.data.model.SmsMessage
-import com.smssentry.deepcheck.ModelManager
+import com.smssentry.deepcheck.data.ModelRepository
 import com.smssentry.ui.components.ShieldBadge
 import com.smssentry.ui.theme.*
 import com.smssentry.ui.theme.ThemeMode
@@ -313,18 +313,19 @@ private fun FilterChipRow(
 }
 
 @Composable
-private fun ModelStatusBadge(state: ModelManager.State) {
+private fun ModelStatusBadge(state: ModelRepository.State) {
     val textRes = when (state) {
-        ModelManager.State.NOT_DOWNLOADED -> R.string.model_not_downloaded
-        ModelManager.State.DOWNLOADING -> R.string.model_downloading
-        ModelManager.State.LOADING -> R.string.model_loading
-        ModelManager.State.READY -> R.string.model_ready
-        ModelManager.State.FAILED -> R.string.model_unavailable
+        ModelRepository.State.IDLE -> R.string.model_not_downloaded
+        ModelRepository.State.DOWNLOADING -> R.string.model_downloading
+        ModelRepository.State.LOADING -> R.string.model_loading
+        ModelRepository.State.READY -> R.string.model_ready
+        ModelRepository.State.VERIFYING -> R.string.verifying_download
+        ModelRepository.State.FAILED -> R.string.model_unavailable
     }
     
     val color = when (state) {
-        ModelManager.State.READY -> MaterialTheme.colorScheme.primaryContainer
-        ModelManager.State.NOT_DOWNLOADED, ModelManager.State.FAILED -> MaterialTheme.colorScheme.errorContainer
+        ModelRepository.State.READY -> MaterialTheme.colorScheme.primaryContainer
+        ModelRepository.State.IDLE, ModelRepository.State.FAILED -> MaterialTheme.colorScheme.errorContainer
         else -> MaterialTheme.colorScheme.secondaryContainer
     }
 
@@ -338,7 +339,7 @@ private fun ModelStatusBadge(state: ModelManager.State) {
                 .padding(horizontal = 16.dp, vertical = 8.dp),
             style = MaterialTheme.typography.labelSmall,
             color = when (state) {
-                ModelManager.State.READY -> MaterialTheme.colorScheme.onPrimaryContainer
+                ModelRepository.State.READY -> MaterialTheme.colorScheme.onPrimaryContainer
                 else -> MaterialTheme.colorScheme.onErrorContainer
             }
         )

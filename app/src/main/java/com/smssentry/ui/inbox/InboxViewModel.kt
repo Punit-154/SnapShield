@@ -12,7 +12,7 @@ import androidx.lifecycle.viewModelScope
 import com.smssentry.data.model.ClassificationResult
 import com.smssentry.data.model.SmsMessage
 import com.smssentry.data.repository.SmsRepository
-import com.smssentry.deepcheck.ModelManager
+import com.smssentry.deepcheck.data.ModelRepository
 import com.smssentry.sms.SmsContentObserver
 import com.smssentry.sms.SmsReceiver
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -35,7 +35,7 @@ enum class SmsFilter(val label: String) {
 
 @HiltViewModel
 class InboxViewModel @Inject constructor(
-    private val modelManager: ModelManager,
+    private val modelRepository: ModelRepository,
     private val smsRepository: SmsRepository,
     @ApplicationContext private val context: Context
 ) : ViewModel() {
@@ -71,7 +71,7 @@ class InboxViewModel @Inject constructor(
     private val _isLoading = MutableStateFlow(true)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
-    val modelState: StateFlow<ModelManager.State> = modelManager.state
+    val modelState: StateFlow<ModelRepository.State> = modelRepository.state
 
     private val _isDefaultSmsApp = MutableStateFlow(false)
     val isDefaultSmsAppState: StateFlow<Boolean> = _isDefaultSmsApp.asStateFlow()

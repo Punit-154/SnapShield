@@ -23,24 +23,27 @@ class ToolExecutor(
 ) {
     private val json = Json { ignoreUnknownKeys = true }
 
-    suspend fun execute(toolCall: LlmResponse.ToolCall): String {
+    suspend fun execute(toolCall: LlmResponse.ToolCall): ToolResult {
         return executeByName(toolCall.name, toolCall.arguments)
     }
 
-    suspend fun executeByName(toolName: String, arguments: String): String {
+    suspend fun executeByName(toolName: String, arguments: String): ToolResult {
         return try {
             when (toolName) {
                 "whois", "whois_lookup" -> executeWhoisLookup(arguments)
                 "search_scam_db", "offline_reputation_check" -> executeOfflineReputationCheck(arguments)
                 "official_site", "compare_official_site" -> executeCompareOfficialSite(arguments)
                 "brand_mismatch", "brand_mismatch_check" -> executeBrandMismatchCheck(arguments)
-                "fetch_page" -> FetchPageTool(proxyClient).fetch(arguments.trim())
+                "fetch_page" -> {
+                    val result = FetchPageTool(proxyClient).fetch(arguments.trim())
+                    if (result.startsWith("Error")) ToolResult.Error(result) else ToolResult.Success(result)
+                }
                 "lookup_allowlist" -> executeLookupAllowlist(arguments)
                 "search_personal_db" -> executeSearchPersonalDb(arguments)
-                else -> "Unknown tool: $toolName"
+                else -> ToolResult.Error("Unknown tool: $toolName")
             }
         } catch (e: Exception) {
-            "Tool execution error: ${e.message}"
+            ToolResult.Error("Tool execution error: ${e.message}")
         }
     }
 
@@ -77,7 +80,7 @@ class ToolExecutor(
         return trimmed
     }
 
-    private suspend fun executeLookupAllowlist(arguments: String): String {
+    private suspend fun executeLookupAllowlist(arguments: String): ToolResult {
         val trimmed = arguments.trim()
         val (sender, domain) = if (trimmed.startsWith("{") && trimmed.endsWith("}")) {
             val args = parseJsonObject(trimmed)
@@ -94,10 +97,14 @@ class ToolExecutor(
             found = true
         }
 
-        return if (found) "Allowlist match found. SAFE." else "Not in allowlist."
+        return if (found) {
+            ToolResult.Success("Allowlist match found. SAFE.")
+        } else {
+            ToolResult.Success("Not in allowlist.")
+        }
     }
 
-    private suspend fun executeSearchPersonalDb(arguments: String): String {
+    private suspend fun executeSearchPersonalDb(arguments: String): ToolResult {
         val trimmed = arguments.trim()
         val (sender, smsPrefix) = if (trimmed.startsWith("{") && trimmed.endsWith("}")) {
             val args = parseJsonObject(trimmed)
@@ -106,17 +113,17 @@ class ToolExecutor(
             val parts = trimmed.split('|', limit = 2)
             if (parts.size == 2) Pair(parts[0].trim(), parts[1].trim()) else Pair("", trimmed)
         }
-        if (sender.isBlank() || smsPrefix.isBlank()) return "Missing sender or sms_prefix parameter."
+        if (sender.isBlank() || smsPrefix.isBlank()) return ToolResult.Error("Missing sender or sms_prefix parameter.")
         val hash = HashUtil.hashSms(sender, smsPrefix)
         val entry = historyDao.get(hash)
         return if (entry != null) {
-            "evidence: Previously seen SMS with verdict '${entry.verdict}' (confidence: ${entry.confidence})."
+            ToolResult.Evidence("Previously seen SMS with verdict '${entry.verdict}' (confidence: ${entry.confidence}).")
         } else {
-            "No match found in personal database."
+            ToolResult.Success("No match found in personal database.")
         }
     }
 
-    private suspend fun executeOfflineReputationCheck(arguments: String): String {
+    private suspend fun executeOfflineReputationCheck(arguments: String): ToolResult {
         val trimmed = arguments.trim()
         val urls = if (trimmed.startsWith("{") && trimmed.endsWith("}")) {
             val args = parseJsonObject(trimmed)
@@ -124,7 +131,7 @@ class ToolExecutor(
         } else {
             listOf(trimmed)
         }
-        if (urls.isEmpty()) return "No URLs provided."
+        if (urls.isEmpty()) return ToolResult.Error("No URLs provided.")
 
         val domains = FastPathFilter.extractDomains(urls)
         val badDomains = domains.filter { domain ->
@@ -132,13 +139,13 @@ class ToolExecutor(
         }
 
         return if (badDomains.isNotEmpty()) {
-            "evidence: URLs found in scam database: ${badDomains.joinToString(", ")}"
+            ToolResult.Evidence("URLs found in scam database: ${badDomains.joinToString(", ")}")
         } else {
-            "No known bad URLs."
+            ToolResult.Success("No known bad URLs.")
         }
     }
 
-    private fun executeBrandMismatchCheck(arguments: String): String {
+    private fun executeBrandMismatchCheck(arguments: String): ToolResult {
         val trimmed = arguments.trim()
         val (smsText, urls) = if (trimmed.startsWith("{") && trimmed.endsWith("}")) {
             val args = parseJsonObject(trimmed)
@@ -149,18 +156,18 @@ class ToolExecutor(
 
         val mismatch = BrandMismatchHeuristic.check(smsText, urls, officialSites)
         return if (mismatch != null) {
-            "evidence: $mismatch"
+            ToolResult.Evidence(mismatch)
         } else {
-            "No brand mismatch detected."
+            ToolResult.Success("No brand mismatch detected.")
         }
     }
 
-    private suspend fun executeWhoisLookup(arguments: String): String {
+    private suspend fun executeWhoisLookup(arguments: String): ToolResult {
         val domain = getParam(arguments, "domain")
-        if (domain.isBlank()) return "Missing domain parameter."
+        if (domain.isBlank()) return ToolResult.Error("Missing domain parameter.")
 
         if (proxyClient == null || !proxyClient.isAvailable()) {
-            return "WHOIS unavailable (offline)."
+            return ToolResult.Success("WHOIS unavailable (offline).")
         }
 
         return try {
@@ -170,19 +177,19 @@ class ToolExecutor(
                     result.creationDate, java.time.LocalDate.now()
                 )
                 if (daysSince <= 30) {
-                    "evidence: Domain registered very recently (${result.creationDate}, $daysSince days ago)."
+                    ToolResult.Evidence("Domain registered very recently (${result.creationDate}, $daysSince days ago).")
                 } else {
-                    "Domain age: older than 30 days."
+                    ToolResult.Success("Domain age: older than 30 days.")
                 }
             } else {
-                "WHOIS data incomplete — creation date unknown."
+                ToolResult.Success("WHOIS data incomplete — creation date unknown.")
             }
         } catch (e: Exception) {
-            "WHOIS failed: ${e.message}"
+            ToolResult.Error("WHOIS failed: ${e.message}")
         }
     }
 
-    private fun executeCompareOfficialSite(arguments: String): String {
+    private fun executeCompareOfficialSite(arguments: String): ToolResult {
         val trimmed = arguments.trim()
         val (claimedEntity, linkedDomain) = if (trimmed.startsWith("{") && trimmed.endsWith("}")) {
             val args = parseJsonObject(trimmed)
@@ -191,15 +198,15 @@ class ToolExecutor(
             val parts = trimmed.split('|', limit = 2)
             if (parts.size == 2) Pair(parts[0].trim(), parts[1].trim()) else Pair(trimmed, "")
         }
-        if (claimedEntity.isBlank() || linkedDomain.isBlank()) return "Missing claimed_entity or linked_domain parameter."
+        if (claimedEntity.isBlank() || linkedDomain.isBlank()) return ToolResult.Error("Missing claimed_entity or linked_domain parameter.")
 
         val officialDomain = officialSites.lookupOfficialDomain(claimedEntity)
-            ?: return "Unknown entity: $claimedEntity — cannot verify."
+            ?: return ToolResult.Success("Unknown entity: $claimedEntity — cannot verify.")
 
         return if (DomainMatchUtil.domainMatchesOfficial(linkedDomain, officialDomain)) {
-            "Domain seems to match official site."
+            ToolResult.Success("Domain seems to match official site.")
         } else {
-            "evidence: Link domain $linkedDomain does not match official site $officialDomain for $claimedEntity."
+            ToolResult.Evidence("Link domain $linkedDomain does not match official site $officialDomain for $claimedEntity.")
         }
     }
 }

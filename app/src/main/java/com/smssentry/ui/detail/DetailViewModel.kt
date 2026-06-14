@@ -6,11 +6,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.smssentry.data.model.*
 import com.smssentry.data.repository.SmsRepository
-import com.smssentry.deepcheck.ModelManager
-import com.smssentry.deepcheck.data.AllowlistDao
-import com.smssentry.deepcheck.data.HistoryDao
-import com.smssentry.deepcheck.data.OfficialSitesRepository
-import com.smssentry.deepcheck.data.ReputationDb
+import com.smssentry.deepcheck.data.*
 import com.smssentry.deepcheck.proxy.PrivacyProxyClient
 import com.smssentry.deepcheck.session.DeepCheckSession
 import com.smssentry.di.ApplicationScope
@@ -33,7 +29,7 @@ class DetailViewModel @Inject constructor(
     private val reputationDb: ReputationDb,
     private val officialSites: OfficialSitesRepository,
     private val proxyClient: PrivacyProxyClient,
-    private val modelManager: ModelManager,
+    private val modelRepository: ModelRepository,
     private val smsRepository: SmsRepository,
     @ApplicationContext private val context: Context,
     @ApplicationScope private val applicationScope: CoroutineScope
@@ -50,7 +46,7 @@ class DetailViewModel @Inject constructor(
     private val _showDownloadPrompt = MutableStateFlow(false)
     val showDownloadPrompt: StateFlow<Boolean> = _showDownloadPrompt.asStateFlow()
 
-    val modelState: StateFlow<ModelManager.State> = modelManager.state
+    val modelState: StateFlow<ModelRepository.State> = modelRepository.state
 
     private var deepCheckSession: DeepCheckSessionInterface? = null
 
@@ -73,8 +69,8 @@ class DetailViewModel @Inject constructor(
         _investigationState.value = InvestigationUiState()
 
         viewModelScope.launch {
-            val engine = if (modelManager.state.value == ModelManager.State.READY) {
-                modelManager.getLlmEngine()
+            val engine = if (modelRepository.state.value == ModelRepository.State.READY) {
+                modelRepository.getEngine()
             } else {
                 null
             }
@@ -139,14 +135,14 @@ class DetailViewModel @Inject constructor(
     }
 
     fun checkModelAndPromptDownload() {
-        if (modelManager.state.value != ModelManager.State.READY &&
-            modelManager.state.value != ModelManager.State.LOADING
+        if (modelRepository.state.value != ModelRepository.State.READY &&
+            modelRepository.state.value != ModelRepository.State.LOADING
         ) {
             _showDownloadPrompt.value = true
         }
     }
 
     fun refreshModelState() {
-        // Model state is managed by ModelManager
+        // Model state is managed by ModelRepository
     }
 }

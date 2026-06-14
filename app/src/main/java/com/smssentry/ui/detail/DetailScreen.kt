@@ -8,7 +8,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.icons.filled.Search
 
 import androidx.compose.material3.*
@@ -21,7 +20,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.smssentry.R
-import com.smssentry.deepcheck.ModelManager
+import com.smssentry.deepcheck.data.ModelRepository
 import com.smssentry.deepcheck.ui.DeepCheckTimeline
 import com.smssentry.ui.components.*
 import java.text.SimpleDateFormat
@@ -43,7 +42,7 @@ fun DetailScreen(
 
     val isInvestigating = investigationState.progress > 0 && investigationState.verdict == null
     val canStartDeepCheck = !isInvestigating && investigationState.verdict == null
-    val isModelReady = modelState == ModelManager.State.READY
+    val isModelReady = modelState == ModelRepository.State.READY
 
     val pulseAnimation by rememberInfiniteTransition(label = "pulse").animateFloat(
         initialValue = 1f,

@@ -32,7 +32,7 @@ class ToolExecutorTest : TestDatabaseProvider() {
         val result = executor!!.execute(
             LlmResponse.ToolCall("lookup_allowlist", """{"sender":"BankOfAmerica"}""")
         )
-        assertTrue(result.contains("SAFE"))
+        assertTrue(result.message.contains("SAFE"))
     }
 
     @Test
@@ -40,7 +40,7 @@ class ToolExecutorTest : TestDatabaseProvider() {
         val result = executor!!.execute(
             LlmResponse.ToolCall("lookup_allowlist", """{"sender":"UnknownSender"}""")
         )
-        assertTrue(result.contains("Not in allowlist"))
+        assertTrue(result.message.contains("Not in allowlist"))
     }
 
     @Test
@@ -49,7 +49,7 @@ class ToolExecutorTest : TestDatabaseProvider() {
         val result = executor!!.execute(
             LlmResponse.ToolCall("lookup_allowlist", """{"domain":"hsbc.co.in"}""")
         )
-        assertTrue(result.contains("SAFE"))
+        assertTrue(result.message.contains("SAFE"))
     }
 
     @Test
@@ -57,7 +57,7 @@ class ToolExecutorTest : TestDatabaseProvider() {
         val result = executor!!.execute(
             LlmResponse.ToolCall("search_personal_db", """{"sender":"+1234","sms_prefix":"Hello worl"}""")
         )
-        assertTrue(result.contains("No match found"))
+        assertTrue(result.message.contains("No match found"))
     }
 
     @Test
@@ -67,8 +67,8 @@ class ToolExecutorTest : TestDatabaseProvider() {
         val result = executor!!.execute(
             LlmResponse.ToolCall("search_personal_db", """{"sender":"+1234","sms_prefix":"Hello worl"}""")
         )
-        assertTrue(result.startsWith("evidence:"))
-        assertTrue(result.contains("SCAM"))
+        assertTrue(result is ToolResult.Evidence)
+        assertTrue(result.message.contains("SCAM"))
     }
 
     @Test
@@ -76,7 +76,7 @@ class ToolExecutorTest : TestDatabaseProvider() {
         val result = executor!!.execute(
             LlmResponse.ToolCall("offline_reputation_check", """{"urls":[]}""")
         )
-        assertTrue(result.contains("No URLs provided"))
+        assertTrue(result.message.contains("No URLs provided"))
     }
 
     @Test
@@ -84,7 +84,7 @@ class ToolExecutorTest : TestDatabaseProvider() {
         val result = executor!!.execute(
             LlmResponse.ToolCall("offline_reputation_check", """{"urls":["https://google.com"]}""")
         )
-        assertTrue(result.contains("No known bad URLs"))
+        assertTrue(result.message.contains("No known bad URLs"))
     }
 
     @Test
@@ -92,7 +92,7 @@ class ToolExecutorTest : TestDatabaseProvider() {
         val result = executor!!.execute(
             LlmResponse.ToolCall("brand_mismatch_check", """{"sms_text":"Your HSBC account","urls":["https://hsbc.co.in/login"]}""")
         )
-        assertTrue(result.contains("No brand mismatch"))
+        assertTrue(result.message.contains("No brand mismatch"))
     }
 
     @Test
@@ -100,8 +100,8 @@ class ToolExecutorTest : TestDatabaseProvider() {
         val result = executor!!.execute(
             LlmResponse.ToolCall("brand_mismatch_check", """{"sms_text":"Your HSBC account","urls":["https://hsbc-secure.xyz/verify"]}""")
         )
-        assertTrue(result.startsWith("evidence:"))
-        assertTrue(result.contains("HSBC", ignoreCase = true))
+        assertTrue(result is ToolResult.Evidence)
+        assertTrue(result.message.contains("HSBC", ignoreCase = true))
     }
 
     @Test
@@ -109,7 +109,7 @@ class ToolExecutorTest : TestDatabaseProvider() {
         val result = executor!!.execute(
             LlmResponse.ToolCall("brand_mismatch_check", """{"sms_text":"Your HSBC account","urls":[]}""")
         )
-        assertTrue(result.contains("No brand mismatch"))
+        assertTrue(result.message.contains("No brand mismatch"))
     }
 
     @Test
@@ -117,7 +117,7 @@ class ToolExecutorTest : TestDatabaseProvider() {
         val result = executor!!.execute(
             LlmResponse.ToolCall("whois_lookup", """{"domain":"evil.xyz"}""")
         )
-        assertTrue(result.contains("unavailable"))
+        assertTrue(result.message.contains("unavailable"))
     }
 
     @Test
@@ -125,7 +125,7 @@ class ToolExecutorTest : TestDatabaseProvider() {
         val result = executor!!.execute(
             LlmResponse.ToolCall("compare_official_site", """{"claimed_entity":"hsbc","linked_domain":"hsbc.co.in"}""")
         )
-        assertTrue(result.contains("match"))
+        assertTrue(result.message.contains("match"))
     }
 
     @Test
@@ -133,8 +133,8 @@ class ToolExecutorTest : TestDatabaseProvider() {
         val result = executor!!.execute(
             LlmResponse.ToolCall("compare_official_site", """{"claimed_entity":"hsbc","linked_domain":"hsbc-secure.xyz"}""")
         )
-        assertTrue(result.startsWith("evidence:"))
-        assertTrue(result.contains("does not match"))
+        assertTrue(result is ToolResult.Evidence)
+        assertTrue(result.message.contains("does not match"))
     }
 
     @Test
@@ -142,7 +142,7 @@ class ToolExecutorTest : TestDatabaseProvider() {
         val result = executor!!.execute(
             LlmResponse.ToolCall("compare_official_site", """{"claimed_entity":"FakeBrand","linked_domain":"fake.com"}""")
         )
-        assertTrue(result.contains("Unknown entity"))
+        assertTrue(result.message.contains("Unknown entity"))
     }
 
     @Test
@@ -150,6 +150,6 @@ class ToolExecutorTest : TestDatabaseProvider() {
         val result = executor!!.execute(
             LlmResponse.ToolCall("nonexistent_tool", """{}""")
         )
-        assertTrue(result.contains("Unknown tool"))
+        assertTrue(result.message.contains("Unknown tool"))
     }
 }
