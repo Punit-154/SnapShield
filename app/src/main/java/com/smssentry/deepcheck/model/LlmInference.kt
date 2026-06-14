@@ -2,9 +2,11 @@ package com.smssentry.deepcheck.model
 
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import com.google.ai.edge.litertlm.Message
+import com.smssentry.deepcheck.util.Diagnostics
 
 sealed class LlmResponse {
     data class Text(val text: String) : LlmResponse()
@@ -24,7 +26,6 @@ data class Tool(
     val parameters: String
 )
 
-import kotlinx.coroutines.CompletableDeferred
 
 open class LlmConversationSession(
     private val conversation: com.google.ai.edge.litertlm.Conversation? = null
@@ -40,23 +41,32 @@ open class LlmConversationSession(
      */
     open suspend fun sendTurn(userText: String): String = withContext(Dispatchers.IO) {
         val conv = conversation ?: throw IllegalStateException("No active conversation")
+        Diagnostics.i(Diagnostics.ENGINE, "sendTurn: prompt=${userText.length} chars")
+        val startMs = System.currentTimeMillis()
         val result = CompletableDeferred<String>()
         val responseBuilder = StringBuilder()
+        var tokenCount = 0
 
         conv.sendMessageAsync(
             com.google.ai.edge.litertlm.Contents.of(userText),
             object : com.google.ai.edge.litertlm.MessageCallback {
                 override fun onMessage(message: Message) {
-                    // Each callback delivers the accumulated text so far
-                    responseBuilder.clear()
+                    tokenCount++
+                    // Each callback delivers the NEXT chunk of text (not accumulated).
+                    // Append to build the full response.
                     responseBuilder.append(LiteRtLmEngine.extractTextFromMessage(message))
                 }
 
                 override fun onDone() {
-                    result.complete(responseBuilder.toString())
+                    val elapsed = System.currentTimeMillis() - startMs
+                    val response = responseBuilder.toString()
+                    Diagnostics.i(Diagnostics.ENGINE, "sendTurn complete: ${response.length} chars, $tokenCount callbacks, ${elapsed}ms")
+                    result.complete(response)
                 }
 
                 override fun onError(throwable: Throwable) {
+                    val elapsed = System.currentTimeMillis() - startMs
+                    Diagnostics.e(Diagnostics.ENGINE, "sendTurn error after ${elapsed}ms: ${throwable.message}", throwable)
                     result.completeExceptionally(throwable)
                 }
             }
@@ -66,6 +76,7 @@ open class LlmConversationSession(
     }
 
     open fun close() {
+        Diagnostics.d(Diagnostics.ENGINE, "Conversation session closed")
         conversation?.close()
     }
 }

@@ -21,6 +21,7 @@ import com.smssentry.deepcheck.tools.ToolExecutor
 import com.smssentry.deepcheck.tools.ToolResult
 import com.smssentry.deepcheck.util.HashUtil
 import com.smssentry.deepcheck.util.TextSanitizer
+import com.smssentry.deepcheck.util.Diagnostics
 import com.smssentry.di.DispatcherProvider
 import com.smssentry.domain.service.DeepCheckSession as DeepCheckSessionInterface
 import kotlinx.coroutines.CoroutineScope
@@ -51,11 +52,13 @@ class DeepCheckSession(
     private val totalSteps = 8
 
     override fun cancel() {
+        Diagnostics.w(Diagnostics.SESSION, "Session CANCELLED")
         isCancelled = true
         _isActive = false
     }
 
     suspend fun run() {
+        Diagnostics.i(Diagnostics.SESSION, "═══ DeepCheck run() START ═══ sender=$smsSender, text=${smsText.length} chars, engine=${if (engine != null) "available" else "null"}")
         _isActive = true
         evidenceList.clear()
         isCancelled = false
@@ -64,6 +67,7 @@ class DeepCheckSession(
         try {
             val pre = FastPathFilter.filter(context, smsText, smsSender, allowlistDao, historyDao)
             if (pre.verdict != null) {
+                Diagnostics.i(Diagnostics.SESSION, "Fast-path: verdict=${pre.verdict}, reason=${pre.reason}")
                 emitVerdict(
                     DeepCheckVerdict(
                         isScam = pre.verdict == "SCAM",
@@ -81,41 +85,50 @@ class DeepCheckSession(
             emitStep(context.getString(R.string.step_analyzing))
 
             if (engine == null) {
+                Diagnostics.w(Diagnostics.SESSION, "Engine is null — falling back to rule-based")
                 emitStep(context.getString(R.string.step_rule_based))
                 runRuleBasedAnalysis()
                 return
             }
 
+            Diagnostics.i(Diagnostics.SESSION, "Engine available — loading model...")
             emitStep(context.getString(R.string.step_loading_model))
             try {
                 withTimeoutOrNull(DeepCheckConfig.MODEL_LOAD_TIMEOUT_MS) {
                     engine.load()
                 } ?: run {
+                    Diagnostics.e(Diagnostics.SESSION, "Model load TIMEOUT after ${DeepCheckConfig.MODEL_LOAD_TIMEOUT_MS}ms")
                     emitStep(context.getString(R.string.step_timeout))
                     runRuleBasedAnalysis()
                     return
                 }
+                Diagnostics.i(Diagnostics.SESSION, "Model loaded successfully")
             } catch (e: Exception) {
+                Diagnostics.e(Diagnostics.SESSION, "Model load EXCEPTION: ${e.message}", e)
                 emitStep(context.getString(R.string.model_unavailable) + ": ${e.message}")
                 runRuleBasedAnalysis()
                 return
             }
 
             val session = withContext(dispatchers.io) {
+                Diagnostics.i(Diagnostics.SESSION, "Creating conversation session...")
                 engine.createSession(SYSTEM_PROMPT)
             }
+            Diagnostics.i(Diagnostics.SESSION, "Session created — starting LLM loop")
             try {
                 val toolExecutor = ToolExecutor(allowlistDao, historyDao, reputationDb, officialSites, proxyClient)
                 val seenToolCalls = mutableSetOf<String>()
                 var turn = 0
                 var consecutiveUnparseable = 0
                 
+                Diagnostics.i(Diagnostics.SESSION, "Sending initial prompt (${smsText.length} chars)")
                 var response = withTimeoutOrNull(DeepCheckConfig.LLM_TURN_TIMEOUT_MS) {
                     session.sendTurn("Analyze this SMS from $smsSender:\n\"$smsText\"")
                 }
 
                 while (turn < DeepCheckConfig.MAX_AGENT_TURNS && !isCancelled) {
                     if (response == null) {
+                        Diagnostics.w(Diagnostics.SESSION, "Turn $turn: response is null (timeout)")
                         emitStep(context.getString(R.string.step_timeout))
                         runRuleBasedAnalysis()
                         return
@@ -124,6 +137,7 @@ class DeepCheckSession(
                     // 1. Educational verdict tag check
                     val eduVerdict = EducationalVerdictParser.parse(response)
                     if (eduVerdict != null) {
+                        Diagnostics.i(Diagnostics.PARSE, "Turn $turn: Educational verdict — ${eduVerdict.verdictLabel}, confidence=${eduVerdict.confidence}")
                         emitVerdict(mapEducationalVerdict(eduVerdict))
                         return
                     }
@@ -132,6 +146,7 @@ class DeepCheckSession(
                     val json = VerdictParser.extractJson(response)
                     val verdict = json?.let { VerdictParser.parseVerdict(it) }
                     if (verdict != null) {
+                        Diagnostics.i(Diagnostics.PARSE, "Turn $turn: Legacy JSON verdict — ${verdict.verdict}")
                         emitVerdict(mapLegacyVerdict(verdict))
                         return
                     }
@@ -139,6 +154,7 @@ class DeepCheckSession(
                     // 3. Tool call check
                     val toolCall = parseToolCall(response)
                     if (toolCall != null) {
+                        Diagnostics.i(Diagnostics.TOOL, "Turn $turn: tool=${toolCall.first}, arg=${toolCall.second.take(80)}")
                         consecutiveUnparseable = 0
                         val callKey = "${toolCall.first}:${toolCall.second}"
                         if (!seenToolCalls.add(callKey)) {
@@ -169,6 +185,7 @@ class DeepCheckSession(
                     } else {
                         // No verdict, no JSON, no tool call
                         if (response.length > 50) {
+                            Diagnostics.i(Diagnostics.PARSE, "Turn $turn: raw text verdict (${response.length} chars), preview: ${response.take(100)}")
                             val label = if (evidenceList.size >= 2) "SCAM"
                                         else if (evidenceList.isNotEmpty()) "SUSPICIOUS"
                                         else "SAFE"

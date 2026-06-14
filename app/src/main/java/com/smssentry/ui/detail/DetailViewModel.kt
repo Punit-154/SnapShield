@@ -11,6 +11,7 @@ import com.smssentry.deepcheck.proxy.PrivacyProxyClient
 import com.smssentry.deepcheck.session.DeepCheckSession
 import com.smssentry.di.ApplicationScope
 import com.smssentry.di.DispatcherProvider
+import com.smssentry.deepcheck.util.Diagnostics
 import com.smssentry.domain.service.DeepCheckListener
 import com.smssentry.domain.service.DeepCheckSession as DeepCheckSessionInterface
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -72,8 +73,10 @@ class DetailViewModel @Inject constructor(
 
         viewModelScope.launch {
             val engine = if (modelRepository.state.value == ModelRepository.State.READY) {
+                Diagnostics.i(Diagnostics.UI, "startDeepCheck: model READY, getting engine")
                 modelRepository.getEngine()
             } else {
+                Diagnostics.w(Diagnostics.UI, "startDeepCheck: model state=${modelRepository.state.value}, engine=null")
                 null
             }
 
@@ -128,6 +131,7 @@ class DetailViewModel @Inject constructor(
     }
 
     fun cancelDeepCheck() {
+        Diagnostics.w(Diagnostics.UI, "cancelDeepCheck: user cancelled investigation")
         deepCheckSession?.cancel()
         deepCheckSession = null
         _investigationState.value = InvestigationUiState()

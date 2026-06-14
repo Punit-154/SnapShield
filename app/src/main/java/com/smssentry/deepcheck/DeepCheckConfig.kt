@@ -8,7 +8,7 @@ object DeepCheckConfig {
     
     const val PROXY_HEALTH_CHECK_INTERVAL_MS = 300_000L // 5 minutes
     const val MODEL_LOAD_TIMEOUT_MS = 120_000L  // 120s: GPU ~30s, CPU fallback ~90s
-    const val LLM_TURN_TIMEOUT_MS = 60_000L     // 60s: 4B model is slow on mid-range devices
+    const val LLM_TURN_TIMEOUT_MS = 180_000L    // 180s: A14 takes ~140s/turn at 3.3 tok/s
     const val TOOL_EXECUTION_TIMEOUT_MS = 10_000L
     
     const val MAX_AGENT_TURNS = 6

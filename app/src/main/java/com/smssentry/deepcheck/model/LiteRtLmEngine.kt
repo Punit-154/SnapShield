@@ -11,6 +11,7 @@ import com.google.ai.edge.litertlm.EngineConfig
 import com.google.ai.edge.litertlm.Message
 import com.google.ai.edge.litertlm.SamplerConfig
 import com.smssentry.deepcheck.DeepCheckConfig
+import com.smssentry.deepcheck.util.Diagnostics
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
@@ -42,36 +43,49 @@ class LiteRtLmEngine(
     private val initMutex = Mutex()
 
     override suspend fun load() {
+        Diagnostics.i(Diagnostics.ENGINE, "load() called, modelPath=$modelPath")
         // Mutex ensures only one initialization runs at a time.
         // If init{} in ModelRepository started a load and the session
         // calls load() again, the second caller waits for the first
         // to finish, then sees engine != null and returns immediately.
         initMutex.withLock {
-            if (engine != null) return  // Already initialized
+            if (engine != null) {
+                Diagnostics.d(Diagnostics.ENGINE, "load() skipped — engine already initialized")
+                return  // Already initialized
+            }
 
             val modelFile = File(modelPath)
             if (!modelFile.exists() || modelFile.length() < DeepCheckConfig.MIN_FILE_SIZE_BYTES) {
+                Diagnostics.e(Diagnostics.ENGINE, "Model file invalid: exists=${modelFile.exists()}, size=${if (modelFile.exists()) modelFile.length() else 0}")
                 throw IllegalStateException("Model file incomplete or missing")
             }
+            Diagnostics.d(Diagnostics.ENGINE, "Model file validated: size=${modelFile.length()} bytes")
 
             // Try GPU first (matches Gallery behavior), fall back to CPU.
             // GPU initialization is dramatically faster on supported devices.
-            engine = try {
-                Log.i(TAG, "Attempting GPU backend initialization...")
-                initializeWithBackend(Backend.GPU())
-            } catch (e: Exception) {
-                Log.w(TAG, "GPU backend failed (${e.message}), falling back to CPU")
+            engine = Diagnostics.timedSuspend(Diagnostics.ENGINE, "load(GPU+fallback)") {
                 try {
-                    initializeWithBackend(Backend.CPU())
-                } catch (cpuError: Exception) {
-                    Log.e(TAG, "CPU backend also failed", cpuError)
-                    throw IllegalStateException(
-                        "Failed to initialize model on both GPU and CPU: ${cpuError.message}",
-                        cpuError
-                    )
+                    Log.i(TAG, "Attempting GPU backend initialization...")
+                    Diagnostics.i(Diagnostics.ENGINE, "Attempting GPU backend initialization")
+                    initializeWithBackend(Backend.GPU())
+                } catch (e: Exception) {
+                    Log.w(TAG, "GPU backend failed (${e.message}), falling back to CPU")
+                    Diagnostics.w(Diagnostics.ENGINE, "GPU backend failed: ${e.message}, falling back to CPU")
+                    try {
+                        Diagnostics.i(Diagnostics.ENGINE, "Attempting CPU backend initialization")
+                        initializeWithBackend(Backend.CPU())
+                    } catch (cpuError: Exception) {
+                        Log.e(TAG, "CPU backend also failed", cpuError)
+                        Diagnostics.e(Diagnostics.ENGINE, "CPU backend also failed: ${cpuError.message}", cpuError)
+                        throw IllegalStateException(
+                            "Failed to initialize model on both GPU and CPU: ${cpuError.message}",
+                            cpuError
+                        )
+                    }
                 }
             }
             Log.i(TAG, "Engine initialized successfully")
+            Diagnostics.i(Diagnostics.ENGINE, "Engine initialized successfully")
         }
     }
 
@@ -84,6 +98,8 @@ class LiteRtLmEngine(
      * await() suspension point even if the JNI call hasn't returned yet.
      */
     private suspend fun initializeWithBackend(backend: Backend): Engine {
+        val backendName = if (backend is Backend.GPU) "GPU" else "CPU"
+        Diagnostics.d(Diagnostics.ENGINE, "initializeWithBackend: backend=$backendName, cacheDir=${cacheDir ?: "(none)"}")
         val config = EngineConfig(
             modelPath = modelPath,
             backend = backend,
@@ -96,14 +112,18 @@ class LiteRtLmEngine(
         val deferred = CompletableDeferred<Unit>()
         val initThread = Thread({
             try {
+                Diagnostics.d(Diagnostics.ENGINE, "JNI init thread started for $backendName")
                 eng.initialize()
+                Diagnostics.d(Diagnostics.ENGINE, "JNI init completed for $backendName")
                 deferred.complete(Unit)
             } catch (e: Exception) {
+                Diagnostics.e(Diagnostics.ENGINE, "JNI init failed for $backendName: ${e.message}")
                 deferred.completeExceptionally(e)
             }
         }, "LiteRtLmEngine-init")
 
         initThread.start()
+        Diagnostics.d(Diagnostics.ENGINE, "Init thread started, awaiting deferred with 120s timeout")
 
         try {
             // 120-second timeout for engine initialization.
@@ -111,7 +131,9 @@ class LiteRtLmEngine(
             withTimeout(120_000L) {
                 deferred.await()
             }
+            Diagnostics.i(Diagnostics.ENGINE, "initializeWithBackend($backendName) succeeded")
         } catch (e: Exception) {
+            Diagnostics.e(Diagnostics.ENGINE, "initializeWithBackend($backendName) failed/timed-out: ${e.message}")
             // If timeout or cancellation, try to close the engine
             try { eng.close() } catch (_: Exception) {}
             throw e
@@ -121,6 +143,7 @@ class LiteRtLmEngine(
     }
 
     override fun createSession(systemPrompt: String): LlmConversationSession {
+        Diagnostics.i(Diagnostics.ENGINE, "createSession: systemPrompt length=${systemPrompt.length}")
         val eng = engine ?: throw IllegalStateException("Model not loaded — call load() first")
         val samplerConfig = SamplerConfig(topK = 40, temperature = 0.7, topP = 0.9)
         // System prompt passed via ConversationConfig.systemInstruction
@@ -129,11 +152,15 @@ class LiteRtLmEngine(
             samplerConfig = samplerConfig,
             systemInstruction = Contents.of(systemPrompt)
         )
-        val conv = eng.createConversation(convConfig)
+        val conv = Diagnostics.timed(Diagnostics.ENGINE, "createConversation") {
+            eng.createConversation(convConfig)
+        }
+        Diagnostics.i(Diagnostics.ENGINE, "Session created successfully")
         return LlmConversationSession(conv)
     }
 
     override suspend fun generate(prompt: String): String = withContext(Dispatchers.IO) {
+        Diagnostics.i(Diagnostics.ENGINE, "generate() called: prompt length=${prompt.length}")
         val currentEngine = engine ?: throw IllegalStateException("Model not loaded")
         val samplerConfig = SamplerConfig(topK = 40, temperature = 0.7, topP = 0.9)
         val conversationConfig = ConversationConfig(samplerConfig = samplerConfig)
@@ -141,16 +168,22 @@ class LiteRtLmEngine(
 
         try {
             val userMessage = Message.user(prompt)
-            val responseMessage = conversation.sendMessage(userMessage)
-            extractTextFromMessage(responseMessage)
+            val responseMessage = Diagnostics.timedSuspend(Diagnostics.ENGINE, "generate/sendMessage") {
+                conversation.sendMessage(userMessage)
+            }
+            val text = extractTextFromMessage(responseMessage)
+            Diagnostics.i(Diagnostics.ENGINE, "generate() completed: response length=${text.length}")
+            text
         } finally {
             conversation.close()
         }
     }
 
     override fun close() {
+        Diagnostics.i(Diagnostics.ENGINE, "close() called, engine=${if (engine != null) "active" else "null"}")
         engine?.close()
         engine = null
+        Diagnostics.d(Diagnostics.ENGINE, "Engine disposed")
     }
 
     companion object {
@@ -160,9 +193,12 @@ class LiteRtLmEngine(
         fun extractTextFromMessage(message: Message): String {
             return try {
                 val contents = message.contents.contents
-                contents.filterIsInstance<Content.Text>()
+                val text = contents.filterIsInstance<Content.Text>()
                     .joinToString("") { it.text }
+                Diagnostics.d(Diagnostics.ENGINE, "extractTextFromMessage: content length=${text.length}")
+                text
             } catch (e: Exception) {
+                Diagnostics.w(Diagnostics.ENGINE, "extractTextFromMessage: fallback to toString(), error=${e.message}")
                 message.toString()
             }
         }
