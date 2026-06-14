@@ -19,6 +19,7 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
@@ -227,6 +228,7 @@ fun ConversationListScreen(
 
                     else -> {
                         var conversationToDelete by remember { mutableStateOf<Conversation?>(null) }
+                        val pinnedIds by viewModel.pinnedThreadIds.collectAsState()
 
                         LazyColumn(
                             contentPadding = PaddingValues(horizontal = 0.dp, vertical = 4.dp),
@@ -237,13 +239,19 @@ fun ConversationListScreen(
                                 conversations,
                                 key = { _, convo -> convo.threadId }
                             ) { index, conversation ->
+                                val isPinned = conversation.threadId in pinnedIds
                                 val dismissState = rememberSwipeToDismissBoxState(
                                     confirmValueChange = { dismissValue ->
-                                        if (dismissValue == SwipeToDismissBoxValue.EndToStart) {
-                                            conversationToDelete = conversation
-                                            false // Don't actually dismiss, show dialog instead
-                                        } else {
-                                            false
+                                        when (dismissValue) {
+                                            SwipeToDismissBoxValue.EndToStart -> {
+                                                conversationToDelete = conversation
+                                                false
+                                            }
+                                            SwipeToDismissBoxValue.StartToEnd -> {
+                                                viewModel.togglePin(conversation.threadId)
+                                                false
+                                            }
+                                            else -> false
                                         }
                                     }
                                 )
@@ -265,25 +273,51 @@ fun ConversationListScreen(
                                     SwipeToDismissBox(
                                         state = dismissState,
                                         backgroundContent = {
+                                            val direction = dismissState.dismissDirection
+                                            val bgColor = when (direction) {
+                                                SwipeToDismissBoxValue.StartToEnd ->
+                                                    MaterialTheme.colorScheme.primaryContainer
+                                                SwipeToDismissBoxValue.EndToStart ->
+                                                    MaterialTheme.colorScheme.errorContainer
+                                                else -> Color.Transparent
+                                            }
+                                            val alignment = when (direction) {
+                                                SwipeToDismissBoxValue.StartToEnd -> Alignment.CenterStart
+                                                else -> Alignment.CenterEnd
+                                            }
                                             Box(
                                                 modifier = Modifier
                                                     .fillMaxSize()
-                                                    .background(MaterialTheme.colorScheme.errorContainer)
+                                                    .background(bgColor)
                                                     .padding(horizontal = 20.dp),
-                                                contentAlignment = Alignment.CenterEnd
+                                                contentAlignment = alignment
                                             ) {
-                                                Icon(
-                                                    Icons.Default.Delete,
-                                                    contentDescription = "Delete",
-                                                    tint = MaterialTheme.colorScheme.onErrorContainer
-                                                )
+                                                when (direction) {
+                                                    SwipeToDismissBoxValue.StartToEnd -> {
+                                                        Icon(
+                                                            if (isPinned) Icons.Default.Close
+                                                            else Icons.Default.PushPin,
+                                                            contentDescription = if (isPinned) "Unpin" else "Pin",
+                                                            tint = MaterialTheme.colorScheme.onPrimaryContainer
+                                                        )
+                                                    }
+                                                    SwipeToDismissBoxValue.EndToStart -> {
+                                                        Icon(
+                                                            Icons.Default.Delete,
+                                                            contentDescription = "Delete",
+                                                            tint = MaterialTheme.colorScheme.onErrorContainer
+                                                        )
+                                                    }
+                                                    else -> {}
+                                                }
                                             }
                                         },
-                                        enableDismissFromStartToEnd = false,
+                                        enableDismissFromStartToEnd = true,
                                         enableDismissFromEndToStart = true
                                     ) {
                                         ConversationItem(
                                             conversation = conversation,
+                                            isPinned = isPinned,
                                             onClick = {
                                                 onConversationClick(conversation.threadId, conversation.address)
                                             }
@@ -339,6 +373,7 @@ fun ConversationListScreen(
 @Composable
 private fun ConversationItem(
     conversation: Conversation,
+    isPinned: Boolean = false,
     onClick: () -> Unit
 ) {
     val interactionSource = remember { MutableInteractionSource() }
@@ -459,21 +494,36 @@ private fun ConversationItem(
                 modifier = Modifier.weight(1f),
                 verticalArrangement = Arrangement.spacedBy(3.dp)
             ) {
-                // Top row: name + timestamp
+                // Top row: name + pin indicator + timestamp
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(
-                        text = conversation.displayName,
-                        fontWeight = if (isUnread) FontWeight.Bold else FontWeight.Medium,
-                        style = MaterialTheme.typography.bodyLarge,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f),
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text(
+                            text = conversation.displayName,
+                            fontWeight = if (isUnread) FontWeight.Bold else FontWeight.Medium,
+                            style = MaterialTheme.typography.bodyLarge,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f, fill = false),
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        if (isPinned) {
+                            Icon(
+                                Icons.Default.PushPin,
+                                contentDescription = "Pinned",
+                                modifier = Modifier
+                                    .padding(start = 4.dp)
+                                    .size(14.dp),
+                                tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)
+                            )
+                        }
+                    }
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
                         text = timeString,

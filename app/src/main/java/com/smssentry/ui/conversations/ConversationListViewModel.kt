@@ -55,13 +55,18 @@ class ConversationListViewModel @Inject constructor(
     private val _selectedFilter = MutableStateFlow(ConversationFilter.ALL)
     val selectedFilter: StateFlow<ConversationFilter> = _selectedFilter.asStateFlow()
 
+    // Pinned conversations persisted in SharedPreferences
+    private val pinPrefs = context.getSharedPreferences("pinned_conversations", Context.MODE_PRIVATE)
+    private val _pinnedThreadIds = MutableStateFlow<Set<Long>>(loadPinnedIds())
+    val pinnedThreadIds: StateFlow<Set<Long>> = _pinnedThreadIds.asStateFlow()
+
     // Deleted conversation for undo support
     private var lastDeletedConversation: Conversation? = null
     private var pendingDeleteJob: kotlinx.coroutines.Job? = null
 
     val conversations: StateFlow<List<Conversation>> = combine(
-        _allConversations, _searchQuery, _selectedFilter
-    ) { allConversations, query, filter ->
+        _allConversations, _searchQuery, _selectedFilter, _pinnedThreadIds
+    ) { allConversations, query, filter, pinned ->
         allConversations.filter { conversation ->
             val matchesSearch = query.isBlank() ||
                 conversation.displayName.contains(query, ignoreCase = true) ||
@@ -73,7 +78,10 @@ class ConversationListViewModel @Inject constructor(
                 ConversationFilter.FLAGGED -> conversation.isFlagged
             }
             matchesSearch && matchesFilter
-        }.sortedByDescending { it.lastTimestamp }
+        }.sortedWith(
+            compareByDescending<Conversation> { it.threadId in pinned }
+                .thenByDescending { it.lastTimestamp }
+        )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     private var smsObserver: ContentObserver? = null
@@ -89,6 +97,31 @@ class ConversationListViewModel @Inject constructor(
 
     fun onFilterSelected(filter: ConversationFilter) {
         _selectedFilter.value = filter
+    }
+
+    fun togglePin(threadId: Long) {
+        val current = _pinnedThreadIds.value.toMutableSet()
+        if (threadId in current) {
+            current.remove(threadId)
+        } else {
+            current.add(threadId)
+        }
+        _pinnedThreadIds.value = current
+        savePinnedIds(current)
+    }
+
+    fun isPinned(threadId: Long): Boolean = threadId in _pinnedThreadIds.value
+
+    private fun loadPinnedIds(): Set<Long> {
+        return pinPrefs.getStringSet("pinned_ids", emptySet())
+            ?.mapNotNull { it.toLongOrNull() }
+            ?.toSet() ?: emptySet()
+    }
+
+    private fun savePinnedIds(ids: Set<Long>) {
+        pinPrefs.edit()
+            .putStringSet("pinned_ids", ids.map { it.toString() }.toSet())
+            .apply()
     }
 
     fun deleteConversation(threadId: Long) {
