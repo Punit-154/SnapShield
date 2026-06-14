@@ -20,7 +20,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.smssentry.R
-import com.smssentry.deepcheck.data.ModelRepository
+import com.smssentry.deepcheck.ModelManager
 import com.smssentry.deepcheck.ui.DeepCheckTimeline
 import com.smssentry.ui.components.*
 import java.text.SimpleDateFormat
@@ -42,7 +42,7 @@ fun DetailScreen(
 
     val isInvestigating = investigationState.progress > 0 && investigationState.verdict == null
     val canStartDeepCheck = !isInvestigating && investigationState.verdict == null
-    val isModelReady = modelState == ModelRepository.State.READY
+    val isModelReady = modelState == ModelManager.State.READY
 
     val pulseAnimation by rememberInfiniteTransition(label = "pulse").animateFloat(
         initialValue = 1f,

@@ -1,12 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">SMSentry</string>
+    <string name="app_name">SMS Sentry</string>
 
     <!-- Main Activity -->
     <string name="perm_sms_title">SMS Permission Required</string>
-    <string name="perm_sms_desc">SMSentry needs SMS permissions to read and protect your messages. On Android 15+, you may need to enable \'Allow restricted settings\' in the app info screen.\n\nGo to Settings → Apps → SMSentry → ⋮ → Allow restricted settings</string>
+    <string name="perm_sms_desc">SMS Sentry needs SMS permissions to read and protect your messages. On Android 15+, you may need to enable \'Allow restricted settings\' in the app info screen.\n\nGo to Settings → Apps → SMS Sentry → ⋮ → Allow restricted settings</string>
     <string name="open_settings">Open Settings</string>
     <string name="cancel">Cancel</string>
+
+    <!-- Default SMS App Dialog -->
+    <string name="default_sms_title">Default SMS App Required</string>
+    <string name="default_sms_desc">This app needs to be set as the default SMS app to read and analyze your messages. This is required by Android to access SMS content.</string>
+    <string name="set_default_sms">Set as Default SMS App</string>
+    <string name="sms_access_required">SMS Access Required</string>
+    <string name="sms_access_desc">This app needs to be set as the default SMS app to read and analyze your messages.</string>
 
     <!-- Inbox Screen -->
     <string name="theme">Theme</string>
@@ -17,7 +24,7 @@
     <string name="msg_deleted">Message deleted</string>
     <string name="undo">Undo</string>
     <string name="no_messages">No messages match your filter</string>
-    <string name="set_default_to_view">Set SMSentry as default SMS app to view messages</string>
+    <string name="set_default_to_view">Set SMS Sentry as default SMS app to view messages</string>
 
     <!-- Model Status -->
     <string name="model_not_downloaded">Model not downloaded</string>

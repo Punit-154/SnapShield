@@ -17,16 +17,24 @@ class SmsRepository @Inject constructor(
     private val context: Context
 ) {
 
-    fun getInboxMessages(limit: Int = 50): List<SmsMessage> {
+    fun isInboxAccessible(): Boolean {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             val roleManager = context.getSystemService(android.app.role.RoleManager::class.java)
             if (!roleManager.isRoleHeld(android.app.role.RoleManager.ROLE_SMS)) {
-                return emptyList()
+                return false
             }
         }
 
         if (ContextCompat.checkSelfPermission(context, Manifest.permission.READ_SMS)
             != PackageManager.PERMISSION_GRANTED) {
+            return false
+        }
+
+        return true
+    }
+
+    fun getInboxMessages(limit: Int = 50): List<SmsMessage> {
+        if (!isInboxAccessible()) {
             return emptyList()
         }
 

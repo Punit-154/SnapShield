@@ -1,9 +1,9 @@
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
-    id("org.jetbrains.kotlin.plugin.serialization")
     id("com.google.dagger.hilt.android")
-    kotlin("kapt")
+    id("com.google.devtools.ksp")
+    id("org.jetbrains.kotlin.plugin.serialization")
     id("org.jetbrains.kotlin.plugin.compose")
 }
 
@@ -50,6 +50,10 @@ android {
     testOptions {
         unitTests.isIncludeAndroidResources = true
     }
+
+    hilt {
+        enableAggregatingTask = true
+    }
 }
 
 dependencies {
@@ -67,23 +71,19 @@ dependencies {
     implementation("androidx.navigation:navigation-compose:2.8.8")
 
     implementation("com.google.dagger:hilt-android:2.59.2")
-    kapt("com.google.dagger:hilt-android-compiler:2.59.2")
+    ksp("com.google.dagger:hilt-android-compiler:2.59.2")
     implementation("androidx.hilt:hilt-navigation-compose:1.3.0")
 
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.11.0")
 
     implementation("androidx.room:room-runtime:2.8.4")
     implementation("androidx.room:room-ktx:2.8.4")
-    kapt("androidx.room:room-compiler:2.8.4")
+    ksp("androidx.room:room-compiler:2.8.4")
 
     implementation("com.squareup.okhttp3:okhttp:5.0.0-alpha.14")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.8.0")
     implementation("androidx.datastore:datastore-preferences:1.1.3")
 
-    implementation("org.tensorflow:tensorflow-lite:2.17.0")
-    implementation("org.tensorflow:tensorflow-lite-support:0.5.0")
-
-    // LiteRT-LM official library
     implementation("com.google.ai.edge.litertlm:litertlm-android:0.13.1")
 
     debugImplementation("androidx.compose.ui:ui-tooling")
@@ -97,6 +97,4 @@ dependencies {
     testImplementation("io.mockk:mockk:1.14.11")
 }
 
-kapt {
-    correctErrorTypes = true
-}
+// Removed kapt block

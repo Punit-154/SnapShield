@@ -1,12 +1,15 @@
 package com.smssentry.ui.detail
 
-import android.content.Context
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.smssentry.data.model.*
 import com.smssentry.data.repository.SmsRepository
-import com.smssentry.deepcheck.data.*
+import com.smssentry.deepcheck.ModelManager
+import com.smssentry.deepcheck.data.AllowlistDao
+import com.smssentry.deepcheck.data.HistoryDao
+import com.smssentry.deepcheck.data.OfficialSitesRepository
+import com.smssentry.deepcheck.data.ReputationDb
 import com.smssentry.deepcheck.proxy.PrivacyProxyClient
 import com.smssentry.deepcheck.session.DeepCheckSession
 import com.smssentry.di.ApplicationScope
@@ -14,6 +17,7 @@ import com.smssentry.domain.service.DeepCheckListener
 import com.smssentry.domain.service.DeepCheckSession as DeepCheckSessionInterface
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
+import android.content.Context
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -23,16 +27,16 @@ import javax.inject.Inject
 
 @HiltViewModel
 class DetailViewModel @Inject constructor(
+    @ApplicationContext private val context: Context,
+    @ApplicationScope private val applicationScope: CoroutineScope,
     savedStateHandle: SavedStateHandle,
     private val allowlistDao: AllowlistDao,
     private val historyDao: HistoryDao,
     private val reputationDb: ReputationDb,
     private val officialSites: OfficialSitesRepository,
     private val proxyClient: PrivacyProxyClient,
-    private val modelRepository: ModelRepository,
-    private val smsRepository: SmsRepository,
-    @ApplicationContext private val context: Context,
-    @ApplicationScope private val applicationScope: CoroutineScope
+    private val modelManager: ModelManager,
+    private val smsRepository: SmsRepository
 ) : ViewModel() {
 
     private val smsId: String = savedStateHandle.get<String>("smsId") ?: ""
@@ -46,7 +50,7 @@ class DetailViewModel @Inject constructor(
     private val _showDownloadPrompt = MutableStateFlow(false)
     val showDownloadPrompt: StateFlow<Boolean> = _showDownloadPrompt.asStateFlow()
 
-    val modelState: StateFlow<ModelRepository.State> = modelRepository.state
+    val modelState: StateFlow<ModelManager.State> = modelManager.state
 
     private var deepCheckSession: DeepCheckSessionInterface? = null
 
@@ -69,8 +73,8 @@ class DetailViewModel @Inject constructor(
         _investigationState.value = InvestigationUiState()
 
         viewModelScope.launch {
-            val engine = if (modelRepository.state.value == ModelRepository.State.READY) {
-                modelRepository.getEngine()
+            val engine = if (modelManager.state.value == ModelManager.State.READY) {
+                modelManager.getLlmEngine()
             } else {
                 null
             }
@@ -135,14 +139,10 @@ class DetailViewModel @Inject constructor(
     }
 
     fun checkModelAndPromptDownload() {
-        if (modelRepository.state.value != ModelRepository.State.READY &&
-            modelRepository.state.value != ModelRepository.State.LOADING
+        if (modelManager.state.value != ModelManager.State.READY &&
+            modelManager.state.value != ModelManager.State.LOADING
         ) {
             _showDownloadPrompt.value = true
         }
-    }
-
-    fun refreshModelState() {
-        // Model state is managed by ModelRepository
     }
 }

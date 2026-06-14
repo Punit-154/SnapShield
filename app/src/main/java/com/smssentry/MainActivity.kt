@@ -1,6 +1,7 @@
 package com.smssentry
 
 import android.Manifest
+import android.app.role.RoleManager
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
@@ -38,17 +39,26 @@ class MainActivity : ComponentActivity() {
     ) { permissions ->
         val allGranted = permissions.values.all { it }
         if (!allGranted) {
-            showRestrictedSettingsDialog.value = true
+            showPermissionDeniedDialog.value = true
+        } else {
+            checkAndRequestDefaultSmsRole()
         }
     }
 
-    private val showRestrictedSettingsDialog = mutableStateOf(false)
+    private val defaultSmsRoleLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == RESULT_OK) {
+        }
+    }
+
+    private val showPermissionDeniedDialog = mutableStateOf(false)
+    private val showDefaultSmsDialog = mutableStateOf(false)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
         requestSmsPermissions()
-        requestDefaultSmsRole()
 
         setContent {
             val themeRepository = remember { ThemePreferenceRepository(applicationContext) }
@@ -65,16 +75,16 @@ class MainActivity : ComponentActivity() {
                         themeRepository = themeRepository
                     )
 
-                    if (showRestrictedSettingsDialog.value) {
+                    if (showPermissionDeniedDialog.value) {
                         AlertDialog(
-                            onDismissRequest = { showRestrictedSettingsDialog.value = false },
+                            onDismissRequest = { showPermissionDeniedDialog.value = false },
                             title = { Text(stringResource(R.string.perm_sms_title)) },
                             text = {
                                 Text(stringResource(R.string.perm_sms_desc))
                             },
                             confirmButton = {
                                 TextButton(onClick = {
-                                    showRestrictedSettingsDialog.value = false
+                                    showPermissionDeniedDialog.value = false
                                     val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
                                         data = Uri.fromParts("package", packageName, null)
                                     }
@@ -84,7 +94,30 @@ class MainActivity : ComponentActivity() {
                                 }
                             },
                             dismissButton = {
-                                TextButton(onClick = { showRestrictedSettingsDialog.value = false }) {
+                                TextButton(onClick = { showPermissionDeniedDialog.value = false }) {
+                                    Text(stringResource(R.string.cancel))
+                                }
+                            }
+                        )
+                    }
+
+                    if (showDefaultSmsDialog.value) {
+                        AlertDialog(
+                            onDismissRequest = { showDefaultSmsDialog.value = false },
+                            title = { Text("Default SMS App Required") },
+                            text = {
+                                Text("This app needs to be set as the default SMS app to read and analyze your messages. This is required by Android to access SMS content.")
+                            },
+                            confirmButton = {
+                                TextButton(onClick = {
+                                    showDefaultSmsDialog.value = false
+                                    requestDefaultSmsRole()
+                                }) {
+                                    Text("Set Default")
+                                }
+                            },
+                            dismissButton = {
+                                TextButton(onClick = { showDefaultSmsDialog.value = false }) {
                                     Text(stringResource(R.string.cancel))
                                 }
                             }
@@ -110,15 +143,26 @@ class MainActivity : ComponentActivity() {
 
         if (permissions.isNotEmpty()) {
             requestSmsPermission.launch(permissions.toTypedArray())
+        } else {
+            checkAndRequestDefaultSmsRole()
+        }
+    }
+
+    private fun checkAndRequestDefaultSmsRole() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            val roleManager = getSystemService(RoleManager::class.java)
+            if (roleManager != null && !roleManager.isRoleHeld(RoleManager.ROLE_SMS)) {
+                showDefaultSmsDialog.value = true
+            }
         }
     }
 
     private fun requestDefaultSmsRole() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            val roleManager = getSystemService(android.app.role.RoleManager::class.java)
-            if (roleManager != null && !roleManager.isRoleHeld(android.app.role.RoleManager.ROLE_SMS)) {
-                val intent = roleManager.createRequestRoleIntent(android.app.role.RoleManager.ROLE_SMS)
-                startActivity(intent)
+            val roleManager = getSystemService(RoleManager::class.java)
+            if (roleManager != null) {
+                val intent = roleManager.createRequestRoleIntent(RoleManager.ROLE_SMS)
+                defaultSmsRoleLauncher.launch(intent)
             }
         }
     }

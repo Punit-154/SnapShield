@@ -1,20 +1,16 @@
 package com.smssentry.ui.inbox
 
 import android.app.role.RoleManager
-import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
-import android.content.IntentFilter
 import android.os.Build
-import android.provider.Telephony
+import android.provider.Settings
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.smssentry.data.model.ClassificationResult
 import com.smssentry.data.model.SmsMessage
 import com.smssentry.data.repository.SmsRepository
-import com.smssentry.deepcheck.data.ModelRepository
-import com.smssentry.sms.SmsContentObserver
-import com.smssentry.sms.SmsReceiver
+import com.smssentry.deepcheck.ModelManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -35,7 +31,7 @@ enum class SmsFilter(val label: String) {
 
 @HiltViewModel
 class InboxViewModel @Inject constructor(
-    private val modelRepository: ModelRepository,
+    private val modelManager: ModelManager,
     private val smsRepository: SmsRepository,
     @ApplicationContext private val context: Context
 ) : ViewModel() {
@@ -49,6 +45,15 @@ class InboxViewModel @Inject constructor(
     val selectedFilter: StateFlow<SmsFilter> = _selectedFilter.asStateFlow()
 
     private var lastDeletedMessage: SmsMessage? = null
+
+    private val _isLoading = MutableStateFlow(true)
+    val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
+
+    private val _showDefaultSmsPrompt = MutableStateFlow(false)
+    val showDefaultSmsPrompt: StateFlow<Boolean> = _showDefaultSmsPrompt.asStateFlow()
+
+    private val _inaccessibleReason = MutableStateFlow<String?>(null)
+    val inaccessibleReason: StateFlow<String?> = _inaccessibleReason.asStateFlow()
 
     val messages: StateFlow<List<SmsMessage>> = combine(
         _allMessages, _searchQuery, _selectedFilter
@@ -68,57 +73,10 @@ class InboxViewModel @Inject constructor(
         }.sortedByDescending { it.timestamp }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    private val _isLoading = MutableStateFlow(true)
-    val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
-
-    val modelState: StateFlow<ModelRepository.State> = modelRepository.state
-
-    private val _isDefaultSmsApp = MutableStateFlow(false)
-    val isDefaultSmsAppState: StateFlow<Boolean> = _isDefaultSmsApp.asStateFlow()
-
-    private var smsContentObserver: SmsContentObserver? = null
-    private var smsBroadcastReceiver: BroadcastReceiver? = null
+    val modelState: StateFlow<ModelManager.State> = modelManager.state
 
     init {
-        loadMessages()
-        registerSmsObserver()
-        registerSmsBroadcastReceiver()
-    }
-
-    fun checkDefaultSmsApp() {
-        _isDefaultSmsApp.value = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            val roleManager = context.getSystemService(RoleManager::class.java)
-            roleManager?.isRoleHeld(RoleManager.ROLE_SMS) ?: false
-        } else {
-            true
-        }
-    }
-
-    private fun registerSmsObserver() {
-        smsContentObserver = SmsContentObserver {
-            refreshMessages()
-        }
-        context.contentResolver.registerContentObserver(
-            Telephony.Sms.CONTENT_URI,
-            true,
-            smsContentObserver!!
-        )
-    }
-
-    private fun registerSmsBroadcastReceiver() {
-        smsBroadcastReceiver = object : BroadcastReceiver() {
-            override fun onReceive(context: Context, intent: Intent) {
-                if (intent.action == SmsReceiver.ACTION_SMS_RECEIVED) {
-                    refreshMessages()
-                }
-            }
-        }
-        val filter = IntentFilter(SmsReceiver.ACTION_SMS_RECEIVED)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            context.registerReceiver(smsBroadcastReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
-        } else {
-            context.registerReceiver(smsBroadcastReceiver, filter)
-        }
+        checkAccessAndLoadMessages()
     }
 
     fun onSearchQueryChanged(query: String) {
@@ -142,31 +100,64 @@ class InboxViewModel @Inject constructor(
         }
     }
 
-    private fun loadMessages() {
-        viewModelScope.launch {
-            refreshMessages()
-        }
+    fun dismissDefaultSmsPrompt() {
+        _showDefaultSmsPrompt.value = false
     }
 
     fun refreshMessages() {
-        viewModelScope.launch {
-            _isLoading.value = true
-            try {
-                val realMessages = smsRepository.getInboxMessages()
-                val classifiedMessages = realMessages.map { message ->
-                    if (message.classification == null) {
-                        val result = classifyByRules(message.text)
-                        message.copy(classification = result)
-                    } else {
-                        message
-                    }
-                }
-                _allMessages.value = classifiedMessages
-            } catch (e: Exception) {
-                e.printStackTrace()
-            } finally {
-                _isLoading.value = false
+        checkAccessAndLoadMessages()
+    }
+
+    private fun checkAccessAndLoadMessages() {
+        _isLoading.value = true
+        _inaccessibleReason.value = null
+        _showDefaultSmsPrompt.value = false
+
+        if (!smsRepository.isInboxAccessible()) {
+            _isLoading.value = false
+            _showDefaultSmsPrompt.value = true
+            _inaccessibleReason.value = getInaccessibleReason()
+            return
+        }
+
+        loadMessages()
+    }
+
+    private fun getInaccessibleReason(): String {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            val roleManager = context.getSystemService(RoleManager::class.java)
+            if (!roleManager.isRoleHeld(RoleManager.ROLE_SMS)) {
+                return "App must be set as the default SMS app to read messages."
             }
+        }
+
+        val hasPermission = context.checkSelfPermission(android.Manifest.permission.READ_SMS) ==
+                android.content.pm.PackageManager.PERMISSION_GRANTED
+        if (!hasPermission) {
+            return "SMS read permission is required."
+        }
+
+        return "Unable to access SMS messages."
+    }
+
+    private fun loadMessages() {
+        viewModelScope.launch {
+            val realMessages = try {
+                smsRepository.getInboxMessages()
+            } catch (e: Exception) {
+                emptyList()
+            }
+
+            val classifiedMessages = realMessages.map { message ->
+                if (message.classification == null) {
+                    val result = classifyByRules(message.text)
+                    message.copy(classification = result)
+                } else {
+                    message
+                }
+            }
+            _allMessages.value = classifiedMessages
+            _isLoading.value = false
         }
     }
 
@@ -184,15 +175,5 @@ class InboxViewModel @Inject constructor(
 
     fun getMessageById(id: String): SmsMessage? {
         return _allMessages.value.find { it.id == id }
-    }
-
-    override fun onCleared() {
-        super.onCleared()
-        smsContentObserver?.let {
-            context.contentResolver.unregisterContentObserver(it)
-        }
-        smsBroadcastReceiver?.let {
-            context.unregisterReceiver(it)
-        }
     }
 }

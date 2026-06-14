@@ -28,7 +28,6 @@ class SMSSentryApp : Application() {
                 val cutoff = Instant.now().minus(90, ChronoUnit.DAYS).toEpochMilli()
                 db.historyDao().pruneOlderThan(cutoff)
             } catch (e: Exception) {
-                // Database may not be initialized yet
             }
         }
     }

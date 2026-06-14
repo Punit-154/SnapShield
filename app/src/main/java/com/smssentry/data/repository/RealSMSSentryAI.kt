@@ -57,6 +57,10 @@ class RealSMSSentryAI @Inject constructor(
         return session
     }
 
+    override fun enableDemoMode() {
+        // Implementation for demo mode if needed
+    }
+
     private fun classifyByRules(smsText: String): ClassificationResult {
         val lowerText = smsText.lowercase()
         val scamIndicators = listOf("urgent", "verify", "suspended", "click here", "congratulations")

@@ -5,6 +5,8 @@ import android.content.Context
 import com.smssentry.BuildConfig
 import com.smssentry.data.repository.RealSMSSentryAI
 import com.smssentry.data.repository.SmsRepository
+import com.smssentry.deepcheck.ModelDownloadManager
+import com.smssentry.deepcheck.ModelManager
 import com.smssentry.deepcheck.data.*
 import com.smssentry.deepcheck.model.LlmInferenceEngine
 import com.smssentry.deepcheck.proxy.PrivacyProxyClient
@@ -67,7 +69,11 @@ abstract class AppModule {
         @Provides
         @Singleton
         fun provideReputationDb(@ApplicationContext context: Context): ReputationDb {
-            return ReputationDb(context)
+            return try {
+                ReputationDb(context)
+            } catch (e: Exception) {
+                ReputationDb(context)
+            }
         }
 
         @Provides
@@ -90,6 +96,18 @@ abstract class AppModule {
         @Singleton
         fun providePrivacyProxyClient(): PrivacyProxyClient {
             return PrivacyProxyClient(BuildConfig.PROXY_URL)
+        }
+
+        @Provides
+        @Singleton
+        fun provideModelManager(@ApplicationContext context: Context): ModelManager {
+            return ModelManager(context)
+        }
+
+        @Provides
+        @Singleton
+        fun provideModelDownloadManager(@ApplicationContext context: Context): ModelDownloadManager {
+            return ModelDownloadManager(context)
         }
 
         @Provides

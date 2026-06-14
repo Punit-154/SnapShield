@@ -41,10 +41,8 @@ class SmsReceiver : BroadcastReceiver() {
 
                 Log.d(TAG, "SMS received from $sender: ${body.take(50)}")
 
-                // Process the SMS
                 processSms(context, sender, body, timestamp)
                 
-                // Also broadcast internally for UI updates if needed
                 val broadcastIntent = Intent(ACTION_SMS_RECEIVED).apply {
                     putExtra(EXTRA_SENDER, sender)
                     putExtra(EXTRA_BODY, body)
