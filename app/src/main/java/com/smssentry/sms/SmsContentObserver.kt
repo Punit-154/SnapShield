@@ -9,10 +9,14 @@ class SmsContentObserver(
     private val onMessagesChanged: () -> Unit
 ) : ContentObserver(Handler(Looper.getMainLooper())) {
 
+    override fun onChange(selfChange: Boolean) {
+        super.onChange(selfChange)
+        onMessagesChanged()
+    }
+
     override fun onChange(selfChange: Boolean, uri: Uri?) {
         super.onChange(selfChange, uri)
-        if (uri?.toString()?.startsWith("content://sms") == true) {
-            onMessagesChanged()
-        }
+        onMessagesChanged()
     }
 }
+

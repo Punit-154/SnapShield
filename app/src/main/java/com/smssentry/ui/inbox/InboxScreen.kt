@@ -16,6 +16,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
@@ -50,6 +51,7 @@ import java.util.*
 @Composable
 fun InboxScreen(
     onMessageClick: (String) -> Unit,
+    onComposeSms: () -> Unit,
     themeRepository: ThemePreferenceRepository,
     viewModel: InboxViewModel = hiltViewModel()
 ) {
@@ -154,7 +156,19 @@ fun InboxScreen(
                 )
             )
         },
-        snackbarHost = { SnackbarHost(snackbarHostState) }
+        snackbarHost = { SnackbarHost(snackbarHostState) },
+        floatingActionButton = {
+            FloatingActionButton(
+                onClick = onComposeSms,
+                containerColor = MaterialTheme.colorScheme.primary
+            ) {
+                Icon(
+                    Icons.Default.Edit,
+                    contentDescription = "Compose SMS",
+                    tint = MaterialTheme.colorScheme.onPrimary
+                )
+            }
+        }
     ) { padding ->
         Column(
             modifier = Modifier

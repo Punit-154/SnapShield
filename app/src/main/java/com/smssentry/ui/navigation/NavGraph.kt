@@ -11,6 +11,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
 import com.smssentry.deepcheck.ui.ModelDownloadScreen
+import com.smssentry.ui.compose.ComposeSmsScreen
 import com.smssentry.ui.detail.DetailScreen
 import com.smssentry.ui.inbox.InboxScreen
 import com.smssentry.ui.theme.ThemePreferenceRepository
@@ -21,6 +22,9 @@ sealed class Screen(val route: String) {
         fun createRoute(smsId: String) = "detail/$smsId"
     }
     data object ModelDownload : Screen("model_download")
+    data object Compose : Screen("compose?recipient={recipient}") {
+        fun createRoute(recipient: String = "") = "compose?recipient=$recipient"
+    }
 }
 
 private const val TAG = "NavGraph"
@@ -63,6 +67,9 @@ fun SMSSentryNavGraph(
             InboxScreen(
                 onMessageClick = { smsId ->
                     navController.navigate(Screen.Detail.createRoute(smsId))
+                },
+                onComposeSms = {
+                    navController.navigate(Screen.Compose.createRoute())
                 },
                 themeRepository = themeRepository
             )
@@ -110,5 +117,20 @@ fun SMSSentryNavGraph(
                 }
             )
         }
+
+        composable(
+            route = Screen.Compose.route,
+            arguments = listOf(
+                navArgument("recipient") {
+                    type = NavType.StringType
+                    defaultValue = ""
+                }
+            )
+        ) {
+            ComposeSmsScreen(
+                onBackClick = { navController.popBackStack() }
+            )
+        }
     }
 }
+

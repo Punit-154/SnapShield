@@ -5,5 +5,7 @@ data class SmsMessage(
     val sender: String,
     val text: String,
     val timestamp: Long,
+    val isSent: Boolean = false,
     val classification: ClassificationResult? = null
 )
+

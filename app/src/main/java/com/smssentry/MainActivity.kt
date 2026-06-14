@@ -108,6 +108,18 @@ class MainActivity : ComponentActivity() {
             permissions.add(Manifest.permission.RECEIVE_SMS)
         }
 
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.SEND_SMS)
+            != PackageManager.PERMISSION_GRANTED) {
+            permissions.add(Manifest.permission.SEND_SMS)
+        }
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS)
+                != PackageManager.PERMISSION_GRANTED) {
+                permissions.add(Manifest.permission.POST_NOTIFICATIONS)
+            }
+        }
+
         if (permissions.isNotEmpty()) {
             requestSmsPermission.launch(permissions.toTypedArray())
         }

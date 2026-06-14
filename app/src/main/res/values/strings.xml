@@ -98,4 +98,16 @@
     <!-- Verdict Summaries -->
     <string name="summary_scam">Based on available evidence, this message appears to be a SCAM.</string>
     <string name="summary_suspicious">Based on available evidence, this message appears SUSPICIOUS.</string>
+
+    <!-- Compose SMS -->
+    <string name="compose_sms">New Message</string>
+    <string name="compose_to">To</string>
+    <string name="compose_phone_number">Phone number</string>
+    <string name="compose_message">Message</string>
+    <string name="compose_type_message">Type your message…</string>
+    <string name="compose_send">Send Message</string>
+    <string name="compose_sending">Sending…</string>
+    <string name="compose_sent">Message sent successfully!</string>
+    <string name="compose_failed">Failed to send message. Check permissions.</string>
+    <string name="compose_empty_fields">Please enter recipient and message.</string>
 </resources>

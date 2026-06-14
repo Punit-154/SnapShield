@@ -71,7 +71,14 @@ class DetailViewModel @Inject constructor(
 
         _investigationState.value = InvestigationUiState()
 
-        viewModelScope.launch {
+        viewModelScope.launch(
+            kotlinx.coroutines.CoroutineExceptionHandler { _, throwable ->
+                Diagnostics.e(Diagnostics.UI, "DeepCheck coroutine crashed: ${throwable.message}", throwable)
+                _investigationState.value = _investigationState.value.copy(
+                    error = "Analysis failed: ${throwable.message?.take(100) ?: "Unknown error"}"
+                )
+            }
+        ) {
             val engine = if (modelRepository.state.value == ModelRepository.State.READY) {
                 Diagnostics.i(Diagnostics.UI, "startDeepCheck: model READY, getting engine")
                 modelRepository.getEngine()

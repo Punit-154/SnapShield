@@ -259,8 +259,20 @@ class DeepCheckSession(
                     }
                 }
                 runRuleBasedAnalysis()
+            } catch (e: Exception) {
+                Diagnostics.e(Diagnostics.SESSION, "LLM inference failed: ${e::class.simpleName} — ${e.message}", e)
+                emitStep("AI analysis failed — using rule-based analysis")
+                runRuleBasedAnalysis()
             } finally {
                 session.close()
+            }
+        } catch (e: Exception) {
+            Diagnostics.e(Diagnostics.SESSION, "DeepCheck run() FATAL error: ${e::class.simpleName} — ${e.message}", e)
+            try {
+                emitStep("Analysis error — using rule-based analysis")
+                runRuleBasedAnalysis()
+            } catch (inner: Exception) {
+                Diagnostics.e(Diagnostics.SESSION, "Even rule-based fallback failed: ${inner.message}", inner)
             }
         } finally {
             _isActive = false

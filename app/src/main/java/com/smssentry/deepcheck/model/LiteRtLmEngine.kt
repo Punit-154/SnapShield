@@ -130,8 +130,7 @@ class LiteRtLmEngine(
         val config = EngineConfig(
             modelPath = modelPath,
             backend = backend,
-            cacheDir = cacheDir ?: "",
-            maxNumTokens = 1024   // Limit KV cache: SMS analysis needs at most ~512 input + ~512 output
+            cacheDir = cacheDir ?: ""
         )
         val eng = Engine(config)
 
