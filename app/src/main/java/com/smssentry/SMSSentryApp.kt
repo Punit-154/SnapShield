@@ -1,8 +1,8 @@
 package com.smssentry
 
 import android.app.Application
+import android.util.Log
 import com.smssentry.deepcheck.data.DeepCheckDatabase
-import com.smssentry.deepcheck.data.HistoryDao
 import dagger.hilt.android.HiltAndroidApp
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -28,7 +28,7 @@ class SMSSentryApp : Application() {
                 val cutoff = Instant.now().minus(90, ChronoUnit.DAYS).toEpochMilli()
                 db.historyDao().pruneOlderThan(cutoff)
             } catch (e: Exception) {
-                // Database may not be initialized yet
+                Log.e("SMSSentryApp", "Failed to prune history", e)
             }
         }
     }

@@ -26,13 +26,12 @@ class SmsReceiver : BroadcastReceiver() {
         const val EXTRA_SENDER = "extra_sender"
         const val EXTRA_BODY = "extra_body"
         const val EXTRA_TIMESTAMP = "extra_timestamp"
-        private const val NOTIFICATION_ID = 1001
         private const val CHANNEL_ID = "scam_alerts"
     }
 
     override fun onReceive(context: Context, intent: Intent) {
         val action = intent.action
-        if (action == Telephony.Sms.Intents.SMS_DELIVER_ACTION || action == Telephony.Sms.Intents.SMS_RECEIVED_ACTION) {
+        if ((action == Telephony.Sms.Intents.SMS_DELIVER_ACTION) || (action == Telephony.Sms.Intents.SMS_RECEIVED_ACTION)) {
             val messages = Telephony.Sms.Intents.getMessagesFromIntent(intent)
             for (smsMessage in messages) {
                 val sender = smsMessage.displayOriginatingAddress ?: "Unknown"
@@ -42,7 +41,7 @@ class SmsReceiver : BroadcastReceiver() {
                 Log.d(TAG, "SMS received from $sender: ${body.take(50)}")
 
                 // Process the SMS
-                processSms(context, sender, body, timestamp)
+                processSms(context, sender, body)
                 
                 // Also broadcast internally for UI updates if needed
                 val broadcastIntent = Intent(ACTION_SMS_RECEIVED).apply {
@@ -56,7 +55,7 @@ class SmsReceiver : BroadcastReceiver() {
         }
     }
 
-    private fun processSms(context: Context, sender: String, body: String, timestamp: Long) {
+    private fun processSms(context: Context, sender: String, body: String) {
         val pendingResult = goAsync()
         receiverScope.launch {
             try {
@@ -66,7 +65,7 @@ class SmsReceiver : BroadcastReceiver() {
                     body,
                     sender,
                     db.allowlistDao(),
-                    db.historyDao()
+                    db.historyDao(),
                 )
 
                 if (result.verdict == "SCAM") {
@@ -83,16 +82,14 @@ class SmsReceiver : BroadcastReceiver() {
     private fun showScamWarning(context: Context, sender: String, message: String, reason: String) {
         val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(
-                CHANNEL_ID,
-                "Security Alerts",
-                NotificationManager.IMPORTANCE_HIGH
-            ).apply {
-                description = "Notifications for detected scam messages"
-            }
-            notificationManager.createNotificationChannel(channel)
+        val channel = NotificationChannel(
+            CHANNEL_ID,
+            "Security Alerts",
+            NotificationManager.IMPORTANCE_HIGH
+        ).apply {
+            description = "Notifications for detected scam messages"
         }
+        notificationManager.createNotificationChannel(channel)
 
         val builder = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_dialog_alert)

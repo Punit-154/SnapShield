@@ -14,13 +14,13 @@ import javax.inject.Singleton
 @Singleton
 class SmsRepository @Inject constructor(
     private val contentResolver: ContentResolver,
-    private val context: Context
+    private val context: Context,
 ) {
 
     fun getInboxMessages(limit: Int = 50): List<SmsMessage> {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             val roleManager = context.getSystemService(android.app.role.RoleManager::class.java)
-            if (!roleManager.isRoleHeld(android.app.role.RoleManager.ROLE_SMS)) {
+            if (roleManager != null && !roleManager.isRoleHeld(android.app.role.RoleManager.ROLE_SMS)) {
                 return emptyList()
             }
         }
@@ -36,7 +36,7 @@ class SmsRepository @Inject constructor(
             arrayOf(Telephony.Sms._ID, Telephony.Sms.ADDRESS, Telephony.Sms.BODY, Telephony.Sms.DATE),
             "${Telephony.Sms.TYPE} = ?",
             arrayOf(Telephony.Sms.MESSAGE_TYPE_INBOX.toString()),
-            "${Telephony.Sms.DATE} DESC"
+            "${Telephony.Sms.DATE} DESC",
         )
 
         cursor?.use {
@@ -46,7 +46,7 @@ class SmsRepository @Inject constructor(
             val dateIndex = it.getColumnIndexOrThrow(Telephony.Sms.DATE)
 
             var count = 0
-            while (it.moveToNext() && count < limit) {
+            while (it.moveToNext() && (count < limit)) {
                 val id = it.getString(idIndex) ?: continue
                 val address = it.getString(addressIndex) ?: "Unknown"
                 val body = it.getString(bodyIndex) ?: continue
@@ -57,8 +57,8 @@ class SmsRepository @Inject constructor(
                         id = id,
                         sender = address,
                         text = body,
-                        timestamp = timestamp
-                    )
+                        timestamp = timestamp,
+                    ),
                 )
                 count++
             }

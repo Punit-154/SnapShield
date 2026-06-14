@@ -47,17 +47,17 @@ class ModelRepository @Inject constructor(
 
     private var cachedEngine: LlmInferenceEngine? = null
 
+    private val modelFile: File by lazy {
+        val dir = File(context.filesDir, "models").also { it.mkdirs() }
+        File(dir, DeepCheckConfig.MODEL_FILE_NAME)
+    }
+
     init {
         if (isModelDownloaded()) {
             applicationScope.launch {
                 ensureReady()
             }
         }
-    }
-
-    private val modelFile: File by lazy {
-        val dir = File(context.filesDir, "models").also { it.mkdirs() }
-        File(dir, DeepCheckConfig.MODEL_FILE_NAME)
     }
 
     fun isModelDownloaded(): Boolean {

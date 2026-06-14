@@ -30,10 +30,10 @@ open class LlmConversationSession(
 ) {
     open suspend fun sendTurn(userText: String): String = withContext(Dispatchers.IO) {
         val conv = conversation ?: throw IllegalStateException("No active conversation")
-        val msg = Message.of(userText)
+        val msg = Message.user(userText)
         val response = conv.sendMessage(msg)
         val parts: List<Any> = response.contents.contents as List<Any>
-        parts.filterIsInstance<Content.Text>().joinToString("") { it.text }
+        parts.asSequence().filterIsInstance<Content.Text>().joinToString("") { it.text }
     }
     open fun close() {
         conversation?.close()
@@ -68,15 +68,15 @@ object VerdictParser {
             val c = text[i]
             when {
                 escape -> escape = false
-                c == '\\' && inString -> escape = true
+                (c == '\\') && inString -> escape = true
                 c == '"' -> inString = !inString
-                !inString && c == '{' -> {
+                !inString && (c == '{') -> {
                     if (depth == 0) startIndex = i
                     depth++
                 }
-                !inString && c == '}' -> {
+                !inString && (c == '}') -> {
                     depth--
-                    if (depth == 0 && startIndex >= 0) {
+                    if ((depth == 0) && (startIndex >= 0)) {
                         return text.substring(startIndex, i + 1)
                     }
                 }

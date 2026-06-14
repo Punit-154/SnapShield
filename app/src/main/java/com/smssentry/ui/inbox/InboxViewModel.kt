@@ -7,6 +7,7 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.os.Build
 import android.provider.Telephony
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.smssentry.data.model.ClassificationResult
@@ -114,11 +115,12 @@ class InboxViewModel @Inject constructor(
             }
         }
         val filter = IntentFilter(SmsReceiver.ACTION_SMS_RECEIVED)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            context.registerReceiver(smsBroadcastReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
-        } else {
-            context.registerReceiver(smsBroadcastReceiver, filter)
-        }
+        ContextCompat.registerReceiver(
+            context,
+            smsBroadcastReceiver,
+            filter,
+            ContextCompat.RECEIVER_NOT_EXPORTED,
+        )
     }
 
     fun onSearchQueryChanged(query: String) {

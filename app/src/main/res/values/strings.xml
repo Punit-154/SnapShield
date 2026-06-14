@@ -25,7 +25,6 @@
     <string name="model_loading">Loading model…</string>
     <string name="model_ready">Deep Check ready</string>
     <string name="model_unavailable">Model unavailable</string>
-    <string name="model_not_loaded_fallback">AI model not loaded - using rule-based analysis</string>
 
     <!-- Filters -->
     <string name="filter_all">All</string>
@@ -43,7 +42,6 @@
     <string name="deep_check">Deep Check</string>
 
     <!-- Indicators -->
-    <string name="privacy_indicator">Privacy Protected: Processing on-device</string>
 
     <!-- Deep Check Timeline -->
     <string name="evidence_timeline">Evidence Timeline</string>
@@ -56,15 +54,11 @@
     <string name="model_download_title">Model Download</string>
     <string name="setup_deep_check">Setting up Deep Check</string>
     <string name="downloading_model_info">Downloading AI model (~2.7 GB)</string>
-    <string name="download_details">The Deep Check model allows for advanced on-device AI analysis of suspicious messages without sending your data to the cloud.</string>
-    <string name="download_progress">%1$d%% (%2$s / %3$s)</string>
     <string name="download_complete">Model ready! Opening Deep Check…</string>
     <string name="start_download">Download Model</string>
     <string name="wifi_only">Wi-Fi only</string>
     <string name="verifying_download">Verifying download…</string>
     <string name="retry_download">Retry Download</string>
-    <string name="eta_prefix">ETA %s</string>
-    <string name="calculating">calculating…</string>
 
     <!-- Investigation Steps -->
     <string name="step_analyzing">Analyzing SMS content…</string>

@@ -34,7 +34,7 @@ import dagger.hilt.android.AndroidEntryPoint
 class MainActivity : ComponentActivity() {
 
     private val requestSmsPermission = registerForActivityResult(
-        ActivityResultContracts.RequestMultiplePermissions()
+        ActivityResultContracts.RequestMultiplePermissions(),
     ) { permissions ->
         val allGranted = permissions.values.all { it }
         if (!allGranted) {
@@ -42,7 +42,7 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private val showRestrictedSettingsDialog = mutableStateOf(false)
+    private val showRestrictedSettingsDialog = mutableStateOf(value = false)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -116,7 +116,7 @@ class MainActivity : ComponentActivity() {
     private fun requestDefaultSmsRole() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             val roleManager = getSystemService(android.app.role.RoleManager::class.java)
-            if (roleManager != null && !roleManager.isRoleHeld(android.app.role.RoleManager.ROLE_SMS)) {
+            if ((roleManager != null) && !roleManager.isRoleHeld(android.app.role.RoleManager.ROLE_SMS)) {
                 val intent = roleManager.createRequestRoleIntent(android.app.role.RoleManager.ROLE_SMS)
                 startActivity(intent)
             }
