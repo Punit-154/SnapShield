@@ -27,6 +27,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import android.content.Intent
@@ -568,16 +569,16 @@ fun ChatScreen(
                         reverseLayout = true,
                         verticalArrangement = Arrangement.Top,
                     ) {
-                        items(
+                        itemsIndexed(
                             items = displayItems,
-                            key = { item ->
+                            key = { index, item ->
                                 when (item) {
                                     is DisplayItem.MessageItem -> "msg_${item.message.id}"
-                                    is DisplayItem.DateHeader -> "date_${item.label}"
-                                    is DisplayItem.TimeGap -> "gap_${item.timestamp}"
+                                    is DisplayItem.DateHeader -> "date_${index}_${item.label}"
+                                    is DisplayItem.TimeGap -> "gap_${index}_${item.timestamp}"
                                 }
                             },
-                        ) { item ->
+                        ) { _, item ->
                             when (item) {
                                 is DisplayItem.MessageItem -> {
                                     ChatBubble(

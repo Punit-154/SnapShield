@@ -73,20 +73,24 @@ class SmsRepository @Inject constructor(
         val threadMap = LinkedHashMap<Long, ThreadBucket>()
 
         cursor?.use {
-            val threadIdIdx = it.getColumnIndexOrThrow(Telephony.Sms.THREAD_ID)
-            val addressIdx  = it.getColumnIndexOrThrow(Telephony.Sms.ADDRESS)
-            val bodyIdx     = it.getColumnIndexOrThrow(Telephony.Sms.BODY)
-            val dateIdx     = it.getColumnIndexOrThrow(Telephony.Sms.DATE)
-            val typeIdx     = it.getColumnIndexOrThrow(Telephony.Sms.TYPE)
-            val readIdx     = it.getColumnIndexOrThrow(Telephony.Sms.READ)
+            val threadIdIdx = it.getColumnIndex(Telephony.Sms.THREAD_ID)
+            val addressIdx  = it.getColumnIndex(Telephony.Sms.ADDRESS)
+            val bodyIdx     = it.getColumnIndex(Telephony.Sms.BODY)
+            val dateIdx     = it.getColumnIndex(Telephony.Sms.DATE)
+            val typeIdx     = it.getColumnIndex(Telephony.Sms.TYPE)
+            val readIdx     = it.getColumnIndex(Telephony.Sms.READ)
+
+            if (threadIdIdx == -1 || addressIdx == -1 || dateIdx == -1) {
+                return@withContext emptyList()
+            }
 
             while (it.moveToNext()) {
                 val threadId = it.getLong(threadIdIdx)
                 val address  = it.getString(addressIdx) ?: "Unknown"
-                val body     = it.getString(bodyIdx) ?: ""
+                val body     = if (bodyIdx != -1) it.getString(bodyIdx) ?: "" else ""
                 val date     = it.getLong(dateIdx)
-                val type     = it.getInt(typeIdx)
-                val read     = it.getInt(readIdx)
+                val type     = if (typeIdx != -1) it.getInt(typeIdx) else 0
+                val read     = if (readIdx != -1) it.getInt(readIdx) else 0
 
                 val bucket = threadMap[threadId]
                 if (bucket == null) {
@@ -151,13 +155,17 @@ class SmsRepository @Inject constructor(
         )
 
         cursor?.use {
-            val idIdx       = it.getColumnIndexOrThrow(Telephony.Sms._ID)
-            val addressIdx  = it.getColumnIndexOrThrow(Telephony.Sms.ADDRESS)
-            val bodyIdx     = it.getColumnIndexOrThrow(Telephony.Sms.BODY)
-            val dateIdx     = it.getColumnIndexOrThrow(Telephony.Sms.DATE)
-            val typeIdx     = it.getColumnIndexOrThrow(Telephony.Sms.TYPE)
-            val readIdx     = it.getColumnIndexOrThrow(Telephony.Sms.READ)
-            val threadIdx   = it.getColumnIndexOrThrow(Telephony.Sms.THREAD_ID)
+            val idIdx       = it.getColumnIndex(Telephony.Sms._ID)
+            val addressIdx  = it.getColumnIndex(Telephony.Sms.ADDRESS)
+            val bodyIdx     = it.getColumnIndex(Telephony.Sms.BODY)
+            val dateIdx     = it.getColumnIndex(Telephony.Sms.DATE)
+            val typeIdx     = it.getColumnIndex(Telephony.Sms.TYPE)
+            val readIdx     = it.getColumnIndex(Telephony.Sms.READ)
+            val threadIdx   = it.getColumnIndex(Telephony.Sms.THREAD_ID)
+
+            if (idIdx == -1 || addressIdx == -1 || bodyIdx == -1 || dateIdx == -1 || typeIdx == -1 || threadIdx == -1) {
+                return@withContext emptyList()
+            }
 
             while (it.moveToNext()) {
                 val id      = it.getString(idIdx) ?: continue
@@ -165,7 +173,7 @@ class SmsRepository @Inject constructor(
                 val body    = it.getString(bodyIdx)?.takeIf { b -> b.isNotBlank() } ?: continue
                 val date    = it.getLong(dateIdx)
                 val type    = it.getInt(typeIdx)
-                val read    = it.getInt(readIdx)
+                val read    = if (readIdx != -1) it.getInt(readIdx) else 0
                 val tid     = it.getLong(threadIdx)
 
                 messages.add(
@@ -250,13 +258,17 @@ class SmsRepository @Inject constructor(
         )
 
         cursor?.use {
-            val idIndex       = it.getColumnIndexOrThrow(Telephony.Sms._ID)
-            val addressIndex  = it.getColumnIndexOrThrow(Telephony.Sms.ADDRESS)
-            val bodyIndex     = it.getColumnIndexOrThrow(Telephony.Sms.BODY)
-            val dateIndex     = it.getColumnIndexOrThrow(Telephony.Sms.DATE)
-            val typeIndex     = it.getColumnIndexOrThrow(Telephony.Sms.TYPE)
-            val threadIdIndex = it.getColumnIndexOrThrow(Telephony.Sms.THREAD_ID)
-            val readIndex     = it.getColumnIndexOrThrow(Telephony.Sms.READ)
+            val idIndex       = it.getColumnIndex(Telephony.Sms._ID)
+            val addressIndex  = it.getColumnIndex(Telephony.Sms.ADDRESS)
+            val bodyIndex     = it.getColumnIndex(Telephony.Sms.BODY)
+            val dateIndex     = it.getColumnIndex(Telephony.Sms.DATE)
+            val typeIndex     = it.getColumnIndex(Telephony.Sms.TYPE)
+            val threadIdIndex = it.getColumnIndex(Telephony.Sms.THREAD_ID)
+            val readIndex     = it.getColumnIndex(Telephony.Sms.READ)
+
+            if (idIndex == -1 || addressIndex == -1 || bodyIndex == -1 || dateIndex == -1 || typeIndex == -1 || threadIdIndex == -1) {
+                return@withContext emptyList()
+            }
 
             var count = 0
             while (it.moveToNext() && (count < limit)) {
@@ -287,6 +299,8 @@ class SmsRepository @Inject constructor(
     }
 
     suspend fun getMessageById(id: String): SmsMessage? = withContext(Dispatchers.IO) {
+        if (!hasSmsPermission()) return@withContext null
+
         val cursor = contentResolver.query(
             Telephony.Sms.CONTENT_URI,
             arrayOf(
@@ -304,16 +318,25 @@ class SmsRepository @Inject constructor(
         )
 
         cursor?.use {
+            val typeIdx    = it.getColumnIndex(Telephony.Sms.TYPE)
+            val threadIdx  = it.getColumnIndex(Telephony.Sms.THREAD_ID)
+            val readIdx    = it.getColumnIndex(Telephony.Sms.READ)
+            val addressIdx = it.getColumnIndex(Telephony.Sms.ADDRESS)
+            val bodyIdx    = it.getColumnIndex(Telephony.Sms.BODY)
+            val dateIdx    = it.getColumnIndex(Telephony.Sms.DATE)
+
+            if (typeIdx == -1 || threadIdx == -1 || addressIdx == -1 || dateIdx == -1) return@withContext null
+
             if (it.moveToFirst()) {
-                val type     = it.getInt(it.getColumnIndexOrThrow(Telephony.Sms.TYPE))
-                val threadId = it.getLong(it.getColumnIndexOrThrow(Telephony.Sms.THREAD_ID))
-                val read     = it.getInt(it.getColumnIndexOrThrow(Telephony.Sms.READ))
+                val type     = it.getInt(typeIdx)
+                val threadId = it.getLong(threadIdx)
+                val read     = if (readIdx != -1) it.getInt(readIdx) else 0
                 SmsMessage(
                     id = id,
                     threadId = threadId,
-                    sender = it.getString(it.getColumnIndexOrThrow(Telephony.Sms.ADDRESS)) ?: "Unknown",
-                    text = it.getString(it.getColumnIndexOrThrow(Telephony.Sms.BODY)) ?: "",
-                    timestamp = it.getLong(it.getColumnIndexOrThrow(Telephony.Sms.DATE)),
+                    sender = it.getString(addressIdx) ?: "Unknown",
+                    text = if (bodyIdx != -1) it.getString(bodyIdx) ?: "" else "",
+                    timestamp = it.getLong(dateIdx),
                     isSent = type == Telephony.Sms.MESSAGE_TYPE_SENT,
                     isRead = read == 1,
                 )
@@ -425,13 +448,17 @@ class SmsRepository @Inject constructor(
         )
 
         cursor?.use {
-            val idIdx      = it.getColumnIndexOrThrow(Telephony.Sms._ID)
-            val threadIdx  = it.getColumnIndexOrThrow(Telephony.Sms.THREAD_ID)
-            val addrIdx    = it.getColumnIndexOrThrow(Telephony.Sms.ADDRESS)
-            val bodyIdx    = it.getColumnIndexOrThrow(Telephony.Sms.BODY)
-            val dateIdx    = it.getColumnIndexOrThrow(Telephony.Sms.DATE)
-            val typeIdx    = it.getColumnIndexOrThrow(Telephony.Sms.TYPE)
-            val readIdx    = it.getColumnIndexOrThrow(Telephony.Sms.READ)
+            val idIdx      = it.getColumnIndex(Telephony.Sms._ID)
+            val threadIdx  = it.getColumnIndex(Telephony.Sms.THREAD_ID)
+            val addrIdx    = it.getColumnIndex(Telephony.Sms.ADDRESS)
+            val bodyIdx    = it.getColumnIndex(Telephony.Sms.BODY)
+            val dateIdx    = it.getColumnIndex(Telephony.Sms.DATE)
+            val typeIdx    = it.getColumnIndex(Telephony.Sms.TYPE)
+            val readIdx    = it.getColumnIndex(Telephony.Sms.READ)
+
+            if (idIdx == -1 || addrIdx == -1 || bodyIdx == -1 || dateIdx == -1 || typeIdx == -1) {
+                return@withContext emptyList()
+            }
 
             while (it.moveToNext()) {
                 val id      = it.getString(idIdx) ?: continue
@@ -441,12 +468,12 @@ class SmsRepository @Inject constructor(
                 results.add(
                     SmsMessage(
                         id = id,
-                        threadId = it.getLong(threadIdx),
+                        threadId = if (threadIdx != -1) it.getLong(threadIdx) else 0L,
                         sender = address,
                         text = body,
                         timestamp = it.getLong(dateIdx),
                         isSent = it.getInt(typeIdx) == Telephony.Sms.MESSAGE_TYPE_SENT,
-                        isRead = it.getInt(readIdx) == 1,
+                        isRead = if (readIdx != -1) it.getInt(readIdx) == 1 else false,
                     )
                 )
             }

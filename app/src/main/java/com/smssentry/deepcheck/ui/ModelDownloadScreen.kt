@@ -248,7 +248,7 @@ private fun CompleteContent(onContinue: () -> Unit) {
     ) {
         Icon(
             imageVector = Icons.Default.Check,
-            contentDescription = null,
+            contentDescription = stringResource(R.string.cd_download_complete),
             modifier = Modifier.size(80.dp),
             tint = MaterialTheme.colorScheme.primary
         )

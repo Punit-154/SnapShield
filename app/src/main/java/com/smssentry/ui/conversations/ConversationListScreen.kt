@@ -464,7 +464,8 @@ private fun ConversationItem(
     )
 
     val isUnread = conversation.unreadCount > 0
-    val timeString = formatTimestamp(conversation.lastTimestamp)
+    val context = LocalContext.current
+    val timeString = formatTimestamp(conversation.lastTimestamp, context)
 
     // Avatar color from name hash
     val avatarColor = remember(conversation.displayName) {
@@ -692,7 +693,7 @@ private fun ConversationFilterChipRow(
                 onClick = { onFilterSelected(filter) },
                 label = {
                     Text(
-                        text = filter.label,
+                        text = stringResource(filter.labelRes),
                         fontWeight = if (selectedFilter == filter) FontWeight.SemiBold
                         else FontWeight.Normal
                     )
@@ -833,7 +834,7 @@ private fun ConversationEmptyState(hasActiveFilter: Boolean) {
 
 // ── Utility Functions ─────────────────────────────────────────────────────────
 
-private fun formatTimestamp(timestamp: Long): String {
+private fun formatTimestamp(timestamp: Long, context: android.content.Context): String {
     val now = System.currentTimeMillis()
     val diff = now - timestamp
     val calendar = Calendar.getInstance()
@@ -848,7 +849,7 @@ private fun formatTimestamp(timestamp: Long): String {
         // Yesterday
         diff < 2 * 24 * 60 * 60 * 1000L &&
             calendar.get(Calendar.DAY_OF_YEAR) - msgCalendar.get(Calendar.DAY_OF_YEAR) == 1 -> {
-            "Yesterday"
+            context.getString(R.string.yesterday)
         }
         // This week — show day name
         diff < 7 * 24 * 60 * 60 * 1000L -> {

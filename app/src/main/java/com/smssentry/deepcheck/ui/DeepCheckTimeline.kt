@@ -69,7 +69,7 @@ fun DeepCheckTimeline(
                     ) {
                         Icon(
                             Icons.Default.Warning,
-                            contentDescription = null,
+                            contentDescription = stringResource(R.string.cd_evidence_timeline),
                             tint = SuspiciousOrange,
                             modifier = Modifier.size(20.dp)
                         )
@@ -101,7 +101,7 @@ fun DeepCheckTimeline(
             ) {
                 Icon(
                     Icons.Default.Close,
-                    contentDescription = null,
+                    contentDescription = stringResource(R.string.cd_cancel_investigation),
                     modifier = Modifier.size(18.dp)
                 )
                 Spacer(modifier = Modifier.width(8.dp))
@@ -171,12 +171,12 @@ fun EducationalExplanationCard(explanation: String, modifier: Modifier = Modifie
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Icon(
                     Icons.Default.Warning,
-                    contentDescription = null,
+                    contentDescription = stringResource(R.string.cd_educational_info),
                     tint = MaterialTheme.colorScheme.onSecondaryContainer,
                     modifier = Modifier.size(20.dp)
                 )
                 Text(
-                    text = "What this means for you",
+                    text = stringResource(R.string.what_this_means),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSecondaryContainer
@@ -194,7 +194,7 @@ fun EducationalExplanationCard(explanation: String, modifier: Modifier = Modifie
                     onClick = { expanded = !expanded },
                     colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.onSecondaryContainer)
                 ) {
-                    Text(if (expanded) "Show less" else "Read more")
+                    Text(if (expanded) stringResource(R.string.show_less) else stringResource(R.string.read_more))
                 }
             }
         }
@@ -241,7 +241,7 @@ private fun AnimatedInvestigationProgress(
                         strokeWidth = 3.dp
                     )
                     Text(
-                        text = "Deep Analysis",
+                        text = stringResource(R.string.deep_analysis_title),
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.Bold
                     )

@@ -32,10 +32,13 @@ import com.smssentry.data.model.SmsMessage
 import com.smssentry.data.repository.SmsRepository
 import javax.inject.Inject
 
-enum class ConversationFilter(val label: String) {
-    ALL("All"),
-    UNREAD("Unread"),
-    FLAGGED("Flagged")
+import androidx.annotation.StringRes
+import com.smssentry.R
+
+enum class ConversationFilter(val label: String, @StringRes val labelRes: Int) {
+    ALL("All", R.string.filter_all),
+    UNREAD("Unread", R.string.filter_unread),
+    FLAGGED("Flagged", R.string.filter_flagged)
 }
 
 @HiltViewModel

@@ -133,7 +133,7 @@ fun VerdictCard(
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         Text(
-                            text = "Confidence",
+                            text = stringResource(R.string.confidence),
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
                         )
@@ -176,7 +176,7 @@ fun VerdictCard(
                         verticalArrangement = Arrangement.spacedBy(2.dp)
                     ) {
                         Text(
-                            text = "Recommended Actions",
+                            text = stringResource(R.string.recommended_actions),
                             fontWeight = FontWeight.SemiBold,
                             style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
@@ -212,7 +212,7 @@ fun VerdictCard(
                         verticalArrangement = Arrangement.spacedBy(2.dp)
                     ) {
                         Text(
-                            text = "Evidence",
+                            text = stringResource(R.string.evidence_label),
                             fontWeight = FontWeight.SemiBold,
                             style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),

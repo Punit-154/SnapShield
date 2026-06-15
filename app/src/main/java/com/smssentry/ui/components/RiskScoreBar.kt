@@ -14,6 +14,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.res.stringResource
+import com.smssentry.R
 import com.smssentry.ui.theme.*
 
 @Composable
@@ -57,7 +59,7 @@ fun RiskScoreBar(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "Risk Score",
+                    text = stringResource(R.string.risk_score),
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                 )
@@ -72,7 +74,7 @@ fun RiskScoreBar(
                         fontSize = 14.sp
                     )
                     Text(
-                        text = "/100",
+                        text = stringResource(R.string.risk_score_max),
                         fontWeight = FontWeight.Normal,
                         color = color.copy(alpha = 0.5f),
                         fontSize = 10.sp,

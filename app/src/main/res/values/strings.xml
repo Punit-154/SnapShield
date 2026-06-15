@@ -273,4 +273,33 @@
 
     <!-- Import progress format -->
     <string name="learning_import_progress">%1$d / %2$d messages</string>
+    <!-- Conversation filter labels -->
+    <string name="filter_unread">Unread</string>
+    <string name="filter_flagged">Flagged</string>
+
+    <!-- VerdictCard labels -->
+    <string name="confidence">Confidence</string>
+    <string name="recommended_actions">Recommended Actions</string>
+    <string name="evidence_label">Evidence</string>
+
+    <!-- RiskScoreBar labels -->
+    <string name="risk_score">Risk Score</string>
+    <string name="risk_score_max">/100</string>
+
+    <!-- DeepCheckTimeline labels -->
+    <string name="deep_analysis_title">Deep Analysis</string>
+
+    <!-- EducationalExplanationCard -->
+    <string name="what_this_means">What this means for you</string>
+    <string name="show_less">Show less</string>
+    <string name="read_more">Read more</string>
+
+    <!-- Accessibility - additional -->
+    <string name="cd_evidence_timeline">Evidence timeline</string>
+    <string name="cd_cancel_investigation">Cancel investigation</string>
+    <string name="cd_download_complete">Download complete</string>
+    <string name="cd_educational_info">Educational information</string>
+
+    <!-- Time formatting -->
+    <string name="yesterday">Yesterday</string>
 </resources>
