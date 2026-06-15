@@ -22,7 +22,6 @@ import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.SearchOff
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
@@ -47,14 +46,12 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.smssentry.data.model.Conversation
-import com.smssentry.data.model.SmsMessage
 import com.smssentry.R
 import androidx.compose.ui.res.stringResource
 import com.smssentry.ui.theme.*
 import android.content.Intent
 import android.graphics.BitmapFactory
 import android.net.Uri
-import android.provider.Settings as AndroidSettings
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
