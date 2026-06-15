@@ -19,6 +19,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import android.util.Log
 import java.util.concurrent.atomic.AtomicBoolean
 import javax.inject.Inject
 
@@ -73,19 +74,27 @@ class ChatViewModel @Inject constructor(
 
     private fun resolveContact() {
         viewModelScope.launch {
-            val info = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-                contactResolver.resolve(address)
+            try {
+                val info = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                    contactResolver.resolve(address)
+                }
+                _contactName.value = info.displayName
+                _contactPhotoUri.value = info.photoUri
+            } catch (e: Exception) {
+                Log.e("ChatViewModel", "Failed to resolve contact", e)
             }
-            _contactName.value = info.displayName
-            _contactPhotoUri.value = info.photoUri
         }
     }
 
     private fun loadMessages() {
         viewModelScope.launch {
-            val msgs = smsRepository.getThreadMessages(threadId, limit = pageSize)
-            _messages.value = msgs
-            _canLoadMore.value = msgs.size >= pageSize
+            try {
+                val msgs = smsRepository.getThreadMessages(threadId, limit = pageSize)
+                _messages.value = msgs
+                _canLoadMore.value = msgs.size >= pageSize
+            } catch (e: Exception) {
+                Log.e("ChatViewModel", "Failed to load messages", e)
+            }
         }
     }
 
@@ -112,6 +121,8 @@ class ChatViewModel @Inject constructor(
                         _canLoadMore.value = false
                     }
                 }
+            } catch (e: Exception) {
+                Log.e("ChatViewModel", "Failed to load more messages", e)
             } finally {
                 isLoadingMore.set(false)
             }
@@ -120,7 +131,11 @@ class ChatViewModel @Inject constructor(
 
     private fun markAsRead() {
         viewModelScope.launch {
-            smsRepository.markThreadAsRead(threadId)
+            try {
+                smsRepository.markThreadAsRead(threadId)
+            } catch (e: Exception) {
+                Log.e("ChatViewModel", "Failed to mark thread as read", e)
+            }
         }
     }
 
@@ -150,15 +165,23 @@ class ChatViewModel @Inject constructor(
 
     fun deleteMessage(messageId: String) {
         viewModelScope.launch {
-            smsRepository.deleteMessage(messageId)
-            loadMessages()
+            try {
+                smsRepository.deleteMessage(messageId)
+                loadMessages()
+            } catch (e: Exception) {
+                Log.e("ChatViewModel", "Failed to delete message", e)
+            }
         }
     }
 
     fun deleteConversation() {
         if (threadId <= 0) return
         viewModelScope.launch {
-            smsRepository.deleteConversation(threadId)
+            try {
+                smsRepository.deleteConversation(threadId)
+            } catch (e: Exception) {
+                Log.e("ChatViewModel", "Failed to delete conversation", e)
+            }
         }
     }
 
@@ -167,9 +190,13 @@ class ChatViewModel @Inject constructor(
             override fun onChange(selfChange: Boolean) {
                 debounceJob?.cancel()
                 debounceJob = viewModelScope.launch {
-                    delay(200L)
-                    loadMessages()
-                    markAsRead()
+                    try {
+                        delay(200L)
+                        loadMessages()
+                        markAsRead()
+                    } catch (e: Exception) {
+                        Log.e("ChatViewModel", "SMS observer refresh failed", e)
+                    }
                 }
             }
         }

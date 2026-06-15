@@ -381,8 +381,9 @@ private suspend fun loadBlockedNumbers(
         null,
     )
     cursor?.use {
-        val idIdx = it.getColumnIndexOrThrow(BlockedNumberContract.BlockedNumbers.COLUMN_ID)
-        val numberIdx = it.getColumnIndexOrThrow(BlockedNumberContract.BlockedNumbers.COLUMN_ORIGINAL_NUMBER)
+        val idIdx = it.getColumnIndex(BlockedNumberContract.BlockedNumbers.COLUMN_ID)
+        val numberIdx = it.getColumnIndex(BlockedNumberContract.BlockedNumbers.COLUMN_ORIGINAL_NUMBER)
+        if (idIdx == -1 || numberIdx == -1) return@use
         while (it.moveToNext()) {
             list.add(
                 BlockedNumber(

@@ -230,9 +230,10 @@ class PersonalLearningRepository @Inject constructor(
 
         var totalMessages = 0
         cursor?.use {
-            val addressIdx = it.getColumnIndexOrThrow(Telephony.Sms.ADDRESS)
-            val bodyIdx = it.getColumnIndexOrThrow(Telephony.Sms.BODY)
-            val dateIdx = it.getColumnIndexOrThrow(Telephony.Sms.DATE)
+            val addressIdx = it.getColumnIndex(Telephony.Sms.ADDRESS)
+            val bodyIdx = it.getColumnIndex(Telephony.Sms.BODY)
+            val dateIdx = it.getColumnIndex(Telephony.Sms.DATE)
+            if (addressIdx == -1 || bodyIdx == -1 || dateIdx == -1) return@withContext 0
 
             totalMessages = it.count
 
@@ -344,8 +345,9 @@ class PersonalLearningRepository @Inject constructor(
         )
 
         cursor?.use {
-            val numberIdx = it.getColumnIndexOrThrow(ContactsContract.CommonDataKinds.Phone.NUMBER)
-            val nameIdx = it.getColumnIndexOrThrow(ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME)
+            val numberIdx = it.getColumnIndex(ContactsContract.CommonDataKinds.Phone.NUMBER)
+            val nameIdx = it.getColumnIndex(ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME)
+            if (numberIdx == -1 || nameIdx == -1) return@use
 
             while (it.moveToNext()) {
                 val number = it.getString(numberIdx) ?: continue

@@ -114,8 +114,12 @@ class ConversationListViewModel @Inject constructor(
         searchJob?.cancel()
         if (query.length >= 2) {
             searchJob = viewModelScope.launch {
-                delay(300L)
-                _messageSearchResults.value = smsRepository.searchMessages(query)
+                try {
+                    delay(300L)
+                    _messageSearchResults.value = smsRepository.searchMessages(query)
+                } catch (e: Exception) {
+                    Log.e(TAG, "Message search failed", e)
+                }
             }
         } else {
             _messageSearchResults.value = emptyList()
@@ -253,9 +257,10 @@ class ConversationListViewModel @Inject constructor(
             val seenThreadIds = mutableSetOf<Long>()
 
             threadCursor?.use { cursor ->
-                val threadIdIdx = cursor.getColumnIndexOrThrow("thread_id")
-                val msgCountIdx = cursor.getColumnIndexOrThrow("msg_count")
-                val snippetIdx = cursor.getColumnIndexOrThrow("snippet")
+                val threadIdIdx = cursor.getColumnIndex("thread_id")
+                val msgCountIdx = cursor.getColumnIndex("msg_count")
+                val snippetIdx = cursor.getColumnIndex("snippet")
+                if (threadIdIdx == -1 || msgCountIdx == -1 || snippetIdx == -1) return@withContext emptyList()
 
                 while (cursor.moveToNext()) {
                     val threadId = cursor.getLong(threadIdIdx)
@@ -357,8 +362,12 @@ class ConversationListViewModel @Inject constructor(
             override fun onChange(selfChange: Boolean) {
                 debounceJob?.cancel()
                 debounceJob = viewModelScope.launch {
-                    delay(300L)
-                    loadConversations()
+                    try {
+                        delay(300L)
+                        loadConversations()
+                    } catch (e: Exception) {
+                        Log.e(TAG, "SMS observer refresh failed", e)
+                    }
                 }
             }
         }

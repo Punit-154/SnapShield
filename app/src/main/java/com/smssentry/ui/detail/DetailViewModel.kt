@@ -67,9 +67,13 @@ class DetailViewModel @Inject constructor(
 
     private fun loadMessage() {
         viewModelScope.launch {
-            val found = smsRepository.getMessageById(smsId)
-            found?.let { msg ->
-                _message.value = msg
+            try {
+                val found = smsRepository.getMessageById(smsId)
+                found?.let { msg ->
+                    _message.value = msg
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("DetailViewModel", "Failed to load message", e)
             }
         }
     }
