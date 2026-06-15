@@ -1,5 +1,0 @@
-{
-  "summary":  "Microsoft ASSERT framework evaluation results for Qwen 2.5 14B listing writer. Tests across 4 categories show: 100% pass on word count and required elements, but 50% failure rate on hallucinated details and SEO quality. Key finding: model invents page/design counts when not explicitly provided. Includes fix recommendations.",
-  "updatedAt":  "2026-06-14T13:01:18.809988800Z",
-  "userFacing":  true
-}

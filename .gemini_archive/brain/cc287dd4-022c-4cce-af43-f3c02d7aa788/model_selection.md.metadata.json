@@ -1,6 +1,0 @@
-{
-  "summary":  "Analysis of whether Qwen 2.5 14B is the best model for product listing generation, with 3 concrete options: quick swap to Qwen3 8B, fine-tune a LoRA on real listings using Unsloth, or hybrid approach. Includes evidence-based comparison and recommended action plan.",
-  "updatedAt":  "2026-06-14T13:19:16.956500100Z",
-  "requestFeedback":  true,
-  "userFacing":  true
-}

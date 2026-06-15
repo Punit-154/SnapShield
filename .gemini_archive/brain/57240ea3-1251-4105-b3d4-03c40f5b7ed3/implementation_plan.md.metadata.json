@@ -1,6 +1,0 @@
-{
-  "summary":  "Comprehensive 3-phase implementation plan for the ThinkPad terminal portfolio:\n\n**Phase 1 (Deploy Prep):** Create .gitignore, clean git history, add Vercel adapter, configure site URL.\n\n**Phase 2 (Content & Fixes):** Add AgentOS to portfolio.json, fix _owner unused variable in neofetch.ts, remove duplicate font @import, generate OG image, fix package.json devDependencies, fix misleading command hints.\n\n**Phase 3 (Polish):** Align TypeScript types with actual JSON schema, performance audit, mobile responsiveness verification, accessibility review.\n\nIncludes open questions about deployment target, domain, audio placeholder, privacy risk (phone number in database.md), and chatbot backend.",
-  "updatedAt":  "2026-06-14T14:14:22.601975Z",
-  "requestFeedback":  true,
-  "userFacing":  true
-}

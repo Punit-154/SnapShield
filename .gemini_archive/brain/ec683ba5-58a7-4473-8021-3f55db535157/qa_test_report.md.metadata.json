@@ -1,5 +1,0 @@
-{
-  "summary":  "Comprehensive QA test report for the Personal Learning Database feature in SMSentry. Covers 9 test areas: app launch, Room database migration v1→v2, Settings UI, SettingsViewModel combine() flow analysis, DetailScreen FeedbackSection, SettingsScreen clear dialog state, migration SQL vs entity column-by-column verification, Kotlin compilation, and DI wiring. All tests passed with no bugs found.",
-  "updatedAt":  "2026-06-14T10:11:12.776047Z",
-  "userFacing":  true
-}

@@ -1,5 +1,0 @@
-{
-  "summary":  "Head-to-head evaluation of Qwen 2.5 14B vs Qwen3 8B across 3 listing generation test cases. Judged by Claude using ASSERT methodology. Qwen3 8B wins on compliance but both models still violate banned phrase rules, confirming fine-tuning is needed.",
-  "updatedAt":  "2026-06-14T13:25:20.691611100Z",
-  "userFacing":  true
-}

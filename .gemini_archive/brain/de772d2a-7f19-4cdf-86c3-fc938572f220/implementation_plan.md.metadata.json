@@ -1,6 +1,0 @@
-{
-  "summary":  "Comprehensive improved implementation plan for AgentOS: a Windows-first Hermes Agent wrapper with ML+rules hybrid model router, installer scripts, n8n integration, Telegram gateway, email monitoring, and automated internship applications. Includes detailed architecture, Python module interfaces, config file schemas, installer script outlines, and a phased implementation roadmap.",
-  "updatedAt":  "2026-06-14T12:43:40.369619600Z",
-  "requestFeedback":  true,
-  "userFacing":  true
-}

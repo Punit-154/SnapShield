@@ -1,5 +1,0 @@
-{
-  "summary":  "Complete handoff document for the next agent. Covers two active projects (portfolio website + AgentOS), system specs, file inventories, what's done vs pending, exact subagent prompts to re-run, config schemas, user context, and step-by-step continuation instructions.",
-  "updatedAt":  "2026-06-14T13:01:08.353151Z",
-  "userFacing":  true
-}

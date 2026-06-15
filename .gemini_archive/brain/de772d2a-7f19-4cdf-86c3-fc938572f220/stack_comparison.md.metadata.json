@@ -1,6 +1,0 @@
-{
-  "summary":  "Detailed comparison of four modern tech stack options for the CLI portfolio, covering Vite+React+TS+xterm.js, Vite+vanilla TS+xterm.js, Astro+React islands+xterm.js, and Next.js+TS+xterm.js. Each option includes pros, cons, complexity rating, and what the final product feels like. Ends with a recommendation.",
-  "updatedAt":  "2026-06-14T10:04:50.767028900Z",
-  "requestFeedback":  true,
-  "userFacing":  true
-}

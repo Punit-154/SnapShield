@@ -1,5 +1,0 @@
-{
-  "summary":  "Cross-project technical synthesis from reading 44 files across the portfolio and AgentOS projects. Extracts only technical patterns relevant to the AI-Business pipeline: 3-layer routing, privacy guards, semantic caching, MCP skills wrapping, config layering, idempotent installers, and n8n workflow automation. Maps each finding to a specific improvement in our pipeline.",
-  "updatedAt":  "2026-06-14T14:22:10.422170100Z",
-  "userFacing":  true
-}

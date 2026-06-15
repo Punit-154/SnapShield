@@ -1,5 +1,0 @@
-{
-  "summary":  "Manual ASSERT-style evaluation of Qwen 2.5 14B listing writer outputs, judged by the orchestrating AI (Claude) instead of self-judging. Provides significantly more reliable scoring with detailed evidence-backed verdicts for each of the 4 test cases across 5 quality dimensions. Reveals issues the self-judge missed and overturns lenient self-judgments.",
-  "updatedAt":  "2026-06-14T13:13:01.081031800Z",
-  "userFacing":  true
-}

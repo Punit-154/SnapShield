@@ -1,6 +1,0 @@
-{
-  "summary":  "Comprehensive model landscape research as of June 14, 2026, combined with a multi-model pipeline architecture. Instead of one general model doing everything, the system uses 4 specialized models in a chain: a tiny fast model for niche research/routing, a creative model for writing copy, a strict model for quality checking, and the writing model again for SEO optimization. Includes all latest model releases, what's available on Ollama, and a VRAM budget analysis for the RTX 5070.",
-  "updatedAt":  "2026-06-14T13:35:15.699690400Z",
-  "requestFeedback":  true,
-  "userFacing":  true
-}

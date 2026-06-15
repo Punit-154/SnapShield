@@ -25,3 +25,6 @@ logcat_capture.txt
 # OS
 Thumbs.db
 Desktop.ini
+
+# Gemini agent conversation archives
+.gemini_archive/
