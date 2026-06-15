@@ -18,6 +18,7 @@ object NotificationHelper {
 
     const val CHANNEL_NEW_SMS = "new_sms"
     const val CHANNEL_SCAM_WARNING = "scam_warning"
+    const val CHANNEL_SUSPICIOUS = "suspicious_warning"
 
     private const val GROUP_KEY_PREFIX = "com.smssentry.SMS_GROUP_"
 
@@ -59,7 +60,20 @@ object NotificationHelper {
             lightColor = Color.RED
         }
 
-        manager.createNotificationChannels(listOf(newSmsChannel, scamChannel))
+        // Suspicious Messages channel
+        val suspiciousChannel = NotificationChannel(
+            CHANNEL_SUSPICIOUS,
+            "Suspicious Messages",
+            NotificationManager.IMPORTANCE_HIGH
+        ).apply {
+            description = "Alerts for messages flagged as potentially suspicious"
+            enableVibration(true)
+            vibrationPattern = longArrayOf(0, 300, 150, 300)
+            enableLights(true)
+            lightColor = 0xFFFFA500.toInt() // Orange
+        }
+
+        manager.createNotificationChannels(listOf(newSmsChannel, scamChannel, suspiciousChannel))
     }
 
     /**
@@ -160,6 +174,9 @@ object NotificationHelper {
     /**
      * Shows a high-priority scam warning notification.
      *
+     * Title:  "⚠\uFE0F Possible scam from [displayName]"
+     * Body:   Message preview (truncated to 100 chars)
+     *
      * @param context     Application or receiver context
      * @param sender      The originating phone number / address
      * @param displayName Contact name or formatted number
@@ -188,12 +205,14 @@ object NotificationHelper {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        val bigText = "From: $displayName ($sender)\nReason: $reason\n\nMessage: $body"
+        val preview = body.take(100)
+        val title = "\u26A0\uFE0F Possible scam from $displayName"
+        val bigText = "$title\n\n$preview\n\nReason: $reason"
 
         val notification = NotificationCompat.Builder(context, CHANNEL_SCAM_WARNING)
             .setSmallIcon(android.R.drawable.ic_dialog_alert)
-            .setContentTitle("Scam Warning")
-            .setContentText("$displayName: $reason")
+            .setContentTitle(title)
+            .setContentText(preview)
             .setStyle(NotificationCompat.BigTextStyle().bigText(bigText))
             .setColor(Color.RED)
             .setContentIntent(contentPendingIntent)
@@ -201,6 +220,59 @@ object NotificationHelper {
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setDefaults(NotificationCompat.DEFAULT_ALL)
             .setCategory(NotificationCompat.CATEGORY_ALARM)
+            .build()
+
+        manager.notify(notificationId, notification)
+    }
+
+    /**
+     * Shows a notification for a suspicious (but not confirmed scam) message.
+     *
+     * Title:  "\u26A1 Suspicious message from [displayName]"
+     * Body:   Message preview (truncated to 100 chars)
+     *
+     * @param context     Application or receiver context
+     * @param sender      The originating phone number / address
+     * @param displayName Contact name or formatted number
+     * @param body        The message body
+     * @param threadId    The SMS thread ID for grouping and navigation
+     */
+    fun showSuspiciousNotification(
+        context: Context,
+        sender: String,
+        displayName: String,
+        body: String,
+        threadId: Long
+    ) {
+        val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        val notificationId = "suspicious_${sender}".hashCode()
+
+        val contentIntent = Intent(context, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            putExtra(EXTRA_THREAD_ID, threadId)
+            putExtra(EXTRA_NOTIFICATION_SENDER, sender)
+        }
+        val contentPendingIntent = PendingIntent.getActivity(
+            context,
+            notificationId,
+            contentIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        val preview = body.take(100)
+        val title = "\u26A1 Suspicious message from $displayName"
+
+        val notification = NotificationCompat.Builder(context, CHANNEL_SUSPICIOUS)
+            .setSmallIcon(android.R.drawable.ic_dialog_alert)
+            .setContentTitle(title)
+            .setContentText(preview)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(preview))
+            .setColor(0xFFFFA500.toInt()) // Orange
+            .setContentIntent(contentPendingIntent)
+            .setAutoCancel(true)
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setDefaults(NotificationCompat.DEFAULT_ALL)
+            .setCategory(NotificationCompat.CATEGORY_MESSAGE)
             .build()
 
         manager.notify(notificationId, notification)

@@ -9,6 +9,7 @@ import android.util.Log
 import com.smssentry.data.util.ContactResolver
 import com.smssentry.deepcheck.data.DeepCheckDatabase
 import com.smssentry.deepcheck.prefilter.FastPathFilter
+import com.smssentry.deepcheck.prefilter.PreFilterResult
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -76,16 +77,38 @@ class SmsReceiver : BroadcastReceiver() {
                         sender.hashCode().toLong()
                     }
 
-                    // Run scam detection — show scam warning OR regular notification
-                    val isScam = processSms(context, sender, displayName, body)
-                    if (!isScam) {
-                        NotificationHelper.showNewMessageNotification(
-                            context = context,
-                            sender = sender,
-                            displayName = displayName,
-                            body = body,
-                            threadId = threadId
-                        )
+                    // Run scam classification and show the appropriate notification
+                    val filterResult = classifySms(context, sender, body)
+
+                    when (filterResult?.verdict) {
+                        "SCAM" -> {
+                            NotificationHelper.showScamWarning(
+                                context = context,
+                                sender = sender,
+                                displayName = displayName,
+                                body = body,
+                                reason = filterResult.reason ?: "Suspicious content detected"
+                            )
+                        }
+                        "SUSPICIOUS" -> {
+                            NotificationHelper.showSuspiciousNotification(
+                                context = context,
+                                sender = sender,
+                                displayName = displayName,
+                                body = body,
+                                threadId = threadId
+                            )
+                        }
+                        else -> {
+                            // SAFE or undetermined — show normal notification
+                            NotificationHelper.showNewMessageNotification(
+                                context = context,
+                                sender = sender,
+                                displayName = displayName,
+                                body = body,
+                                threadId = threadId
+                            )
+                        }
                     }
 
                     // Broadcast internally for UI updates
@@ -129,40 +152,26 @@ class SmsReceiver : BroadcastReceiver() {
     }
 
     /**
-     * Runs scam detection on the message. Returns true if the message was
-     * identified as SCAM (and a scam warning notification was shown).
+     * Classifies the SMS using FastPathFilter. Returns the [PreFilterResult]
+     * containing verdict (SCAM/SUSPICIOUS/SAFE) and reason, or null on error.
      */
-    private suspend fun processSms(
+    private suspend fun classifySms(
         context: Context,
         sender: String,
-        displayName: String,
         body: String
-    ): Boolean {
+    ): PreFilterResult? {
         return try {
             val db = DeepCheckDatabase.getInstance(context)
-            val result = FastPathFilter.filter(
+            FastPathFilter.filter(
                 context,
                 body,
                 sender,
                 db.allowlistDao(),
                 db.historyDao(),
             )
-
-            if (result.verdict == "SCAM") {
-                NotificationHelper.showScamWarning(
-                    context = context,
-                    sender = sender,
-                    displayName = displayName,
-                    body = body,
-                    reason = result.reason ?: "Suspicious content detected"
-                )
-                true
-            } else {
-                false
-            }
         } catch (e: Exception) {
-            Log.e(TAG, "Error processing SMS", e)
-            false
+            Log.e(TAG, "Error classifying SMS for threadHash=${sender.hashCode()}", e)
+            null
         }
     }
 }
