@@ -117,6 +117,25 @@ SMSentry/
 └── build.gradle.kts
 ```
 
+## Security Features
+
+SMSentry is designed with a privacy-first, defense-in-depth approach:
+
+- **SQLCipher Encrypted Database** — All classification results and scam history are stored in an AES-256 encrypted Room database backed by Android Keystore
+- **Certificate Pinning** — OkHttp certificate pinning for all Cloudflare Worker proxy communications, preventing MITM attacks
+- **API Key Authentication** — Rotatable API keys stored in `local.properties` (gitignored), loaded at build time via `BuildConfig`
+- **Privacy Proxy Architecture** — SMS content never leaves the device; only metadata queries (WHOIS, URL reputation) go through the Cloudflare Worker
+- **SSRF Protection** — Dual-layer IP/URL validation prevents malicious URLs in SMS from targeting internal services
+- **Prompt Injection Defense** — XML delimiter isolation protects the on-device LLM from adversarial instructions embedded in scam messages
+- **No PII Logging** — Phone numbers and message bodies are never logged; only thread IDs and hashes appear in logcat
+- **Backup Disabled** — `android:allowBackup=false` prevents SMS data extraction via ADB backup
+
+For full details, see [docs/SECURITY.md](docs/SECURITY.md).
+
+## Internationalization (i18n)
+
+All user-facing strings are externalized to `res/values/strings.xml` for localization support. The app is fully prepared for translation into additional languages.
+
 ## License
 
 All rights reserved.

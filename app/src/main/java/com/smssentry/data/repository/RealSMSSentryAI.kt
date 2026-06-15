@@ -19,6 +19,25 @@ import java.util.concurrent.atomic.AtomicBoolean
 import javax.inject.Inject
 import javax.inject.Singleton
 
+/**
+ * Production implementation of [SMSSentryAI] that provides two-tier SMS classification:
+ *
+ * **Tier 1 — Rule-based fast path** ([classifyByRules]):
+ *   Uses weighted keyword scoring with safe-sender and safe-content awareness to produce
+ *   instant SAFE / SUSPICIOUS / SCAM verdicts. This avoids the false-positive problem of
+ *   the original flat keyword approach (which flagged legitimate bank OTPs as scam).
+ *
+ * **Tier 2 — On-device LLM deep check** ([startDeepCheck]):
+ *   Spins up a [DeepCheckSession] using the LiteRT-LM engine. The session performs multi-step
+ *   forensic analysis including URL reputation, WHOIS lookups, brand impersonation detection,
+ *   and scam history matching — all on-device via a Cloudflare Worker privacy proxy.
+ *
+ * Thread-safety: This class is `@Singleton` and all coroutine work is launched on
+ * [applicationScope] so it survives ViewModel/Activity lifecycle changes.
+ *
+ * @see DeepCheckSession for the LLM-based investigation pipeline
+ * @see classifyByRules for the scoring algorithm details
+ */
 @Singleton
 class RealSMSSentryAI @Inject constructor(
     @ApplicationContext private val context: Context,
@@ -34,6 +53,7 @@ class RealSMSSentryAI @Inject constructor(
 
     private var isInitialized = false
 
+    /** Ensures the LLM model files are downloaded and ready. Runs on [applicationScope]. */
     override fun initialize(context: Context, callback: (Boolean) -> Unit) {
         applicationScope.launch {
             modelRepository.ensureReady()
@@ -42,6 +62,7 @@ class RealSMSSentryAI @Inject constructor(
         }
     }
 
+    /** Quick rule-based classification (Tier 1). Result delivered via [callback]. */
     override fun classifySMS(smsText: String, callback: (ClassificationResult) -> Unit) {
         applicationScope.launch {
             val result = classifyByRules(smsText)
@@ -49,6 +70,11 @@ class RealSMSSentryAI @Inject constructor(
         }
     }
 
+    /**
+     * Launches a Tier 2 deep check using the on-device LLM.
+     * The returned session can be cancelled by the caller (e.g. when navigating away).
+     * Progress updates are streamed to [listener] as [DeepCheckUpdate] events.
+     */
     override fun startDeepCheck(smsText: String, listener: DeepCheckListener): DeepCheckSessionInterface {
         val session = RealDeepCheckSession(
             context, smsText, "", listener,
@@ -159,6 +185,16 @@ class RealSMSSentryAI @Inject constructor(
     }
 }
 
+/**
+ * Wraps a [DeepCheckSession] in a cancellable, lifecycle-aware shell.
+ *
+ * Key design decisions:
+ * - Uses [AtomicBoolean] for `isActive` so it's safe to read from any thread.
+ * - Runs on [applicationScope] (not viewModelScope) so the deep check survives
+ *   configuration changes. The caller can still [cancel] explicitly.
+ * - Errors are forwarded to the [listener] as [DeepCheckUpdate.Error] rather than
+ *   being thrown, ensuring the UI can display a user-friendly error message.
+ */
 class RealDeepCheckSession(
     private val context: Context,
     private val smsText: String,

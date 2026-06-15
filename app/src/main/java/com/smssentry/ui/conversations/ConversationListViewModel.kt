@@ -41,6 +41,25 @@ enum class ConversationFilter(val label: String, @StringRes val labelRes: Int) {
     FLAGGED("Flagged", R.string.filter_flagged)
 }
 
+/**
+ * ViewModel for the conversation list (inbox) screen.
+ *
+ * ## Reactive pipeline
+ * The [conversations] StateFlow is built by `combine`-ing four source flows:
+ * [_allConversations], [_searchQuery], [_selectedFilter], and [_pinnedThreadIds].
+ * This means any change to search text, filter chip, pin state, or raw data
+ * automatically recomputes the visible list without manual refresh.
+ *
+ * ## Key patterns
+ * - **Deferred delete with undo**: [deleteConversation] removes the item from the
+ *   UI instantly, then waits 5 seconds before actually deleting from the ContentProvider.
+ *   [undoLastDelete] cancels the pending job and restores the conversation.
+ * - **Debounced SMS observer**: A [ContentObserver] on [Telephony.Sms.CONTENT_URI]
+ *   triggers a 300ms-debounced reload to avoid rapid-fire refreshes when multiple
+ *   messages arrive simultaneously.
+ * - **Duplicate-thread guard**: `.distinctBy { it.threadId }` prevents a LazyColumn
+ *   key crash caused by some OEMs returning duplicate thread IDs.
+ */
 @HiltViewModel
 class ConversationListViewModel @Inject constructor(
     private val contactResolver: ContactResolver,
@@ -52,6 +71,7 @@ class ConversationListViewModel @Inject constructor(
         private const val TAG = "ConversationListVM"
     }
 
+    /** Raw unfiltered conversation list, refreshed from ContentProvider. */
     private val _allConversations = MutableStateFlow<List<Conversation>>(emptyList())
 
     private val _isLoading = MutableStateFlow(true)
@@ -68,6 +88,19 @@ class ConversationListViewModel @Inject constructor(
     val messageSearchResults: StateFlow<List<SmsMessage>> = _messageSearchResults.asStateFlow()
     private var searchJob: Job? = null
 
+    // Permission state — true when READ_SMS is granted
+    private val _hasSmsPermission = MutableStateFlow(
+        ContextCompat.checkSelfPermission(context, Manifest.permission.READ_SMS)
+            == PackageManager.PERMISSION_GRANTED
+    )
+    val hasSmsPermission: StateFlow<Boolean> = _hasSmsPermission.asStateFlow()
+
+    // Error event channel for surfacing user-facing errors via Snackbar
+    private val _errorEvent = MutableStateFlow<Int?>(null)
+    val errorEvent: StateFlow<Int?> = _errorEvent.asStateFlow()
+
+    fun clearError() { _errorEvent.value = null }
+
     // Pinned conversations persisted in SharedPreferences
     private val pinPrefs = context.getSharedPreferences("pinned_conversations", Context.MODE_PRIVATE)
     private val _pinnedThreadIds = MutableStateFlow<Set<Long>>(loadPinnedIds())
@@ -77,6 +110,11 @@ class ConversationListViewModel @Inject constructor(
     private var lastDeletedConversation: Conversation? = null
     private var pendingDeleteJob: kotlinx.coroutines.Job? = null
 
+    /**
+     * Derived conversation list exposed to the UI. Automatically recomputes when
+     * any source flow changes. Sort order: pinned first, then newest-first.
+     * Uses WhileSubscribed(5000) to keep the flow alive during config changes.
+     */
     val conversations: StateFlow<List<Conversation>> = combine(
         _allConversations, _searchQuery, _selectedFilter, _pinnedThreadIds
     ) { allConversations, query, filter, pinned ->
@@ -119,6 +157,7 @@ class ConversationListViewModel @Inject constructor(
                     _messageSearchResults.value = smsRepository.searchMessages(query)
                 } catch (e: Exception) {
                     Log.e(TAG, "Message search failed", e)
+                    _errorEvent.value = R.string.error_search_messages
                 }
             }
         } else {
@@ -155,6 +194,11 @@ class ConversationListViewModel @Inject constructor(
             .apply()
     }
 
+    /**
+     * Soft-deletes a conversation: removes from UI immediately, then waits 5 seconds
+     * before committing the delete to the ContentProvider. This enables undo via
+     * [undoLastDelete]. Only one pending delete is tracked at a time.
+     */
     fun deleteConversation(threadId: Long) {
         // Cancel any previous pending delete
         pendingDeleteJob?.cancel()
@@ -177,6 +221,7 @@ class ConversationListViewModel @Inject constructor(
                     Log.d(TAG, "Deleted conversation $threadId from provider")
                 } catch (e: Exception) {
                     Log.e(TAG, "Failed to delete conversation $threadId", e)
+                    _errorEvent.value = R.string.error_delete_conversation
                 }
             }
             lastDeletedConversation = null
@@ -211,6 +256,7 @@ class ConversationListViewModel @Inject constructor(
                     )
                 } catch (e: Exception) {
                     Log.e(TAG, "Failed to mark all as read", e)
+                    _errorEvent.value = R.string.error_mark_all_read
                 }
             }
             refresh()
@@ -218,7 +264,15 @@ class ConversationListViewModel @Inject constructor(
     }
 
     fun refresh() {
+        recheckPermission()
         loadConversations()
+    }
+
+    /** Re-check permission (call after returning from Settings). */
+    fun recheckPermission() {
+        _hasSmsPermission.value = ContextCompat.checkSelfPermission(
+            context, Manifest.permission.READ_SMS
+        ) == PackageManager.PERMISSION_GRANTED
     }
 
     private fun loadConversations() {
@@ -229,6 +283,7 @@ class ConversationListViewModel @Inject constructor(
                 _allConversations.value = convos
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to load conversations", e)
+                _errorEvent.value = R.string.error_load_conversations
             } finally {
                 _isLoading.value = false
             }
@@ -282,6 +337,13 @@ class ConversationListViewModel @Inject constructor(
             conversations
         }
 
+    /**
+     * Queries all messages in a thread to compute aggregate metadata:
+     * address, timestamp, unread count, and scam-flagged status.
+     *
+     * Scam flagging uses the same weighted scoring approach as [RealSMSSentryAI.classifyByRules]
+     * to maintain consistency between the inbox badge and the classification result.
+     */
     private fun getThreadInfo(threadId: Long, snippet: String): Conversation? {
         // Query the latest message in the thread for address, timestamp, read status
         val cursor = context.contentResolver.query(
@@ -383,6 +445,10 @@ class ConversationListViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Registers a [ContentObserver] on the SMS provider to auto-refresh when new
+     * messages arrive. Uses 300ms debounce to batch rapid-fire changes (e.g. bulk SMS).
+     */
     private fun registerSmsObserver() {
         val observer = object : ContentObserver(Handler(Looper.getMainLooper())) {
             override fun onChange(selfChange: Boolean) {

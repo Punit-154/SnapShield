@@ -22,6 +22,28 @@ import kotlinx.coroutines.withContext
 import javax.inject.Inject
 import javax.inject.Singleton
 
+/**
+ * Central data-access layer for SMS messages. All reads and writes go through the
+ * Android [Telephony.Sms] ContentProvider.
+ *
+ * ## Design decisions
+ *
+ * - **All public methods are `suspend` + `Dispatchers.IO`**: ContentProvider queries
+ *   can be slow on devices with 100K+ messages, so everything runs off the main thread.
+ *
+ * - **Defensive column-index checks**: Some OEM ROMs strip columns from the SMS provider.
+ *   Every cursor access checks `getColumnIndex() != -1` before reading. If a required
+ *   column is missing, the method returns an empty list / null rather than crashing.
+ *
+ * - **LIMIT clauses on raw queries**: To avoid OOM on large inboxes, conversation and
+ *   search queries are bounded. The heuristic `limit * 20` for [getConversations]
+ *   assumes ~20 messages per thread on average.
+ *
+ * - **No PII logging**: Only thread IDs and message IDs are logged, never phone numbers
+ *   or message bodies (except in DEBUG builds for sendSms confirmation).
+ *
+ * @see ConversationListViewModel which is the primary consumer of this repository
+ */
 @Singleton
 class SmsRepository @Inject constructor(
     private val contentResolver: ContentResolver,
@@ -35,6 +57,14 @@ class SmsRepository @Inject constructor(
 
     // ── Conversations ────────────────────────────────────────────────────
 
+    /**
+     * Loads the most recent [limit] conversation threads from the SMS provider.
+     *
+     * Implementation: queries raw messages sorted by date DESC with a bounded row count,
+     * then groups by thread_id using a [LinkedHashMap] to preserve insertion order
+     * (newest thread first). Each thread becomes a [Conversation] with aggregate
+     * unread count and total message count.
+     */
     suspend fun getConversations(limit: Int = 100): List<Conversation> = withContext(Dispatchers.IO) {
         if (!hasSmsPermission()) return@withContext emptyList()
 
@@ -128,6 +158,12 @@ class SmsRepository @Inject constructor(
 
     // ── Thread messages ──────────────────────────────────────────────────
 
+    /**
+     * Loads up to [limit] messages for a given thread, paginated by [beforeTimestamp].
+     * Returns messages in oldest-first order (reversed from the DESC query).
+     * The caller passes the oldest visible message's timestamp as [beforeTimestamp]
+     * to load the next page.
+     */
     suspend fun getThreadMessages(
         threadId: Long,
         limit: Int = 50,
@@ -196,6 +232,7 @@ class SmsRepository @Inject constructor(
 
     // ── Mark thread as read ──────────────────────────────────────────────
 
+    /** Marks all unread messages in [threadId] as read via a bulk ContentProvider update. */
     suspend fun markThreadAsRead(threadId: Long): Unit = withContext(Dispatchers.IO) {
         val values = ContentValues().apply {
             put(Telephony.Sms.READ, 1)
@@ -344,6 +381,11 @@ class SmsRepository @Inject constructor(
         }
     }
 
+    /**
+     * Sends an SMS to [recipient] and writes it to the sent-messages provider.
+     * Handles multi-part messages automatically via [SmsManager.divideMessage].
+     * Returns `true` on success, `false` if permission is missing or sending fails.
+     */
     suspend fun sendSms(recipient: String, message: String): Boolean = withContext(Dispatchers.IO) {
         if (ContextCompat.checkSelfPermission(context, Manifest.permission.SEND_SMS)
             != PackageManager.PERMISSION_GRANTED
@@ -415,8 +457,13 @@ class SmsRepository @Inject constructor(
     // ── Global Search ───────────────────────────────────────────────────
 
     /**
-     * Search all SMS messages across all conversations for the given query string.
-     * Returns up to [limit] matching messages with their thread and sender info.
+     * Full-text search across all SMS messages for the given [query].
+     *
+     * Uses SQL `LIKE` with escaped wildcards to prevent injection.
+     * Returns up to [limit] matching messages sorted by date DESC.
+     *
+     * Note: This is a linear scan — acceptable for typical inbox sizes (<50K msgs)
+     * but would need an FTS index for very large inboxes.
      */
     suspend fun searchMessages(query: String, limit: Int = 50): List<SmsMessage> = withContext(Dispatchers.IO) {
         if (!hasSmsPermission() || query.isBlank()) return@withContext emptyList()
