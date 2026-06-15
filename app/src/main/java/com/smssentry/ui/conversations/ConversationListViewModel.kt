@@ -313,13 +313,33 @@ class ConversationListViewModel @Inject constructor(
 
                 // Count unread messages in thread
                 var unreadCount = 0
-                // Check for flagged content (basic scam indicators)
+                // Check for flagged content using weighted scoring
                 var isFlagged = false
 
-                val scamIndicators = listOf(
-                    "urgent", "verify", "suspended", "click here",
-                    "congratulations", "won", "prize", "lottery",
-                    "account has been", "immediate action"
+                // Safe sender detection: alphanumeric IDs (e.g., VM-HDFCBK) are business senders
+                val isBusinessSender = address.isNotBlank() &&
+                    !address.all { c -> c.isDigit() || c == '+' } &&
+                    address.any { c -> c.isLetter() }
+
+                // Safe content patterns — these indicate legitimate messages
+                val safePatterns = listOf(
+                    "otp is", "otp:", "verification code", "transaction of",
+                    "credited with", "debited from", "a/c", "account ****",
+                    "your order", "delivered to", "out for delivery",
+                    "balance is", "available balance", "payment received"
+                )
+
+                // Weighted scam indicators (phrase to weight)
+                val scamPhrases = listOf(
+                    "won a prize" to 3, "lottery winner" to 3,
+                    "claim your reward" to 3, "send money to" to 3,
+                    "selected as winner" to 3, "million dollars" to 3,
+                    "account suspended" to 2, "account will be closed" to 2,
+                    "click here now" to 2, "free gift" to 2,
+                    "limited time offer" to 2, "you have been selected" to 2,
+                    "click here" to 1, "congratulations" to 1,
+                    "winner" to 1, "prize" to 1,
+                    "urgent action" to 1, "immediate action" to 1,
                 )
 
                 // Iterate through all messages in this thread
@@ -332,10 +352,16 @@ class ConversationListViewModel @Inject constructor(
 
                     if (!isFlagged && bodyIdx != -1) {
                         val msgBody = it.getString(bodyIdx)?.lowercase() ?: ""
-                        val hitCount = scamIndicators.count { indicator ->
-                            msgBody.contains(indicator)
+
+                        // Skip flagging if message has safe content from business sender
+                        val hasSafeContent = safePatterns.any { p -> msgBody.contains(p) }
+                        if (isBusinessSender && hasSafeContent) continue
+
+                        val weightedScore = scamPhrases.sumOf { (phrase, weight) ->
+                            if (msgBody.contains(phrase)) weight else 0
                         }
-                        if (hitCount >= 2) isFlagged = true
+                        val adjustedScore = if (isBusinessSender) weightedScore / 2 else weightedScore
+                        if (adjustedScore >= 4) isFlagged = true
                     }
                 }
 

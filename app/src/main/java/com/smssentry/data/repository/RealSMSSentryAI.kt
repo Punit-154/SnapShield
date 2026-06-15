@@ -59,30 +59,99 @@ class RealSMSSentryAI @Inject constructor(
         return session
     }
 
-    private fun classifyByRules(smsText: String): ClassificationResult {
+    /**
+     * Classify SMS using weighted scoring with safe-sender and safe-content awareness.
+     *
+     * The old approach used a flat keyword list ("urgent", "verify", etc.) which
+     * produced massive false positives on legitimate bank/business SMS.
+     *
+     * New approach:
+     *  1. Check for safe sender patterns (alphanumeric IDs = business senders)
+     *  2. Check for safe content patterns (OTP, txn alerts, delivery updates)
+     *  3. Apply weighted scam indicators (high/medium/low weight)
+     *  4. Use higher threshold before flagging
+     */
+    private fun classifyByRules(smsText: String, sender: String = ""): ClassificationResult {
         val lowerText = smsText.lowercase()
-        val scamIndicators = listOf("urgent", "verify", "suspended", "click here", "congratulations")
-        val score = scamIndicators.count { lowerText.contains(it) }
+        val lowerSender = sender.lowercase()
+
+        // ── Step 1: Safe sender detection ──
+        // Alphanumeric sender IDs (e.g., VM-HDFCBK, JD-ICICIT, AX-SBIPSG)
+        // are registered business senders — almost never scam.
+        val isAlphanumericSender = sender.isNotBlank() &&
+            !sender.all { it.isDigit() || it == '+' } &&
+            sender.any { it.isLetter() }
+
+        // ── Step 2: Safe content patterns ──
+        // These strongly indicate legitimate messages
+        val safePatterns = listOf(
+            "otp is", "otp:", "one time password", "verification code",
+            "transaction of", "credited with", "debited from", "a/c",
+            "account ****", "account xx", "acct no",
+            "your order", "delivered to", "out for delivery", "shipped",
+            "appointment confirmed", "booking confirmed", "ticket booked",
+            "balance is", "available balance", "closing balance",
+            "emi due", "payment received", "bill generated",
+            "logged in from", "new sign-in", "security alert from"
+        )
+        val safeHits = safePatterns.count { lowerText.contains(it) }
+
+        // If it's a business sender AND has safe content → definitely safe
+        if (isAlphanumericSender && safeHits >= 1) {
+            return ClassificationResult(
+                "SAFE", 0.95f, 3,
+                context.getString(R.string.reason_no_indicators),
+                false
+            )
+        }
+
+        // ── Step 3: Weighted scam indicators ──
+        data class Indicator(val phrase: String, val weight: Int)
+
+        val highWeight = listOf(
+            Indicator("won a prize", 3), Indicator("lottery winner", 3),
+            Indicator("claim your reward", 3), Indicator("send money to", 3),
+            Indicator("wire transfer", 3), Indicator("western union", 3),
+            Indicator("bitcoin payment", 3), Indicator("crypto wallet", 3),
+            Indicator("nigerian prince", 3), Indicator("inheritance from", 3),
+            Indicator("million dollars", 3), Indicator("selected as winner", 3),
+        )
+        val medWeight = listOf(
+            Indicator("click here now", 2), Indicator("act now or", 2),
+            Indicator("account suspended", 2), Indicator("account will be closed", 2),
+            Indicator("limited time offer", 2), Indicator("free gift", 2),
+            Indicator("you have been selected", 2), Indicator("call this number", 2),
+            Indicator("confirm your identity", 2), Indicator("update your payment", 2),
+            Indicator("unusual activity", 2), Indicator("unauthorized access", 2),
+        )
+        val lowWeight = listOf(
+            Indicator("click here", 1), Indicator("congratulations", 1),
+            Indicator("winner", 1), Indicator("prize", 1),
+            Indicator("urgent action", 1), Indicator("immediate action", 1),
+            Indicator("expire soon", 1), Indicator("risk of closure", 1),
+        )
+
+        val allIndicators = highWeight + medWeight + lowWeight
+        val weightedScore = allIndicators.sumOf { indicator ->
+            if (lowerText.contains(indicator.phrase)) indicator.weight else 0
+        }
+
+        // Reduce score for business senders (they're less likely to be scam)
+        val adjustedScore = if (isAlphanumericSender) weightedScore / 2 else weightedScore
 
         return when {
-            score >= 2 -> ClassificationResult(
-                "SCAM",
-                0.85f,
-                85,
+            adjustedScore >= 4 -> ClassificationResult(
+                "SCAM", 0.85f, 80 + minOf(adjustedScore * 2, 15),
                 context.getString(R.string.reason_multiple_indicators),
                 true
             )
-            score == 1 -> ClassificationResult(
-                "SUSPICIOUS",
-                0.65f,
-                55,
+            adjustedScore >= 2 -> ClassificationResult(
+                "SUSPICIOUS", 0.60f, 40 + adjustedScore * 5,
                 context.getString(R.string.reason_some_indicators),
                 false
             )
             else -> ClassificationResult(
-                "SAFE",
-                0.9f,
-                5,
+                "SAFE", 0.90f, 5 + adjustedScore * 3,
                 context.getString(R.string.reason_no_indicators),
                 false
             )
