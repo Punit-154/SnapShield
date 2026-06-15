@@ -1,0 +1,6 @@
+{
+  "summary":  "Comprehensive research report on the latest agentic AI frameworks (as of June 2026) and specific, actionable improvements mapped to our KDP/Etsy multi-model pipeline. Covers 6 major improvement areas: LangGraph state machine orchestration, DSPy automatic prompt optimization, self-improving trace analysis, MCP tool protocol, model routing, and production guardrails. Each improvement includes what it is, why it matters, and exactly how to implement it in our existing system.",
+  "updatedAt":  "2026-06-14T14:06:12.137168800Z",
+  "requestFeedback":  true,
+  "userFacing":  true
+}

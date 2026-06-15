@@ -77,21 +77,24 @@ class ConversationListViewModel @Inject constructor(
     val conversations: StateFlow<List<Conversation>> = combine(
         _allConversations, _searchQuery, _selectedFilter, _pinnedThreadIds
     ) { allConversations, query, filter, pinned ->
-        allConversations.filter { conversation ->
-            val matchesSearch = query.isBlank() ||
-                conversation.displayName.contains(query, ignoreCase = true) ||
-                conversation.address.contains(query, ignoreCase = true) ||
-                conversation.lastMessage.contains(query, ignoreCase = true)
-            val matchesFilter = when (filter) {
-                ConversationFilter.ALL -> true
-                ConversationFilter.UNREAD -> conversation.unreadCount > 0
-                ConversationFilter.FLAGGED -> conversation.isFlagged
-            }
-            matchesSearch && matchesFilter
-        }.sortedWith(
-            compareByDescending<Conversation> { it.threadId in pinned }
-                .thenByDescending { it.lastTimestamp }
-        )
+        allConversations
+            // Guard against duplicate threadIds — prevents LazyColumn key crash
+            .distinctBy { it.threadId }
+            .filter { conversation ->
+                val matchesSearch = query.isBlank() ||
+                    conversation.displayName.contains(query, ignoreCase = true) ||
+                    conversation.address.contains(query, ignoreCase = true) ||
+                    conversation.lastMessage.contains(query, ignoreCase = true)
+                val matchesFilter = when (filter) {
+                    ConversationFilter.ALL -> true
+                    ConversationFilter.UNREAD -> conversation.unreadCount > 0
+                    ConversationFilter.FLAGGED -> conversation.isFlagged
+                }
+                matchesSearch && matchesFilter
+            }.sortedWith(
+                compareByDescending<Conversation> { it.threadId in pinned }
+                    .thenByDescending { it.lastTimestamp }
+            )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     private var smsObserver: ContentObserver? = null
@@ -177,8 +180,12 @@ class ConversationListViewModel @Inject constructor(
         pendingDeleteJob?.cancel()
         pendingDeleteJob = null
         lastDeletedConversation?.let { conversation ->
-            _allConversations.value = (_allConversations.value + conversation)
-                .sortedByDescending { it.lastTimestamp }
+            // Only re-add if the observer hasn't already refreshed it back
+            val current = _allConversations.value
+            if (current.none { it.threadId == conversation.threadId }) {
+                _allConversations.value = (current + conversation)
+                    .sortedByDescending { it.lastTimestamp }
+            }
             lastDeletedConversation = null
         }
     }
@@ -239,6 +246,9 @@ class ConversationListViewModel @Inject constructor(
                 null, null, "date DESC"
             )
 
+            // Track seen thread IDs to prevent duplicates from system provider
+            val seenThreadIds = mutableSetOf<Long>()
+
             threadCursor?.use { cursor ->
                 val threadIdIdx = cursor.getColumnIndexOrThrow("thread_id")
                 val msgCountIdx = cursor.getColumnIndexOrThrow("msg_count")
@@ -246,6 +256,8 @@ class ConversationListViewModel @Inject constructor(
 
                 while (cursor.moveToNext()) {
                     val threadId = cursor.getLong(threadIdIdx)
+                    // Skip duplicate thread IDs from system provider
+                    if (!seenThreadIds.add(threadId)) continue
                     val messageCount = cursor.getInt(msgCountIdx)
                     val snippet = cursor.getString(snippetIdx) ?: ""
 

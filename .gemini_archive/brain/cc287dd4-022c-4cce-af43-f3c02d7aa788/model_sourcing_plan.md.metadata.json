@@ -1,0 +1,6 @@
+{
+  "summary":  "Detailed per-stage model sourcing plan for the 4-stage listing generation pipeline. Each stage specifies: pre-trained model options, custom training approach, datasets, training infrastructure (local RTX 5070 or free Colab/Kaggle), and estimated time. Includes a hybrid Checker design using Vectara HHEM (439MB hallucination detector) plus Python rule checks, eliminating the need for a full LLM at the checking stage.",
+  "updatedAt":  "2026-06-14T13:41:21.195303400Z",
+  "requestFeedback":  true,
+  "userFacing":  true
+}

@@ -1,0 +1,5 @@
+{
+  "summary":  "A self-contained handoff prompt for any AI agent to read all research files, understand the project, and extract useful information. Includes all 24 file paths, project context, and instructions for the receiving agent to send a reciprocal knowledge-sharing prompt back.",
+  "updatedAt":  "2026-06-14T14:14:13.904852500Z",
+  "userFacing":  true
+}

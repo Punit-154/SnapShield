@@ -1,0 +1,4 @@
+{
+  "summary":  "PowerShell script to download all CBSE Class XII PYQs from the official cbse.gov.in website. Parses the HTML page for all subject ZIP links, downloads them, extracts into organized subject/year folders at D:\\Study Papers\\Jeffrey\\<subject-name>\\<year>\\",
+  "updatedAt":  "2026-06-14T12:48:32.916847900Z"
+}

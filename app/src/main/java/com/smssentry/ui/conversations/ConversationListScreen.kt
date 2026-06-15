@@ -100,7 +100,7 @@ fun ConversationListScreen(
                                 onValueChange = { viewModel.onSearchQueryChanged(it) },
                                 placeholder = {
                                     Text(
-                                        "Search conversations…",
+                                        stringResource(R.string.search_conversations),
                                         style = MaterialTheme.typography.bodyLarge
                                     )
                                 },
@@ -117,13 +117,13 @@ fun ConversationListScreen(
                             val totalUnread = conversations.sumOf { it.unreadCount }
                             Column {
                                 Text(
-                                    text = "Messages",
+                                    text = stringResource(R.string.messages_title),
                                     fontWeight = FontWeight.Bold,
                                     fontSize = 22.sp
                                 )
                                 if (totalUnread > 0) {
                                     Text(
-                                        text = "$totalUnread unread",
+                                        text = stringResource(R.string.unread_count, totalUnread),
                                         style = MaterialTheme.typography.labelSmall,
                                         color = MaterialTheme.colorScheme.primary,
                                         fontWeight = FontWeight.Medium
@@ -141,26 +141,26 @@ fun ConversationListScreen(
                     }) {
                         Icon(
                             if (isSearchExpanded) Icons.Default.Close else Icons.Default.Search,
-                            contentDescription = if (isSearchExpanded) "Close search" else "Search"
+                            contentDescription = if (isSearchExpanded) stringResource(R.string.cd_close_search) else stringResource(R.string.cd_search)
                         )
                     }
 
                     // Settings
                     IconButton(onClick = onSettingsClick) {
-                        Icon(Icons.Default.Settings, contentDescription = "Settings")
+                        Icon(Icons.Default.Settings, contentDescription = stringResource(R.string.cd_settings))
                     }
 
                     // Overflow menu
                     Box {
                         IconButton(onClick = { showOverflowMenu = true }) {
-                            Icon(Icons.Default.MoreVert, contentDescription = "More options")
+                            Icon(Icons.Default.MoreVert, contentDescription = stringResource(R.string.cd_more_options))
                         }
                         DropdownMenu(
                             expanded = showOverflowMenu,
                             onDismissRequest = { showOverflowMenu = false }
                         ) {
                             DropdownMenuItem(
-                                text = { Text("Refresh") },
+                                text = { Text(stringResource(R.string.refresh)) },
                                 onClick = {
                                     showOverflowMenu = false
                                     isRefreshing = true
@@ -168,7 +168,7 @@ fun ConversationListScreen(
                                 }
                             )
                             DropdownMenuItem(
-                                text = { Text("Mark all as read") },
+                                text = { Text(stringResource(R.string.mark_all_read)) },
                                 onClick = {
                                     showOverflowMenu = false
                                     viewModel.markAllAsRead()
@@ -191,7 +191,7 @@ fun ConversationListScreen(
             ) {
                 Icon(
                     Icons.Default.Edit,
-                    contentDescription = "Compose message",
+                    contentDescription = stringResource(R.string.cd_compose_message),
                     tint = MaterialTheme.colorScheme.onPrimary
                 )
             }
@@ -312,14 +312,14 @@ fun ConversationListScreen(
                                                         Icon(
                                                             if (isPinned) Icons.Default.Close
                                                             else Icons.Default.PushPin,
-                                                            contentDescription = if (isPinned) "Unpin" else "Pin",
+                                                            contentDescription = if (isPinned) stringResource(R.string.cd_unpin) else stringResource(R.string.cd_pin),
                                                             tint = MaterialTheme.colorScheme.onPrimaryContainer
                                                         )
                                                     }
                                                     SwipeToDismissBoxValue.EndToStart -> {
                                                         Icon(
                                                             Icons.Default.Delete,
-                                                            contentDescription = "Delete",
+                                                            contentDescription = stringResource(R.string.cd_delete),
                                                             tint = MaterialTheme.colorScheme.onErrorContainer
                                                         )
                                                     }
@@ -382,7 +382,7 @@ fun ConversationListScreen(
                                         ) {
                                             Icon(
                                                 Icons.Default.Search,
-                                                contentDescription = "Search result",
+                                                contentDescription = stringResource(R.string.cd_search_result),
                                                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                                 modifier = Modifier.size(20.dp)
                                             )
@@ -592,7 +592,7 @@ private fun ConversationItem(
                         if (isPinned) {
                             Icon(
                                 Icons.Default.PushPin,
-                                contentDescription = "Pinned",
+                                contentDescription = stringResource(R.string.cd_pinned),
                                 modifier = Modifier
                                     .padding(start = 4.dp)
                                     .size(14.dp),
@@ -805,24 +805,24 @@ private fun ConversationEmptyState(hasActiveFilter: Boolean) {
             modifier = Modifier.padding(40.dp)
         ) {
             Text(
-                text = if (hasActiveFilter) "No results" else "No messages",
+                text = if (hasActiveFilter) stringResource(R.string.no_results) else stringResource(R.string.no_messages),
                 style = MaterialTheme.typography.headlineMedium,
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f),
                 fontWeight = FontWeight.Light
             )
             Spacer(modifier = Modifier.height(4.dp))
             Text(
-                text = if (hasActiveFilter) "No conversations found"
-                else "No messages yet",
+                text = if (hasActiveFilter) stringResource(R.string.no_conversations_found)
+                else stringResource(R.string.no_messages_empty),
                 style = MaterialTheme.typography.titleMedium,
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
                 fontWeight = FontWeight.SemiBold
             )
             Text(
                 text = if (hasActiveFilter)
-                    "Try adjusting your search or filter."
+                    stringResource(R.string.try_adjusting_filter)
                 else
-                    "Start a conversation by tapping the compose button below.",
+                    stringResource(R.string.start_conversation_hint),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
                 textAlign = TextAlign.Center

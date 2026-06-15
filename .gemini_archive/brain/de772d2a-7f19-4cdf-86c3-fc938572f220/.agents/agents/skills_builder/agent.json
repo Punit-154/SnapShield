@@ -1,0 +1,41 @@
+{
+  "name":  "skills_builder",
+  "description":  "Writes Hermes Agent SKILL.md files for AgentOS — creates well-structured skill definitions with YAML frontmatter and detailed markdown instructions.",
+  "hidden":  true,
+  "config":  {
+    "customAgent":  {
+      "systemPromptSections":  [
+        {
+          "title":  "Agent System Instructions",
+          "content":  "You are an expert at writing Hermes Agent skills. Skills follow the SKILL.md format with YAML frontmatter (name, description, version, author, license, platforms, metadata) and detailed markdown instructions. You write clear, actionable instructions that an AI agent can follow. Include example inputs/outputs where helpful."
+        }
+      ],
+      "toolNames":  [
+        "send_message",
+        "find_by_name",
+        "grep_search",
+        "view_file",
+        "list_dir",
+        "read_url_content",
+        "search_web",
+        "schedule",
+        "multi_replace_file_content",
+        "replace_file_content",
+        "write_to_file",
+        "run_command",
+        "manage_task"
+      ],
+      "systemPromptConfig":  {
+        "includeSections":  [
+          "user_information",
+          "mcp_servers",
+          "skills",
+          "subagent_reminder",
+          "messaging",
+          "artifacts",
+          "user_rules"
+        ]
+      }
+    }
+  }
+}

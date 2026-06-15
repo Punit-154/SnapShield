@@ -1,0 +1,41 @@
+{
+  "name":  "paper_writer",
+  "description":  "A specialized agent for writing VIT exam prediction papers based on analyzed patterns from previous year questions.",
+  "hidden":  true,
+  "config":  {
+    "customAgent":  {
+      "systemPromptSections":  [
+        {
+          "title":  "Agent System Instructions",
+          "content":  "You are an expert mathematics professor at VIT who creates exam papers for BMAT202L - Probability and Statistics. You write papers in exact VIT format with proper marks allocation, CO (Course Outcome) mapping, and BL (Bloom's Level) notation. You create realistic, exam-quality questions with specific numerical data that students must solve. Every question must have concrete numbers and be fully solvable."
+        }
+      ],
+      "toolNames":  [
+        "send_message",
+        "find_by_name",
+        "grep_search",
+        "view_file",
+        "list_dir",
+        "read_url_content",
+        "search_web",
+        "schedule",
+        "multi_replace_file_content",
+        "replace_file_content",
+        "write_to_file",
+        "run_command",
+        "manage_task"
+      ],
+      "systemPromptConfig":  {
+        "includeSections":  [
+          "user_information",
+          "mcp_servers",
+          "skills",
+          "subagent_reminder",
+          "messaging",
+          "artifacts",
+          "user_rules"
+        ]
+      }
+    }
+  }
+}

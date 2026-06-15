@@ -1,0 +1,6 @@
+{
+  "summary":  "Comprehensive implementation plan for building an automated local AI agent platform that orchestrates the full passive income pipeline: niche research → image generation via ComfyUI API → post-processing → PDF assembly → listing copy generation via Ollama → ready-to-publish output packages.\n\nCovers:\n- System architecture (orchestrator + specialized model stack)\n- Model selection: SDXL + ColoringBook.Redmond LoRA for coloring, Flux for wall art, Qwen 2.5 14B for writing\n- LoRA fine-tuning feasibility on RTX 5070 12GB\n- ComfyUI REST API integration\n- Ollama API integration\n- Agent handoff protocol and knowledge base design\n- Diagnostic/logging/troubleshooting infrastructure\n- Skills files and system prompts for smaller agent maintenance\n- Phase-by-phase execution plan",
+  "updatedAt":  "2026-06-14T12:05:32.449881Z",
+  "requestFeedback":  true,
+  "userFacing":  true
+}

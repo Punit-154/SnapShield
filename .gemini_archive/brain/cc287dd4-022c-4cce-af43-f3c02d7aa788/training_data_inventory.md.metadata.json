@@ -1,0 +1,6 @@
+{
+  "summary":  "Comprehensive training data inventory for the 4-stage model pipeline. Covers 18+ datasets across HuggingFace, Kaggle, and custom generation sources. Total training data exceeds 1 million records when combining all sources. Each stage gets its own curated dataset mix. Includes pre-trained marketing-specialized models (Marketeam) that can serve as base models instead of generic ones.",
+  "updatedAt":  "2026-06-14T13:45:27.762405200Z",
+  "requestFeedback":  true,
+  "userFacing":  true
+}
