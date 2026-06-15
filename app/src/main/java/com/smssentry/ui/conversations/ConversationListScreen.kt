@@ -18,9 +18,11 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.SearchOff
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
@@ -42,13 +44,17 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.smssentry.data.model.Conversation
 import com.smssentry.data.model.SmsMessage
 import com.smssentry.R
 import androidx.compose.ui.res.stringResource
 import com.smssentry.ui.theme.*
+import android.content.Intent
 import android.graphics.BitmapFactory
 import android.net.Uri
+import android.provider.Settings as AndroidSettings
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
@@ -70,7 +76,10 @@ fun ConversationListScreen(
     val searchQuery by viewModel.searchQuery.collectAsState()
     val selectedFilter by viewModel.selectedFilter.collectAsState()
     val messageSearchResults by viewModel.messageSearchResults.collectAsState()
+    val hasSmsPermission by viewModel.hasSmsPermission.collectAsState()
+    val errorEvent by viewModel.errorEvent.collectAsState()
 
+    val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
 
@@ -78,9 +87,29 @@ fun ConversationListScreen(
     var isRefreshing by remember { mutableStateOf(false) }
     var showOverflowMenu by remember { mutableStateOf(false) }
 
+    // Re-check permission when lifecycle resumes (e.g. returning from Settings)
+    val lifecycleOwner = LocalLifecycleOwner.current
+    val lifecycleState by lifecycleOwner.lifecycle.currentStateFlow.collectAsState()
+    LaunchedEffect(lifecycleState) {
+        if (lifecycleState == Lifecycle.State.RESUMED) {
+            viewModel.recheckPermission()
+        }
+    }
+
     // Reset refreshing when loading completes
     LaunchedEffect(isLoading) {
         if (!isLoading) isRefreshing = false
+    }
+
+    // Surface ViewModel errors via Snackbar
+    LaunchedEffect(errorEvent) {
+        errorEvent?.let { resId ->
+            snackbarHostState.showSnackbar(
+                message = context.getString(resId),
+                duration = SnackbarDuration.Short
+            )
+            viewModel.clearError()
+        }
     }
 
     Scaffold(
@@ -236,8 +265,10 @@ fun ConversationListScreen(
 
                     conversations.isEmpty() && !isLoading -> {
                         ConversationEmptyState(
+                            hasSmsPermission = hasSmsPermission,
+                            isSearchActive = searchQuery.isNotEmpty(),
+                            searchQuery = searchQuery,
                             hasActiveFilter = selectedFilter != ConversationFilter.ALL
-                                || searchQuery.isNotEmpty()
                         )
                     }
 
@@ -796,7 +827,13 @@ private fun ShimmerConversationItem() {
 // ── Empty State ───────────────────────────────────────────────────────────────
 
 @Composable
-private fun ConversationEmptyState(hasActiveFilter: Boolean) {
+private fun ConversationEmptyState(
+    hasSmsPermission: Boolean,
+    isSearchActive: Boolean = false,
+    searchQuery: String = "",
+    hasActiveFilter: Boolean = false
+) {
+    val context = LocalContext.current
     Box(
         modifier = Modifier.fillMaxSize(),
         contentAlignment = Alignment.Center
@@ -806,29 +843,79 @@ private fun ConversationEmptyState(hasActiveFilter: Boolean) {
             verticalArrangement = Arrangement.spacedBy(12.dp),
             modifier = Modifier.padding(40.dp)
         ) {
-            Text(
-                text = if (hasActiveFilter) stringResource(R.string.no_results) else stringResource(R.string.no_messages),
-                style = MaterialTheme.typography.headlineMedium,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f),
-                fontWeight = FontWeight.Light
-            )
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                text = if (hasActiveFilter) stringResource(R.string.no_conversations_found)
-                else stringResource(R.string.no_messages_empty),
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
-                fontWeight = FontWeight.SemiBold
-            )
-            Text(
-                text = if (hasActiveFilter)
-                    stringResource(R.string.try_adjusting_filter)
-                else
-                    stringResource(R.string.start_conversation_hint),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
-                textAlign = TextAlign.Center
-            )
+            if (!hasSmsPermission) {
+                // Permission denied state
+                Icon(
+                    imageVector = Icons.Default.Lock,
+                    contentDescription = null,
+                    modifier = Modifier.size(64.dp),
+                    tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f)
+                )
+                Text(
+                    text = stringResource(R.string.sms_permission_required),
+                    style = MaterialTheme.typography.headlineSmall,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+                    fontWeight = FontWeight.SemiBold,
+                    textAlign = TextAlign.Center
+                )
+                Text(
+                    text = stringResource(R.string.sms_permission_explanation),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                    textAlign = TextAlign.Center
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Button(
+                    onClick = {
+                        val intent = Intent(
+                            android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                            android.net.Uri.fromParts("package", context.packageName, null)
+                        )
+                        context.startActivity(intent)
+                    }
+                ) {
+                    Text(stringResource(R.string.open_settings))
+                }
+            } else if (isSearchActive) {
+                // Search with no results
+                Text(
+                    text = stringResource(R.string.no_results),
+                    style = MaterialTheme.typography.headlineMedium,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f),
+                    fontWeight = FontWeight.Light
+                )
+                Text(
+                    text = stringResource(R.string.no_search_results_for, searchQuery),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                    textAlign = TextAlign.Center
+                )
+            } else {
+                // Normal empty or filtered empty
+                Text(
+                    text = if (hasActiveFilter) stringResource(R.string.no_results) else stringResource(R.string.no_messages),
+                    style = MaterialTheme.typography.headlineMedium,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f),
+                    fontWeight = FontWeight.Light
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = if (hasActiveFilter) stringResource(R.string.no_conversations_found)
+                    else stringResource(R.string.no_messages_empty),
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+                    fontWeight = FontWeight.SemiBold
+                )
+                Text(
+                    text = if (hasActiveFilter)
+                        stringResource(R.string.try_adjusting_filter)
+                    else
+                        stringResource(R.string.start_conversation_hint),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                    textAlign = TextAlign.Center
+                )
+            }
         }
     }
 }

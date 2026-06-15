@@ -330,4 +330,11 @@
 
     <!-- Chat loading -->
     <string name="loading_messages">Loading messages…</string>
+
+    <!-- Permission state -->
+    <string name="sms_permission_required">SMS Permission Required</string>
+    <string name="sms_permission_explanation">SMSentry needs access to your messages to protect you from scams and spam.</string>
+
+    <!-- Search empty state -->
+    <string name="no_search_results_for">No results found for \"%1$s\"</string>
 </resources>

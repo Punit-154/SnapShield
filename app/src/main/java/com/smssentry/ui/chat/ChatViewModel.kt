@@ -20,6 +20,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import android.util.Log
+import com.smssentry.R
 import java.util.concurrent.atomic.AtomicBoolean
 import javax.inject.Inject
 
@@ -48,6 +49,15 @@ class ChatViewModel @Inject constructor(
 
     private val _sendError = MutableStateFlow<String?>(null)
     val sendError: StateFlow<String?> = _sendError.asStateFlow()
+
+    private val _isLoadingMessages = MutableStateFlow(true)
+    val isLoadingMessages: StateFlow<Boolean> = _isLoadingMessages.asStateFlow()
+
+    // Error event channel for surfacing errors via Snackbar (string resource ID)
+    private val _errorEvent = MutableStateFlow<Int?>(null)
+    val errorEvent: StateFlow<Int?> = _errorEvent.asStateFlow()
+
+    fun clearError() { _errorEvent.value = null }
 
     fun clearSendError() { _sendError.value = null }
 
@@ -88,12 +98,16 @@ class ChatViewModel @Inject constructor(
 
     private fun loadMessages() {
         viewModelScope.launch {
+            _isLoadingMessages.value = true
             try {
                 val msgs = smsRepository.getThreadMessages(threadId, limit = pageSize)
                 _messages.value = msgs
                 _canLoadMore.value = msgs.size >= pageSize
             } catch (e: Exception) {
                 Log.e("ChatViewModel", "Failed to load messages", e)
+                _errorEvent.value = R.string.error_load_messages
+            } finally {
+                _isLoadingMessages.value = false
             }
         }
     }
@@ -170,6 +184,7 @@ class ChatViewModel @Inject constructor(
                 loadMessages()
             } catch (e: Exception) {
                 Log.e("ChatViewModel", "Failed to delete message", e)
+                _errorEvent.value = R.string.error_delete_message
             }
         }
     }
