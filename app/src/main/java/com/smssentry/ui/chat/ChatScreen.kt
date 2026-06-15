@@ -578,6 +578,13 @@ fun ChatScreen(
                                     is DisplayItem.TimeGap -> "gap_${index}_${item.timestamp}"
                                 }
                             },
+                            contentType = { _, item ->
+                                when (item) {
+                                    is DisplayItem.MessageItem -> "message"
+                                    is DisplayItem.DateHeader -> "header"
+                                    is DisplayItem.TimeGap -> "gap"
+                                }
+                            },
                         ) { _, item ->
                             when (item) {
                                 is DisplayItem.MessageItem -> {

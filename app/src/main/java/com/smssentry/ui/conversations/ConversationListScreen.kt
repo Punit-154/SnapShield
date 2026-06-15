@@ -252,7 +252,8 @@ fun ConversationListScreen(
                         ) {
                             itemsIndexed(
                                 conversations,
-                                key = { _, convo -> convo.threadId }
+                                key = { _, convo -> convo.threadId },
+                                contentType = { _, _ -> "conversation" }
                             ) { index, conversation ->
                                 val isPinned = conversation.threadId in pinnedIds
                                 val dismissState = rememberSwipeToDismissBoxState(

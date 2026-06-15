@@ -302,4 +302,32 @@
 
     <!-- Time formatting -->
     <string name="yesterday">Yesterday</string>
+
+    <!-- Permission denied empty state -->
+    <string name="permission_denied_title">SMS access needed</string>
+    <string name="permission_denied_body">SMSentry needs SMS permission to display and protect your messages.</string>
+    <string name="grant_permission">Grant Permission</string>
+    <string name="cd_permission_icon">Permission required</string>
+
+    <!-- Empty search state -->
+    <string name="no_search_results_title">No results found</string>
+    <string name="no_search_results_body">No messages match \"%1$s\"</string>
+    <string name="try_different_search">Try a different search term.</string>
+
+    <!-- Deep check retry -->
+    <string name="retry">Retry</string>
+    <string name="cd_error_icon">Error</string>
+    <string name="deep_check_error_hint">Something went wrong during analysis. You can try again.</string>
+
+    <!-- Error snackbar messages -->
+    <string name="error_load_conversations">Failed to load conversations</string>
+    <string name="error_mark_all_read">Failed to mark messages as read</string>
+    <string name="error_delete_conversation">Failed to delete conversation</string>
+    <string name="error_search_messages">Search failed</string>
+    <string name="error_load_messages">Failed to load messages</string>
+    <string name="error_delete_message">Failed to delete message</string>
+    <string name="error_feedback">Failed to submit feedback. Please try again.</string>
+
+    <!-- Chat loading -->
+    <string name="loading_messages">Loading messages…</string>
 </resources>
