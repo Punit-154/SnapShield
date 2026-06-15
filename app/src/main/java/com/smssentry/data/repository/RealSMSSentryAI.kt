@@ -63,9 +63,9 @@ class RealSMSSentryAI @Inject constructor(
     }
 
     /** Quick rule-based classification (Tier 1). Result delivered via [callback]. */
-    override fun classifySMS(smsText: String, callback: (ClassificationResult) -> Unit) {
+    override fun classifySMS(smsText: String, sender: String, callback: (ClassificationResult) -> Unit) {
         applicationScope.launch {
-            val result = classifyByRules(smsText)
+            val result = classifyByRules(smsText, sender)
             callback(result)
         }
     }
@@ -75,9 +75,9 @@ class RealSMSSentryAI @Inject constructor(
      * The returned session can be cancelled by the caller (e.g. when navigating away).
      * Progress updates are streamed to [listener] as [DeepCheckUpdate] events.
      */
-    override fun startDeepCheck(smsText: String, listener: DeepCheckListener): DeepCheckSessionInterface {
+    override fun startDeepCheck(smsText: String, sender: String, listener: DeepCheckListener): DeepCheckSessionInterface {
         val session = RealDeepCheckSession(
-            context, smsText, "", listener,
+            context, smsText, sender, listener,
             modelRepository.getEngine(), allowlistDao, historyDao, reputationDb, officialSites, proxyClient,
             applicationScope, dispatchers
         )

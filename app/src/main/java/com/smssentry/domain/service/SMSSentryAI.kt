@@ -6,8 +6,8 @@ import com.smssentry.data.model.DeepCheckUpdate
 
 interface SMSSentryAI {
     fun initialize(context: Context, callback: (Boolean) -> Unit)
-    fun classifySMS(smsText: String, callback: (ClassificationResult) -> Unit)
-    fun startDeepCheck(smsText: String, listener: DeepCheckListener): DeepCheckSession
+    fun classifySMS(smsText: String, sender: String = "", callback: (ClassificationResult) -> Unit)
+    fun startDeepCheck(smsText: String, sender: String = "", listener: DeepCheckListener): DeepCheckSession
 }
 
 interface DeepCheckListener {
